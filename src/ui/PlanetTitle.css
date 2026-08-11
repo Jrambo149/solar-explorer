@@ -1,0 +1,151 @@
+.planet-title {
+  position: absolute;
+  /* Up from 12%. The name is a caption over the shot rather than the subject of
+     it, and the system view is what made the difference matter: a moon system
+     is at its widest across the middle of the frame, so anything the title
+     leaves lower down is space an orbit wants. */
+  top: 7%;
+  left: 0;
+  /* Centred on the whole stage. The panel used to own the right 400px of the
+     screen and the title had to sit clear of it; the dossier is below the fold
+     now and takes nothing from this view. */
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 12;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(14px);
+  transition:
+    opacity 0.6s var(--ease-out) 0.2s,
+    transform 0.7s var(--ease-out) 0.2s,
+    visibility 0s linear 0.85s;
+}
+
+.planet-title.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.7s var(--ease-out) 0.25s,
+    transform 0.8s var(--ease-out) 0.25s,
+    visibility 0s linear 0s;
+}
+
+/* Decorative only — never swallow a drag meant for the scene. Scoped through
+   .ui-layer so it outranks the `.ui-layer > *` rule that re-enables pointer
+   events for the interactive chrome. */
+.ui-layer .planet-title,
+.ui-layer .planet-title * {
+  pointer-events: none;
+}
+
+/* A soft scrim so the type stays legible when the planet fills the frame. */
+.planet-title::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  height: 380%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.62) 0%,
+    rgba(0, 0, 0, 0.34) 38%,
+    rgba(0, 0, 0, 0) 68%
+  );
+  z-index: -1;
+}
+
+.planet-title__eyebrow {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.8);
+}
+
+.planet-title__name {
+  margin: 0;
+  /* A high-contrast Didone is the look; Didot and Bodoni ship on macOS and
+     Windows respectively, with Georgia as the universal fallback. No webfont,
+     so nothing to download and nothing to fail. */
+  font-family: 'Didot', 'Bodoni MT', 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  /*
+     Down from clamp(47px, 6.7vw, 119px), which was itself eased back from
+     clamp(52px, 7.4vw, 132px).
+
+     The hero size came from a time when every name here was a word — MOON,
+     EARTH, TITAN — and a word at 119px is a title. It stopped being one when the
+     names got longer: "LUNAR RECONNAISSANCE ORBITER" at that size is three
+     stacked lines of Didone across the middle of the screen, with the thing you
+     came to look at behind them. Spacecraft got this size first; the same
+     argument turns out to apply to a planet, which is also something you flew in
+     to see rather than something you came to read the name of.
+
+     A Didone's presence is its contrast, not its size, so it survives the drop.
+     The letter-spacing opens from 0.08em to compensate — at a smaller size the
+     wider tracking is what keeps it reading as a title. */
+  font-size: clamp(22px, 2.5vw, 44px);
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow:
+    0 4px 40px rgba(0, 0, 0, 0.85),
+    0 1px 6px rgba(0, 0, 0, 0.6);
+  animation: planet-name-in 0.9s var(--ease-out) both;
+}
+
+/* Replays on every planet change, because the element is re-keyed. */
+@keyframes planet-name-in {
+  from {
+    opacity: 0;
+    letter-spacing: 0.26em;
+    text-indent: 0.26em;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    letter-spacing: 0.08em;
+    text-indent: 0.08em;
+    transform: none;
+  }
+}
+
+.planet-title__rule {
+  display: block;
+  width: 64px;
+  height: 1px;
+  margin-top: 26px;
+  background: rgba(255, 255, 255, 0.55);
+  transform-origin: center;
+}
+
+@media (max-width: 760px) {
+  .planet-title {
+    top: 5%;
+  }
+
+  .planet-title__eyebrow {
+    font-size: 11px;
+    margin-bottom: 10px;
+  }
+
+  .planet-title__name {
+    font-size: clamp(17px, 4.6vw, 26px);
+  }
+
+  .planet-title__rule {
+    margin-top: 18px;
+    width: 56px;
+  }
+}

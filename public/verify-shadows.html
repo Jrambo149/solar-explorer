@@ -1,0 +1,178 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>shadow shader check</title>
+<style>body{background:#111;color:#ddd;font:12px/1.6 ui-monospace,monospace;margin:12px}</style>
+<pre id="out">running…</pre>
+<script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js'
+import { attachShadows, shadowUniforms, MAX_OCCLUDERS } from '/src/scene/shadows.js'
+
+/*
+ * Checks the shadow shader on the GPU, against the real GLSL.
+ *
+ * Run `npm run dev` and open http://localhost:5173/verify-shadows.html. It is
+ * dev-only: it imports from `/src` and `/node_modules`, which the production
+ * build does not serve.
+ *
+ * The other verifications in this project are Node scripts, because the maths
+ * they check lives in React-free modules that Node can import. This one cannot
+ * be: the shadows are GLSL, and the only honest way to test GLSL is to run it.
+ * So it renders single pixels through the shipped shader and reads them back.
+ *
+ * The source is not copied here. `attachShadows` is asked to patch a throwaway
+ * shader object, and the functions it injects are lifted straight back out —
+ * so a change to `shadows.js` is tested, and a change that breaks the patch's
+ * injection points fails loudly rather than silently testing nothing.
+ */
+const uniforms = shadowUniforms()
+
+const probe = { vertexShader: '#include <common>\n#include <begin_vertex>', fragmentShader: '#include <common>\n#include <lights_fragment_end>', uniforms: {} }
+const material = new THREE.MeshStandardMaterial()
+attachShadows(material, uniforms)
+material.onBeforeCompile(probe)
+
+const injected = probe.fragmentShader
+  .replace('#include <common>', '')
+  .replace(/#include <lights_fragment_end>[\s\S]*$/, '')
+
+if (!injected.includes('float sunVisibility') || !injected.includes('float ringVisibility')) {
+  throw new Error('shadows.js no longer injects the functions this page tests')
+}
+
+const renderer = new THREE.WebGLRenderer({ antialias: false })
+renderer.setSize(1, 1)
+
+const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.FloatType })
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
+const scene = new THREE.Scene()
+
+const testUniforms = {
+  ...uniforms,
+  uPoint: { value: new THREE.Vector3() },
+  uMode: { value: 0 },
+}
+
+const testMaterial = new THREE.ShaderMaterial({
+  uniforms: testUniforms,
+  vertexShader: `
+    varying vec3 vShadowWorld;
+    uniform vec3 uPoint;
+    void main() { vShadowWorld = uPoint; gl_Position = vec4(position.xy, 0.0, 1.0); }
+  `,
+  fragmentShader: `
+    ${injected}
+    uniform int uMode;
+    void main() {
+      float v = uMode == 0 ? sunVisibility(vShadowWorld) : ringVisibility(vShadowWorld);
+      gl_FragColor = vec4(v, v, v, 1.0);
+    }
+  `,
+})
+
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), testMaterial))
+
+const buffer = new Float32Array(4)
+function evaluate(point, mode) {
+  testUniforms.uPoint.value.copy(point)
+  testUniforms.uMode.value = mode
+  renderer.setRenderTarget(target)
+  renderer.render(scene, camera)
+  renderer.readRenderTargetPixels(target, 0, 0, 1, 1, buffer)
+  return buffer[0]
+}
+
+const V = (x, y, z) => new THREE.Vector3(x, y, z)
+
+function setOccluders(list) {
+  const slots = uniforms.uOccluders.value
+  for (let i = 0; i < MAX_OCCLUDERS; i++) slots[i].set(0, 0, 0, 0)
+  list.forEach((o, i) => slots[i].set(o.p.x, o.p.y, o.p.z, o.r))
+  uniforms.uOccluderCount.value = list.length
+}
+
+const rows = []
+let failures = 0
+function check(name, got, expect, tol = 0.02) {
+  const ok = Math.abs(got - expect) <= tol
+  if (!ok) failures++
+  rows.push(`${ok ? 'ok  ' : 'FAIL'} ${name.padEnd(52)} ${got.toFixed(3)} (expect ~${expect})`)
+}
+
+// ---- sphere shadows -------------------------------------------------------
+// Sun sits at the origin with radius 5. A body at x = 100, an occluder of
+// radius 3 placed between it and the Sun at x = 60.
+uniforms.uSunRadius.value = 5
+
+setOccluders([{ p: V(60, 0, 0), r: 3 }])
+check('directly behind a large occluder is dark', evaluate(V(100, 0, 0), 0), 0)
+
+check('well off the shadow axis is fully lit', evaluate(V(100, 20, 0), 0), 1)
+
+// Same occluder, but the test point is between it and the Sun: cannot be shaded.
+check('occluder behind the point casts nothing', evaluate(V(30, 0, 0), 0), 1)
+
+// Occluder further from the Sun than the point.
+setOccluders([{ p: V(140, 0, 0), r: 3 }])
+check('occluder beyond the point casts nothing', evaluate(V(100, 0, 0), 0), 1)
+
+// Annular: an occluder whose angular size is smaller than the Sun's can only
+// take a bite out of it. At 40 units away a radius-0.2 body subtends 0.005;
+// the Sun at 100 units subtends 0.05. Ratio squared = 0.01.
+setOccluders([{ p: V(60, 0, 0), r: 0.2 }])
+check('tiny occluder dims but cannot eclipse', evaluate(V(100, 0, 0), 0), 0.99, 0.03)
+
+// Penumbra: partway across the shadow edge should land strictly between.
+setOccluders([{ p: V(60, 0, 0), r: 3 }])
+const edge = evaluate(V(100, 3.4, 0), 0)
+rows.push(`${edge > 0.02 && edge < 0.98 ? 'ok  ' : 'FAIL'} ${'shadow edge is a penumbra, not a step'.padEnd(52)} ${edge.toFixed(3)} (expect strictly between)`)
+if (!(edge > 0.02 && edge < 0.98)) failures++
+
+// No occluders at all.
+setOccluders([])
+check('nothing registered means nothing shaded', evaluate(V(100, 0, 0), 0), 1)
+
+// ---- ring shadow ----------------------------------------------------------
+// Saturn in miniature: a planet of radius 4 at x = 100, rings from 1.28 to 2.35
+// radii, tilted 26.7 degrees — so the Sun sits well out of the ring plane and
+// the rings throw a real band across the globe.
+//
+// The first attempt at this test put the ring normal along +Y with the planet
+// on the +X axis, which puts the Sun exactly *in* the ring plane. The shader
+// returned "no shadow" and was right to: edge-on rings cast a line, not a band.
+const ringCanvas = document.createElement('canvas')
+ringCanvas.width = 64; ringCanvas.height = 1
+const ctx = ringCanvas.getContext('2d')
+ctx.fillStyle = 'rgba(255,255,255,1)'   // fully opaque ring everywhere
+ctx.fillRect(0, 0, 64, 1)
+const ringTex = new THREE.CanvasTexture(ringCanvas)
+ringTex.needsUpdate = true
+
+const tilt = 26.7 * Math.PI / 180
+uniforms.uRingMap.value = ringTex
+uniforms.uRingCentre.value.set(100, 0, 0)
+uniforms.uRingNormal.value.set(-Math.sin(tilt), Math.cos(tilt), 0).normalize()
+uniforms.uRingInner.value = 4 * 1.28
+uniforms.uRingOuter.value = 4 * 2.35
+uniforms.uHasRings.value = 1
+
+// (97, -2.5) is on the globe's sunward face and on the far side of the ring
+// plane from the Sun. Traced to the Sun it crosses the plane 5.46 units from
+// the centre — inside the annulus — so it must be shadowed. Worked by hand
+// before running it, so the test asserts the geometry rather than whatever the
+// shader happens to do.
+check('surface point under the rings is shadowed', evaluate(V(97, -2.5, 0), 1), 0.1, 0.03)
+
+// The mirror point, on the Sun's side of the ring plane. Its ray to the Sun
+// moves away from the plane and never meets it.
+check('surface point above the rings is lit', evaluate(V(97, 2.5, 0), 1), 1)
+
+// Outside the annulus: the ray crosses the ring plane inside the inner edge,
+// where there is no ring to block it.
+check('ray crossing inside the inner edge is lit', evaluate(V(99.4, -0.6, 0), 1), 1)
+
+uniforms.uHasRings.value = 0
+check('rings switched off cast nothing', evaluate(V(97, -2.5, 0), 1), 1)
+
+document.getElementById('out').textContent =
+  rows.join('\n') + `\n\n${failures === 0 ? 'All shadow checks passed.' : failures + ' FAILED'}`
+</script>

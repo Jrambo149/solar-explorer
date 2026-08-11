@@ -1,0 +1,597 @@
+/* Bottom-left corner, above the timeline.
+
+   It used to be centred, which meant it also had to be told about the info
+   panel: a short bar centred on the whole window is visibly off-centre when a
+   400px column covers the right side of it, so there was a `:has(.info-panel)`
+   rule insetting it. The dossier is below the fold now and the switcher is
+   anchored to a corner, so that whole class of problem is gone — nothing about
+   this position depends on what else is on screen. */
+.navbar-dock {
+  position: absolute;
+  left: 26px;
+  bottom: calc(var(--timeline-height) + 14px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: calc(100vw - 52px);
+  animation: navbar-in 0.55s var(--ease-out) 0.25s both;
+  /* Above `.label-layer`, whose markers are real buttons and would otherwise
+     paint over the chips and take their clicks. */
+  z-index: 13;
+}
+
+/* The dock stays as wide as the panel it contains even while that panel is
+   hidden, so its rectangle covers a good part of the lower-left screen — and
+   `.ui-layer > *` hands every direct child `pointer-events: auto`, which turned
+   that whole rectangle into a click sponge. It swallowed most of the "More
+   about ___" button, which sits in the middle of the same strip: the arrow at
+   the far end still worked, the label did not.
+
+   Scoped through `.ui-layer` for specificity, not for tidiness. `.navbar-dock`
+   alone ties with `.ui-layer > *` at (0,1,0) and loses on source order, so the
+   rule silently did nothing — which is exactly the trap `.planet-title` already
+   documents a few files over, and which I walked into anyway. Only the two
+   controls take events. */
+.ui-layer .navbar-dock {
+  pointer-events: none;
+}
+
+.navbar-dock > * {
+  pointer-events: auto;
+}
+
+
+@keyframes navbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- the collapsed control ---- */
+
+.navbar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 13px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  transition:
+    color 0.2s var(--ease-out),
+    background-color 0.2s var(--ease-out);
+}
+
+.navbar-toggle:hover {
+  color: var(--text);
+  background-color: var(--surface-hover);
+}
+
+.navbar-dock.is-open .navbar-toggle {
+  color: var(--text);
+}
+
+.navbar-toggle__label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Points down at rest and flips when the panel is up, so the caret always aims
+   at the thing it will do. */
+.navbar-toggle__caret {
+  color: var(--text-faint);
+  transition: transform 0.24s var(--ease-glass);
+}
+
+.navbar-dock.is-open .navbar-toggle__caret {
+  transform: rotate(180deg);
+}
+
+/* ---- the panel ---- */
+
+.navbar {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  /* Squared off, to match the "Explore further" boxes in the dossier rather
+     than the pill it used to be. */
+  border-radius: var(--radius-md);
+  max-width: 100%;
+  transform-origin: bottom left;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px) scale(0.97);
+  transition:
+    opacity 0.2s var(--ease-out),
+    transform 0.26s var(--ease-glass),
+    visibility 0s linear 0.26s;
+}
+
+.navbar-dock.is-open .navbar {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.2s var(--ease-out),
+    transform 0.26s var(--ease-glass),
+    visibility 0s linear 0s;
+}
+
+.navbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---- the class switcher, and the back control that replaces it ---- */
+
+/*
+ * The horizontal half of the panel: tabs, rule, chips — everything the layout
+ * used to be before the keynote took the top line.
+ *
+ * It does not scroll. The sideways scroll belongs to `.navbar__row` alone, so
+ * the class switcher stays put while the chips move under it.
+ *
+ * It used to scroll here, which was invisible while a class fitted the window
+ * and wrong the moment one did not: the tabs are inside this box, so scrolling
+ * right to reach the far end of the spacecraft carried Planets, Moons, Comets
+ * and Spacecraft off the left edge with them. Twenty-one craft is well past
+ * that point — you had to scroll all the way back to the left to find out where
+ * you were, or to go anywhere else.
+ */
+.navbar__main {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+/*
+ * The keynote: its own card, sitting above the panel rather than inside it.
+ *
+ * `max-width` in `ch` rather than pixels because the job is a comfortable
+ * measure, not a particular width — around 60 characters is where a line stops
+ * being scannable. As a separate card it no longer has to agree with the chip
+ * row's width, so the two are free to be different sizes and the note is not
+ * stretched to whatever the widest class happens to be.
+ *
+ * `min-height` is exactly three lines — `line-height` x 3 — and every note is
+ * written to fit in three. That pairing is what keeps the stack still: the dock
+ * is anchored to the *bottom* of the screen and grows upward, so a note that
+ * changes height moves nothing below it but does make the whole group jump.
+ * Measured across all ten notes the natural height ran from 45px to 86px. Two
+ * notes were cut to fit three lines; both are better short.
+ *
+ * Shown and hidden with the panel, on the same timings, so the two read as one
+ * control opening rather than two things arriving separately.
+ */
+.navbar-keynote {
+  margin: 0;
+  /* 62ch of *text*, which is what the notes are written to fit in three lines
+     of. `box-sizing` is `border-box` globally, so a bare `62ch` would be the
+     card's outside edge and the padding would come out of the measure — which
+     it did, and two notes gained a fourth line. The measure and the copy are
+     one decision; neither moves without re-checking the other. */
+  max-width: calc(62ch + 28px);
+  /* Three lines of text plus the vertical padding, for the same `border-box`
+     reason as the measure above — a bare `4.5em` floors the whole card at three
+     lines' worth and leaves the two-line note an inch short. */
+  min-height: calc(4.7em + 20px);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 11.5px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  color: var(--text-dim);
+  /* Text, not a target. `.navbar-dock > *` hands every child pointer events, and
+     a card this size sitting over the scene would otherwise swallow drags. */
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px) scale(0.97);
+  transform-origin: bottom left;
+  transition:
+    opacity 0.2s var(--ease-out),
+    transform 0.26s var(--ease-glass),
+    visibility 0s linear 0.26s;
+}
+
+.navbar-dock.is-open .navbar-keynote {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.2s var(--ease-out),
+    transform 0.26s var(--ease-glass),
+    visibility 0s linear 0s;
+}
+
+.navbar__lead {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 2px 2px 2px 0;
+}
+
+.navbar__tab {
+  display: block;
+  width: 100%;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--text-faint);
+  transition:
+    color 0.18s var(--ease-out),
+    background 0.22s var(--ease-out);
+}
+
+.navbar__tab:hover {
+  color: var(--text-dim);
+  background: var(--surface-hover);
+}
+
+.navbar__tab.is-open {
+  color: var(--text);
+  background: var(--surface-active);
+}
+
+/* Sits where the switcher was, so the panel's left edge doesn't jump when a
+   host opens. */
+.navbar__back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-dim);
+  background: var(--surface-hover);
+  transition:
+    color 0.18s var(--ease-out),
+    background 0.22s var(--ease-out);
+}
+
+.navbar__back:hover {
+  color: var(--text);
+  background: var(--surface-active);
+}
+
+.navbar__back-label {
+  /* The host's name, as a breadcrumb: the row below is its moons. */
+  font-weight: 600;
+}
+
+.navbar__divider {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 1px;
+  height: 44px;
+  margin: 0 10px 0 8px;
+  background: var(--hairline);
+}
+
+/* ---- the chips ---- */
+
+/*
+ * The only thing in the panel that scrolls.
+ *
+ * `min-width: 0` is what makes that true rather than merely declared. A flex
+ * item's `min-width` defaults to `auto`, which is its content — so without this
+ * the row simply refuses to be narrower than its chips, `overflow-x` never has
+ * anything to hide, and the whole panel overflows instead. The frozen column
+ * either side is `flex: 0 0 auto`, so what is left over is exactly this.
+ */
+.navbar__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  animation: navbar-row-in 0.32s var(--ease-out) both;
+}
+
+.navbar__row::-webkit-scrollbar {
+  display: none;
+}
+
+/* Short and slight. The row changes often once you start browsing, and anything
+   longer turns navigating into waiting. */
+@keyframes navbar-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.nav-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  /* Wide enough for "MERCURY" — the longest label — to sit inside the chip
+     with room to spare. At 58px it overflowed and neighbouring labels touched. */
+  width: 68px;
+  flex: 0 0 auto;
+  padding: 8px 3px 6px;
+  /* Same 8px box as `.dossier__link`, down to the hairline that only appears
+     once the box is doing something. */
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition:
+    background 0.22s var(--ease-out),
+    border-color 0.18s var(--ease-out),
+    transform 0.24s var(--ease-glass);
+}
+
+.nav-chip:hover {
+  background: var(--surface-hover);
+  border-color: var(--hairline);
+  transform: translateY(-2px);
+}
+
+.nav-chip.is-active {
+  background: var(--surface-active);
+  border-color: var(--hairline-strong);
+}
+
+/* ---- the planet thumbnail ---- */
+
+.nav-chip__dot {
+  position: relative;
+  display: block;
+  border-radius: 50%;
+  overflow: hidden;
+  transition:
+    transform 0.24s var(--ease-glass),
+    box-shadow 0.24s var(--ease-out);
+}
+
+.nav-chip__map {
+  position: absolute;
+  inset: 0;
+  /* Zoomed and offset off the pole, so the disc shows a believable patch of
+     surface rather than the whole squashed equirectangular map. */
+  background-size: 280% 280%;
+  background-position: 46% 50%;
+}
+
+.nav-chip__shade {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 44%),
+    radial-gradient(circle at 70% 76%, rgba(0, 0, 0, 0.78) 6%, rgba(0, 0, 0, 0) 64%);
+  /* A faint inner ring reads as the lit limb catching the sun. */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.nav-chip:hover .nav-chip__dot {
+  transform: scale(1.14);
+}
+
+.nav-chip.is-active .nav-chip__dot {
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
+}
+
+.nav-chip__name {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  transition: color 0.18s var(--ease-out);
+  /* Kept inside its own chip.
+   *
+   * A name wraps at its natural width, which for "Lunar Reconnaissance Orbiter"
+   * is 106px against a 68px chip — so it overhung its neighbour by 13px and the
+   * two names ran together into one unreadable line. Every other section got
+   * away with it because planet and moon names are short.
+   *
+   * `break-word` breaks a word only when it genuinely cannot fit, so ordinary
+   * names still wrap at their spaces. `anywhere` was the first attempt and it
+   * breaks in preference to wrapping — "NEW HORIZON / S" — which fixed the
+   * overlap by making the names ugly instead. The hyphen marks whichever breaks
+   * are left, so a split long word reads as one word rather than two short ones. */
+  max-width: 100%;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.nav-chip:hover .nav-chip__name {
+  color: var(--text-dim);
+}
+
+.nav-chip.is-active .nav-chip__name {
+  color: var(--text);
+}
+
+/* A host chip opens a row rather than flying anywhere, and says so. The count
+   is what distinguishes it from the identical-looking chip in Planets. */
+.nav-chip__sub {
+  margin-top: 2px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.28);
+  transition: color 0.18s var(--ease-out);
+}
+
+.nav-chip.is-host:hover .nav-chip__sub {
+  color: var(--text-faint);
+}
+
+@media (max-width: 760px) {
+  .navbar-dock {
+    left: 14px;
+    bottom: 104px;
+    max-width: calc(100vw - 28px);
+  }
+
+  .navbar {
+    padding: 6px 8px;
+    overflow: hidden;
+  }
+
+  /* The measure comes off the dock rather than a character count — at 375px
+     there is no room to choose one — and the height floor goes with it, since
+     the notes wrap to five or six lines here and a floor would only add space
+     under the short ones. */
+  .navbar-keynote {
+    max-width: none;
+    min-height: 0;
+    padding: 8px 10px;
+    font-size: 10.5px;
+    line-height: 1.45;
+  }
+
+  /* The switcher goes above the chips rather than beside them. Stacked to the
+     left it was taking a third of a 375px panel and squeezing the chips into a
+     scroller again, which is the thing this layout exists to avoid. Width is
+     scarce on a phone and height is not. */
+  .navbar__main {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .navbar__lead {
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    padding: 0 0 4px;
+  }
+
+  .navbar__tab,
+  .navbar__back {
+    width: auto;
+    font-size: 9px;
+    letter-spacing: 0.05em;
+    padding-inline: 7px;
+  }
+
+  /* A rule under the switcher instead of a column between the two halves. */
+  .navbar__divider {
+    width: auto;
+    height: 1px;
+    margin: 0 0 4px;
+  }
+
+  /* The row's own scrolling is in the base rules — the phone layout was where
+     it was done first, and freezing the switcher on the desktop layout too made
+     it the same arrangement at both sizes. What is different here is only that
+     the switcher sits above the chips instead of beside them. */
+
+  .nav-chip {
+    width: 58px;
+  }
+
+  .nav-chip__name {
+    font-size: 9px;
+    letter-spacing: 0.05em;
+  }
+}
+
+/* The count beside a tier tab — "Major 5", "Minor 23".
+ *
+ * Earned its place because the two tiers are wildly uneven and the number is the
+ * interesting part: Uranus reads "Major 5 / Minor 23", which says something true
+ * about Uranus before you have clicked anything. Set in the tabular figures the
+ * rest of the app uses for numbers, so the tabs do not jitter as the count
+ * changes width between hosts. */
+.navbar__tab-count {
+  margin-left: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+.navbar__tab.is-open .navbar__tab-count {
+  color: var(--text-dim);
+}
+
+/* A group chip: a count in place of a thumbnail.
+ *
+ * These stand for a *set* of bodies rather than one, so there is no map to show
+ * and no size to encode — a representative moon's colour would imply the group
+ * has one, and every minor moon is drawn the same grey anyway. The number is the
+ * only thing that distinguishes Norse from Gallic at a glance, so the number is
+ * what the dot carries. */
+.nav-chip__dot--group {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-hover);
+  border: 1px solid var(--hairline-strong);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.nav-chip--group:hover .nav-chip__dot--group,
+.nav-chip--group:focus-visible .nav-chip__dot--group {
+  background: var(--surface-active);
+  color: var(--text);
+}
+
+/* ---- spacecraft chips ---- */
+
+/* No disc, no clip. A planet's chip is a circle because a planet is a sphere;
+   a spacecraft is an arbitrary shape with booms and arrays that a circular mask
+   would slice through. The model art is already transparent, so it sits on the
+   bar's own background. */
+.nav-chip__dot--model {
+  border-radius: 0;
+  overflow: visible;
+  box-shadow: none;
+}
+
+.nav-chip__model {
+  position: absolute;
+  inset: 0;
+  /* `contain`, so the longest axis sets the scale and nothing is cropped —
+     which for these is usually a boom or an array, the parts that make one
+     craft distinguishable from another at this size. */
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  /* Renders dark against a dark bar, so it gets the same lift the labels get. */
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9));
+  transition: transform 0.18s var(--ease-out);
+}
+
+.nav-chip:hover .nav-chip__model,
+.nav-chip.is-active .nav-chip__model {
+  transform: scale(1.08);
+}
+
+/* Spacecraft names are long — the chip is sized for "MERCURY" and these run to
+   "Lunar Reconnaissance Orbiter". Wide enough that every one of them but that
+   wraps at its spaces. */
+.nav-chip--craft {
+  width: 92px;
+}

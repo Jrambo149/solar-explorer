@@ -1,0 +1,109 @@
+.controls {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+}
+
+.ctrl-btn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text-dim);
+  isolation: isolate;
+  transition:
+    color 0.22s var(--ease-out),
+    background 0.22s var(--ease-out),
+    box-shadow 0.22s var(--ease-out),
+    transform 0.22s var(--ease-glass);
+}
+
+.ctrl-btn svg {
+  position: relative;
+  z-index: 1;
+}
+
+.ctrl-btn:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.ctrl-btn:active {
+  transform: scale(0.93);
+}
+
+/* Active state is a flat white pill with the icon knocked out of it — the
+   highest-contrast thing available in a monochrome palette, and far calmer
+   than the stacked glow it replaces. */
+.ctrl-btn.is-active {
+  color: #0a0a0c;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.ctrl-btn.is-active:hover {
+  background: #ffffff;
+}
+
+.back-btn {
+  position: absolute;
+  top: 22px;
+  right: 206px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 18px 0 13px;
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition:
+    color 0.22s var(--ease-out),
+    background-color 0.22s var(--ease-out),
+    border-color 0.22s var(--ease-out);
+}
+
+.back-btn:hover {
+  color: var(--text);
+  background-color: var(--surface-strong);
+  border-color: var(--hairline-strong);
+}
+
+.back-btn:active {
+  transform: scale(0.98);
+}
+
+/* No inset for the info panel any more. It used to own the right 400px of the
+   screen and everything along that edge had to slide clear of it; the dossier
+   lives a screen below now and takes nothing from this view. */
+
+@media (max-width: 760px) {
+  .controls {
+    top: 12px;
+    right: 12px;
+    padding: 4px;
+  }
+
+  .ctrl-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .back-btn {
+    top: auto;
+    bottom: 190px;
+    right: 12px;
+    height: 38px;
+    font-size: 11.5px;
+    padding: 0 14px 0 10px;
+  }
+}

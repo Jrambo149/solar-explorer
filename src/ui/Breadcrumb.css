@@ -1,0 +1,152 @@
+.crumbs {
+  display: flex;
+  /* Baseline rather than centre: the wordmark is uppercase and the body names
+     are not, so their boxes differ in height and centring them would leave the
+     letters sitting at visibly different levels. */
+  align-items: baseline;
+  gap: 0;
+  /* The header is `pointer-events: none` so it never eats a drag over the
+     scene. The crumbs are the one part of it that has to be clickable, so they
+     opt back in — and only they do. */
+  pointer-events: auto;
+}
+
+.crumbs__home {
+  margin: 0;
+  /* The `h1` is only here for the document outline; every visual property
+     belongs to the button inside it, which is what the user actually points
+     at. */
+  font: inherit;
+  line-height: inherit;
+}
+
+.crumbs__step {
+  display: inline-flex;
+  align-items: baseline;
+  /* Each step arrives as one piece — separator and name together — so a new
+     crumb never flashes a stray chevron ahead of the word it belongs to. */
+  animation: crumb-in 0.32s var(--ease-out) both;
+}
+
+@keyframes crumb-in {
+  from {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.crumb {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.2s var(--ease-out);
+}
+
+.crumb--home {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* "Explorer" is the same white, set lighter — weight carries the split, not
+   colour. */
+.crumb__brand span {
+  margin-left: 0.28em;
+  font-weight: 200;
+  color: var(--text-dim);
+}
+
+/* The narrow-screen stand-in for the wordmark. Hidden until a media query
+   below asks for it. */
+.crumb__glyph {
+  display: none;
+  /* The glyph is a shape among words, so it aligns to the text it sits in
+     rather than to its own box. */
+  vertical-align: -1px;
+}
+
+.crumbs__sep {
+  /* The chevron carries the `0.28em` tracking of the wordmark to its left,
+     which would otherwise push it hard against the name on its right. The
+     asymmetric margin cancels it. */
+  margin: 0 7px 0 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Body names are set apart from the wordmark by case and tracking rather than
+   by size, so the path reads as one line rather than a title with a suffix. */
+.crumbs__step .crumb {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+.crumbs__step .crumb:hover,
+.crumbs__step .crumb:focus-visible {
+  color: #ffffff;
+}
+
+/* Where you already are. Full white and not a control — see the component. */
+.crumb--current {
+  color: var(--text);
+  cursor: default;
+}
+
+@media (max-width: 760px) {
+  .crumb--home {
+    font-size: 14px;
+  }
+
+  .crumbs__sep {
+    margin: 0 5px 0 2px;
+  }
+
+  /*
+   * On a phone the wordmark gives way to the path entirely.
+   *
+   * `SOLAR EXPLORER` is 150px of heavily tracked capitals, and at 375px that
+   * was the whole budget: the longest real path ran to 329px and straight under
+   * the controls cluster, which starts at 253px. The header already drops its
+   * hint and credit at this width for the same reason.
+   *
+   * The first attempt swapped the wordmark for the words `Solar System`, which
+   * bought 100px and was enough — until the `Moons` crumb arrived and put the
+   * worst case, `Solar System › Jupiter › Moons › Callisto`, back over the line
+   * at 285px. Words were never going to be enough, because the path can grow
+   * and the root cannot shrink twice.
+   *
+   * So the root becomes a glyph: the Sun with something orbiting it. That costs
+   * 13px instead of 150 and is fixed whatever the path does. Eyes reaches the
+   * same answer from the same pressure — on a phone it shows the NASA meatball
+   * and no words. With nothing selected there is no path to make room for, so
+   * the wordmark stays.
+   */
+  .crumbs.has-path .crumb__brand {
+    display: none;
+  }
+
+  .crumbs.has-path .crumb__glyph {
+    display: inline;
+  }
+
+  .crumbs.has-path .crumb--home {
+    color: var(--text-dim);
+  }
+
+  .crumbs.has-path .crumb--home:hover,
+  .crumbs.has-path .crumb--home:focus-visible {
+    color: #ffffff;
+  }
+}

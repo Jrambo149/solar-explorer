@@ -1,0 +1,414 @@
+/* The dossier follows the stage in normal flow, so it starts exactly one
+   viewport down and the stage — being sticky — stays pinned behind it.
+
+   Being a full-width block is load-bearing beyond layout: a wheel over the
+   canvas zooms the scene rather than scrolling the page, so once you are past
+   the hero every pixel of the window has to belong to this element. That is
+   what lets the split view leave the scene visible without the right half
+   becoming a dead zone for scrolling. (`CameraController` disables the wheel
+   zoom over the same range, belt and braces.) */
+.dossier {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- screen one: the split ----
+
+   No surface at all. The shot has slid right by then, and the text lands in the
+   space that opened on the left — so the planet is inside the layout rather
+   than behind a panel. The only paint is a gradient that fades out well before
+   the body, dark enough on the left to carry type and gone by the middle. */
+.dossier__split {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  padding: 0 clamp(24px, 7vw, 120px);
+  background: linear-gradient(
+    100deg,
+    rgba(4, 4, 6, 0.94) 0%,
+    rgba(4, 4, 6, 0.86) 26%,
+    rgba(4, 4, 6, 0.55) 44%,
+    rgba(4, 4, 6, 0) 62%
+  );
+}
+
+.dossier__lede {
+  width: min(48%, 560px);
+}
+
+.dossier__eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* The same Didone as the hero title, at a smaller size — the name you flew in
+   under, carried down into the reading rather than restated in another voice. */
+.dossier__title {
+  margin: 18px 0 0;
+  font-family: 'Didot', 'Bodoni MT', 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  font-size: clamp(48px, 6vw, 104px);
+  line-height: 0.98;
+  letter-spacing: 0.05em;
+  text-indent: 0.05em;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 0 4px 40px rgba(0, 0, 0, 0.7);
+}
+
+.dossier__rule {
+  display: block;
+  width: 82px;
+  height: 2px;
+  margin: 34px 0 26px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.dossier__description {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.72;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* Set apart from the description by a rule and a smaller, dimmer type: this is
+   a caveat about the picture, not more of the prose about the body. */
+.dossier__surface-note {
+  margin: 20px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--hairline);
+  font-size: 12px;
+  line-height: 1.58;
+  color: var(--text-faint);
+}
+
+.dossier__cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 38px;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  transition:
+    border-color 0.2s var(--ease-out),
+    background 0.2s var(--ease-out),
+    box-shadow 0.2s var(--ease-out);
+}
+
+.dossier__cue:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: var(--surface-hover);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.16);
+}
+
+/* ---- the defocus reveal ----
+
+   Blur and a small rise, not just opacity. Arriving out of focus is what makes
+   the copy read as resolving in front of the planet rather than being switched
+   on over it. `filter` is the expensive half, so it is only ever applied to
+   these three blocks and only while they are moving.
+
+   No `will-change`: it would keep a layer alive for the whole session on
+   content that animates twice.
+
+   Note which way round this is. The bare `.reveal` is *visible* — the hidden
+   state hangs off `.is-armed`, which JavaScript only adds once the observer has
+   actually reported. Styling it hidden by default would mean that any failure
+   to observe leaves the page blank, and a missing flourish is a much smaller
+   problem than missing content. */
+.reveal {
+  transition:
+    opacity 0.62s var(--ease-out),
+    filter 0.62s var(--ease-out),
+    transform 0.7s var(--ease-out);
+}
+
+.reveal.is-armed {
+  opacity: 0;
+  filter: blur(14px);
+  transform: translateY(28px);
+}
+
+.reveal.is-armed.is-in {
+  opacity: 1;
+  filter: blur(0);
+  transform: none;
+}
+
+/* The fade stays — it is what marks the arrival — but the defocus and the rise
+   are exactly the kind of motion this preference is asking us not to make. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal.is-armed {
+    filter: none;
+    transform: none;
+  }
+}
+
+/* ---- screen two: the rest, on a surface ---- */
+
+.dossier__more {
+  min-height: 100vh;
+  padding: 84px 0 120px;
+  background: linear-gradient(
+    to bottom,
+    rgba(6, 6, 8, 0.82) 0%,
+    rgba(6, 6, 8, 0.94) 14%,
+    rgba(6, 6, 8, 0.96) 100%
+  );
+  backdrop-filter: blur(30px) saturate(115%);
+  -webkit-backdrop-filter: blur(30px) saturate(115%);
+  border-top: 1px solid var(--hairline);
+}
+
+.dossier__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+.dossier__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 26px;
+  margin-bottom: 46px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* Small, because the name was said properly one screen up. This is only here so
+   a long page never leaves you wondering whose facts these are. */
+.dossier__bar-name {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.dossier__back {
+  flex: 0 0 auto;
+  padding: 10px 17px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  transition:
+    color 0.18s var(--ease-out),
+    border-color 0.18s var(--ease-out),
+    background 0.18s var(--ease-out);
+}
+
+.dossier__back:hover {
+  color: var(--text);
+  border-color: var(--hairline-strong);
+  background: var(--surface-hover);
+}
+
+.dossier__columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
+  align-items: start;
+}
+
+.dossier__section {
+  margin-bottom: 38px;
+}
+
+.dossier__section:last-child {
+  margin-bottom: 0;
+}
+
+.dossier__section-title {
+  margin: 0 0 14px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.dossier__moon-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dossier__moon-link {
+  padding: 7px 13px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  transition:
+    background 0.18s var(--ease-out),
+    color 0.18s var(--ease-out),
+    border-color 0.18s var(--ease-out);
+}
+
+.dossier__moon-link:hover {
+  background: var(--surface-hover);
+  border-color: var(--hairline-strong);
+  color: var(--text);
+}
+
+.fact-grid {
+  margin: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.fact-grid__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.fact-grid dt {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.fact-grid dd {
+  margin: 0;
+  font-size: 13px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dossier__atmosphere {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.64;
+  color: var(--text-dim);
+}
+
+.dossier__facts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dossier__facts li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 13px;
+  font-size: 14px;
+  line-height: 1.62;
+  color: var(--text-dim);
+}
+
+.dossier__facts li:last-child {
+  margin-bottom: 0;
+}
+
+.dossier__facts li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 10px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.dossier__links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dossier__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 15px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-decoration: none;
+  transition:
+    color 0.18s var(--ease-out),
+    border-color 0.18s var(--ease-out),
+    background 0.18s var(--ease-out);
+}
+
+.dossier__link:hover {
+  color: var(--text);
+  border-color: var(--hairline-strong);
+  background: var(--surface-hover);
+}
+
+/* ---- narrow: no room beside the planet ----
+
+   The shot stays centred below this width (`SPLIT_MIN_WIDTH` in
+   `useScrollChrome`, which has to match), so the split screen becomes a full
+   scrim with the text over the middle of it rather than beside a gap that
+   isn't there. */
+@media (max-width: 900px) {
+  .dossier__split {
+    align-items: flex-end;
+    padding: 0 22px 12vh;
+    background: linear-gradient(
+      to bottom,
+      rgba(4, 4, 6, 0.35) 0%,
+      rgba(4, 4, 6, 0.86) 42%,
+      rgba(4, 4, 6, 0.96) 100%
+    );
+  }
+
+  .dossier__lede {
+    width: 100%;
+  }
+
+  .dossier__title {
+    font-size: clamp(40px, 12vw, 68px);
+  }
+
+  .dossier__rule {
+    margin: 24px 0 20px;
+  }
+
+  .dossier__more {
+    padding: 56px 0 88px;
+  }
+
+  .dossier__inner {
+    padding: 0 22px;
+  }
+
+  .dossier__bar {
+    margin-bottom: 32px;
+  }
+
+  .dossier__columns {
+    grid-template-columns: 1fr;
+    gap: 38px;
+  }
+}

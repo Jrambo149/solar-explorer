@@ -1,0 +1,206 @@
+/* The layer itself never intercepts anything — only the markers inside it do.
+   It covers the entire viewport, so getting this wrong doesn't degrade the app
+   gracefully: it makes the whole scene unclickable and undraggable.
+
+   The selector has to out-specify `.ui-layer > *` in global.css, which switches
+   pointer events back on for every direct child of the UI layer. That rule and
+   a bare `.label-layer` tie at one class each, so source order was quietly
+   deciding the outcome. Naming the parent settles it. */
+.ui-layer > .label-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 11;
+}
+
+/* Anchored *on* the body: the projector writes the body's exact screen
+   position, and this centres the box on it. The icon therefore marks the
+   thing it points at, rather than hovering somewhere above it. */
+.marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  /* Applies before `transform`, so it composes with the projector's
+     translate3d rather than fighting it. */
+  translate: -50% -50%;
+  border: none;
+  background: none;
+  padding: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.marker__icon {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  /* A ring rather than a filled dot: at overview zoom the planet itself is a
+     couple of pixels, and a solid marker would hide the very thing it points
+     at. Hollow, the body shows through its own icon. */
+  background: transparent;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+  transition:
+    transform 0.18s var(--ease-out),
+    border-color 0.18s var(--ease-out),
+    opacity 0.18s var(--ease-out);
+}
+
+/* Close enough that the planet is plainly a planet — the ring would just be
+   drawn across its face. The name carries on. */
+.marker.is-large .marker__icon {
+  opacity: 0;
+}
+
+.marker:hover .marker__icon {
+  transform: scale(1.35);
+  border-color: #ffffff;
+}
+
+/* ---- spacecraft ---- */
+
+.marker__hex {
+  display: block;
+  width: 11px;
+  height: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  overflow: visible;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9));
+  transition:
+    transform 0.18s var(--ease-out),
+    color 0.18s var(--ease-out);
+}
+
+.marker:hover .marker__hex {
+  transform: scale(1.3);
+  color: #ffffff;
+}
+
+/* The name sits beside the hexagon rather than above it.
+ *
+ * A natural body pushes its name clear of a disc, which is why the rule below
+ * offsets by `--body-radius`. A spacecraft has no disc to clear — even the
+ * models are drawn a couple of pixels across, and at anything wider the craft
+ * *is* the glyph. So the name goes where there is room and where the eye already
+ * is: immediately to its right, on the same line, reading as one object.
+ *
+ * `left: 50%` puts it at the marker's centre, then the padding clears the
+ * hexagon. `top: 50%` with a -50% shift centres the text on the glyph's middle
+ * instead of hanging it off the top. */
+.marker--craft .marker__name {
+  left: 50%;
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  /* Margin, not padding: the gap belongs outside the text box. With padding the
+     box still starts at the marker's centre and merely holds the text further
+     in, so it overlaps the hexagon it is meant to sit clear of — invisible on
+     screen, but it is the box that takes the clicks and the box that the
+     crowding grid measures. */
+  margin-left: 11px;
+}
+
+/* Pinned to the rim: a craft that is nearby but outside the shot.
+ *
+ * Only ever spacecraft, and only while another spacecraft is the focus — see
+ * `pinCraft` in `LabelProjector`. At that framing a neighbouring craft sits
+ * barely outside the frustum, so without this you are among a group and can see
+ * none of it.
+ *
+ * Dimmed rather than styled differently, because it has to read as the same
+ * marker in a weaker state. The distinction that matters is already carried by
+ * position: a mark on the rim is somewhere off that way, a mark in the field is
+ * where the craft actually is. Making it a different glyph as well would suggest
+ * a different kind of object.
+ *
+ * It stays clickable at full strength, and brightens on hover, because pointing
+ * at what is around you and then flying to it is the entire use. */
+.marker.is-pinned {
+  opacity: 0.5;
+  transition: opacity 0.18s var(--ease-out);
+}
+
+.marker.is-pinned:hover,
+.marker.is-pinned:focus-visible {
+  opacity: 1;
+}
+
+/* Against the right-hand rim the name is what would run off, so it swaps to the
+   other side of the hexagon. `right: 50%` mirrors the `left: 50%` anchor, and
+   the margin mirrors with it. */
+.marker--craft.is-flipped .marker__name {
+  left: auto;
+  right: 50%;
+  margin-left: 0;
+  margin-right: 11px;
+}
+
+/* Sits above the body, clear of its disc. `--body-radius` is published each
+   frame by the projector, so the name lifts away as you approach a planet
+   instead of being swallowed by it. */
+.marker__name {
+  position: absolute;
+  left: 50%;
+  bottom: calc(50% + var(--body-radius, 4px) + 7px);
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+  /* Space is black but never uniformly so — stars, the belt and the orbit lines
+     all pass behind these. A tight shadow keeps the text legible over all of
+     them without a plate behind it. */
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.95),
+    0 0 8px rgba(0, 0, 0, 0.8);
+  transition: color 0.18s var(--ease-out);
+}
+
+.marker:hover .marker__name {
+  color: #ffffff;
+}
+
+.marker:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+@media (max-width: 760px) {
+  .marker__name {
+    font-size: 9px;
+    letter-spacing: 0.07em;
+  }
+
+  /* Fingers need more than a 7px ring, but the ring should stay small — so the
+     hit area grows instead of the mark. */
+  .marker {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* No room for the name — see the crowding grid in `LabelProjector`.
+ *
+ * `display: none` rather than `visibility: hidden` or an opacity fade: a hidden
+ * element still occupies its space and would keep widening the marker's hit
+ * area, so a crowd of suppressed labels would carpet the region in invisible
+ * click targets that swallow drags meant for the scene.
+ *
+ * The name returns on hover, because the marker is still the way to find out
+ * what one of these dots is. */
+.marker.is-crowded .marker__name {
+  display: none;
+}
+
+.marker.is-crowded:hover .marker__name,
+.marker.is-crowded:focus-visible .marker__name {
+  display: block;
+}

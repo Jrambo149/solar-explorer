@@ -1,0 +1,113 @@
+.loading {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 40%, #0d0d0f 0%, #000000 58%);
+  opacity: 1;
+  transition:
+    opacity 0.7s ease-in-out,
+    visibility 0s linear 0.7s;
+}
+
+/* Once loading is done the overlay is inert immediately — the fade is purely
+   cosmetic and never gates access to the app underneath. */
+.loading.is-done {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loading__inner {
+  width: min(360px, 82vw);
+  text-align: center;
+}
+
+.loading__mark {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 26px;
+}
+
+.loading__star {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 15px;
+  height: 15px;
+  margin: -7.5px 0 0 -7.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff6dd 0%, #ffb03a 55%, #ff7b16 100%);
+  box-shadow: 0 0 22px 6px rgba(255, 160, 50, 0.55);
+}
+
+.loading__orbit {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  /* Squashed and tilted so it reads as an orbit seen at an angle. */
+  transform: rotateX(64deg);
+  animation: loading-spin 3.4s linear infinite;
+}
+
+.loading__orbit::after {
+  content: '';
+  position: absolute;
+  top: -3.5px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 10px 1px rgba(255, 255, 255, 0.5);
+}
+
+@keyframes loading-spin {
+  from {
+    transform: rotateX(64deg) rotateZ(0deg);
+  }
+  to {
+    transform: rotateX(64deg) rotateZ(360deg);
+  }
+}
+
+.loading__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  text-transform: uppercase;
+}
+
+.loading__subtitle {
+  margin: 8px 0 30px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.loading__track {
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.loading__fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  transition: width 0.35s var(--ease-out);
+}
+
+.loading__pct {
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+}

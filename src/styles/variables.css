@@ -1,0 +1,111 @@
+:root {
+  /* Deep space is *void* black, not navy. */
+  --bg-void: #000000;
+  --bg-deep: #030304;
+
+  /* ---- surfaces ----
+     Sleek rather than glossy: a nearly-black translucent slab, one hairline
+     white border, and a single soft top highlight. No coloured light, no
+     stacked speculars — the scene supplies all the colour in the frame. */
+  /* 0.25, down from 0.62 by way of 0.42. The `--blur` below is what makes it
+     safe to go this thin: the scene behind a panel is still pushed out of
+     focus, so text stays readable over a bright orbit line without the fill
+     having to hide it.
+
+     The last step down was made for a specific reason, and it is worth writing
+     out because it is not obvious from the number. What a viewer reads as "that
+     panel is opaque" is mostly a question of what happens to be *behind* it. A
+     bright orbit line survives any of these values; a faint star does not,
+     because the fill multiplies it down. Over the emptier parts of the sky the
+     layers panel therefore looked like a solid slab at 0.42 while the body
+     switcher — which happens to sit over the Jupiter and Saturn ellipses —
+     looked plainly transparent at the identical value. Verified by putting a
+     red block behind the layers panel: it came through at full strength, so the
+     panel was never the problem. 0.25 is thin enough that the faint stars
+     survive too, which is the only thing that changes the impression over empty
+     sky.
+
+     Deliberately the shared token rather than a per-panel override. An earlier
+     attempt thinned only the body switcher, which left the layers panel and the
+     top-right cluster at the old weight — two glass boxes on one screen at
+     visibly different densities, which reads as a mistake rather than as a
+     choice. Every `.glass` surface moves together or none of them do. */
+  --surface: rgba(12, 12, 14, 0.25);
+  --surface-strong: rgba(10, 10, 12, 0.82);
+  --surface-hover: rgba(255, 255, 255, 0.07);
+  --surface-active: rgba(255, 255, 255, 0.13);
+  --hairline: rgba(255, 255, 255, 0.1);
+  --hairline-strong: rgba(255, 255, 255, 0.18);
+  --sheen: rgba(255, 255, 255, 0.14);
+  /*
+   * No blur at all — the backdrop is only saturated.
+   *
+   * It was 26px, then 10, then 3, then 2, and the reason it kept coming down is
+   * that a blur destroys detail in proportion to how *fine* that detail is. The
+   * orbit lines are broad bright curves and survive almost anything; a star is
+   * one or two pixels and does not survive 10px. That asymmetry is what made
+   * the body switcher look convincingly transparent while the layers panel
+   * looked like a solid slab at the identical `--surface`: the switcher sits
+   * over the ellipses, the panel sits over a starfield, and the blur was
+   * quietly deleting one and not the other.
+   *
+   * Dropping it to nothing settles a second problem the tuning could not. The
+   * radius is not interpreted the same by both engines — WebKit applies it in
+   * *device* pixels, so on a Retina display Safari renders roughly twice the
+   * blur Chromium does from the same declaration. Every value above was chosen
+   * against a Chromium browser and was therefore about double that in Safari.
+   * With no radius left there is nothing for the two to disagree about, and the
+   * chrome renders identically everywhere.
+   *
+   * `saturate` stays: it lifts the colour of whatever shows through without
+   * touching its sharpness, so it costs nothing in either engine.
+   *
+   * What the blur was still earning at 2px was softening a bright body sitting
+   * directly under small text. If that ever reads badly — the keynote card
+   * parked over the Sun is the case to watch — the fix is `--surface`, not this.
+   */
+  --blur: saturate(120%);
+  --shadow:
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.45);
+
+  --panel-bg: rgba(8, 8, 10, 0.78);
+  --panel-border: rgba(255, 255, 255, 0.09);
+  --panel-shadow: var(--shadow);
+
+  --text: #f4f5f7;
+  --text-dim: rgba(255, 255, 255, 0.62);
+  --text-faint: rgba(255, 255, 255, 0.38);
+
+  /* Monochrome by request: the accent is simply white. Emphasis comes from
+     opacity and weight, not from hue. */
+  --accent: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.09);
+  --accent-line: rgba(255, 255, 255, 0.38);
+  --accent-glow: rgba(255, 255, 255, 0.28);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-glass: cubic-bezier(0.32, 1.2, 0.4, 1);
+
+  /* Height of the timeline bar along the bottom edge: 12 + 30 + 12 + 40 + 16.
+     Shared, because two controls sit just above it — the body switcher and the
+     scroll hint. */
+  --timeline-height: 110px;
+}
+
+/* `--panel-width` used to live here. The info panel was a 400px column on the
+   right, and five things read this variable to stay clear of it: the timeline,
+   the nav bar, the planet title, the control cluster and the layer panel — plus
+   the camera, which shifted its projection by half of it so the focused planet
+   was not centred behind the panel. The dossier moved below the fold and all of
+   them went back to the full width. The variable is gone rather than left
+   unread, so nothing can quietly start insetting itself again. */

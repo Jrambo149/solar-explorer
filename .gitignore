@@ -1,0 +1,55 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vite
+
+# Planet textures are generated deterministically by scripts/generate-textures.mjs
+# (runs automatically on `npm install`). Nothing binary lives in the repo.
+public/textures/
+
+# NASA's source models: ~150 MB of Blender exports, downloaded by hand from
+# https://science.nasa.gov/3d-resources/. What the app ships is the repacked
+# copy under public/models/, which IS committed, because it cannot be
+# regenerated without this archive.
+Models/Planets/
+Models/Moons/
+Models/Spacecraft/
+
+# The three generic minor-moon asteroids, from Eyes' static bundle. Ignored for
+# the same reason as the folders above, but unlike them this one is genuinely
+# reproducible offline-to-online: `npm run models:generic` re-downloads it.
+Models/MinorMoons/
+
+# The comet nuclei, for the same reason as the folders above and verified the
+# same way: all five are already committed as repacked copies under
+# public/models/ (103p-hartley-2, 19p-borrelly, 1i-oumuamua,
+# 67p-churyumov-gerasimenko, 9p-tempel-1). 20 MB of duplicate.
+Models/Comets/
+
+# Eyes' spacecraft meshes, and the copy the app serves. 263 MB, and unlike the
+# hand-downloaded NASA archive above these are fully reproducible offline:
+#   npm run models:spacecraft   -> Models/Spacecraft/eyes/
+#   cp to public/models/spacecraft/
+# They are also the one asset class not preloaded (see spacecraftModels.js), so
+# a missing file costs a marker rather than a broken app.
+Models/Spacecraft/eyes/
+public/models/spacecraft/
+
+# Reference video pulled down to compare this app against Eyes frame by frame
+# (see the Swift/AVFoundation extraction note — there is no ffmpeg here). It is
+# working material, not an asset the app loads, and nothing in the tree
+# references it.
+original-*.mp4
+
+# Reference photographs gathered while building the dossiers and checking the
+# textures. Working material like the video above: nothing in the tree loads
+# them, and the surfaces the app actually ships come from NASA's models and the
+# Solar System Scope maps. Kept on disk, out of the history.
+Planet Photos/
+
+# Per-machine Claude Code settings. `launch.json` beside it is committed: it is
+# the dev-server config the preview tooling reads, and it is the same for
+# everyone.
+.claude/settings.local.json

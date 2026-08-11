@@ -1,0 +1,216 @@
+@import './variables.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+}
+
+/* No `scroll-behavior: smooth` here, and its absence is deliberate.
+
+   It used to be set, back when the scroll hint jumped the page with a bare
+   `scrollTo` and needed the browser to soften the landing. `glideTo` replaced
+   that months ago and tweens the scroll itself, passing `behavior: 'instant'` on
+   every step precisely so it does *not* go through this property — so the rule
+   had stopped doing the job it was added for and was only still affecting the
+   one kind of scrolling it should never have touched: the user's own wheel.
+
+   That was the "caught" feeling coming out of the dossier. Chrome animates a
+   smooth scroll over a fixed ~300ms however far it is going, and each new notch
+   retargets the animation in flight. So `scrollY` lagged the gesture by a third
+   of a second, and while it was above zero the page still owned the wheel — you
+   were winding the wheel back with the camera not yet listening, then it would
+   let go all at once. Native scrolling tracks the gesture; the tween is only for
+   the transitions the app starts itself. */
+
+html {
+  /* Scrolling in this app runs into the top and bottom of a document that is
+     usually exactly one screen tall, and a rubber-band or a scroll chained to
+     some parent reads as the seam slipping. */
+  overscroll-behavior-y: none;
+}
+
+body {
+  background: var(--bg-void);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The document scrolls now.
+
+   It did not used to: the app was a fixed 100vh scene and `overflow: hidden`
+   here was what guaranteed a stray gesture could never drag the page off its
+   moorings. The dossier changed that — selecting a body adds a full screen of
+   reading below the fold, and reaching it means scrolling the document itself.
+
+   The scene does not scroll away with it. `.stage` is sticky, so it stays
+   pinned to the viewport and the dossier rides up over it. */
+#root {
+  position: relative;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.app {
+  position: relative;
+  min-height: 100vh;
+}
+
+/* The first screenful: the scene, and all the chrome that belongs to it.
+
+   Sticky rather than fixed, and the difference matters. A fixed stage would be
+   taken out of flow, so the dossier below would start at the top of the
+   document and there would be no first screen to scroll past. Sticky keeps the
+   stage occupying its own 100vh of the document *and* pins it to the viewport
+   while the dossier scrolls up over it. */
+.stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  /* Falls back to 100vh where unsupported. Mobile browsers shrink the visual
+     viewport as their toolbars retract, and `vh` does not follow — the timeline
+     would sit a toolbar's height below the bottom edge. */
+  height: 100dvh;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.scene-layer {
+  position: absolute;
+  inset: 0;
+}
+
+/* UI chrome floats above the canvas but must not swallow pointer events that
+   belong to the scene — each interactive child re-enables them. */
+.ui-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  /* Fades out as the dossier rises, so the controls hand the screen over
+     instead of showing through the reading. Driven by `useScrollChrome`. */
+  opacity: var(--chrome, 1);
+  transition: opacity 0.18s linear;
+}
+
+/* Past the handover point the chrome is not merely invisible, it is gone: an
+   opacity-0 timeline would still swallow every click along the bottom edge. */
+.app.is-scrolled .ui-layer {
+  visibility: hidden;
+}
+
+.ui-layer > * {
+  pointer-events: auto;
+}
+
+/* ---- frosted surface ----
+   The highlight is painted with a background layer rather than
+   ::before/::after so it stays put inside scrollable containers (the nav bar
+   scrolls horizontally on narrow screens; a positioned pseudo-element would
+   scroll away with the content). */
+/* Note: no `position` here on purpose. `.glass` is mixed onto elements that
+   position themselves (the control cluster, the nav bar, the info panel), and
+   a `position: relative` here would win the cascade and drop them all into
+   normal flow. The lighting needs no stacking context anyway. */
+.glass {
+  background-color: var(--surface);
+  /* One faint highlight along the top lip and nothing else. The earlier
+     version stacked three gradients including a coloured bounce light, which
+     is what made the chrome look busy against a black scene.
+
+     The stops are in **pixels**, and that is the whole point. They were
+     percentages, which meant the highlight scaled with the box: on the 74px
+     keynote it faded out after 43px and read as a lip, exactly as intended,
+     but on the 415px layers panel the same rule ran the wash 240px down — more
+     than half the panel, fading so gradually that it read as a uniformly pale
+     fill rather than as an edge. Two boxes with identical `background-color`
+     and `backdrop-filter` therefore looked like different materials, and no
+     amount of adjusting either of those could have fixed it.
+
+     44px fixed keeps every surface's highlight the same physical size, so a
+     tall panel and a small card are lit the same way. */
+  background-image: linear-gradient(
+    180deg,
+    var(--sheen) 0px,
+    rgba(255, 255, 255, 0.02) 22px,
+    rgba(255, 255, 255, 0) 44px
+  );
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--hairline);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    var(--shadow);
+}
+
+/* Large surfaces drop the highlight entirely: a flat, near-opaque slab keeps
+   long-form text readable and lets the type carry the hierarchy. */
+.glass--calm {
+  background-image: none;
+  background-color: var(--panel-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    var(--shadow);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Nothing needed for the page glide: `scroll-behavior` is not set at all any
+     more (see the note beside `html` at the top of this file), and `glideTo`
+     checks this preference in JS and jumps instead. Neither the property nor the
+     rules above can reach a scroll driven from a rAF loop. */
+}
