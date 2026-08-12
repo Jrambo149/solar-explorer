@@ -286,6 +286,55 @@ export const useStore = create((set, get) => ({
   },
 
   /**
+   * Select a body, switching on whatever it takes to see it.
+   *
+   * `selectPlanet` assumes the body is already drawn, which is true of every
+   * caller that got the id from something on screen — a chip, a label, a click
+   * in the scene. Search is the first caller that does not: four of the six
+   * classes are off by default, and the whole point of typing a name is to
+   * reach something you cannot currently see.
+   *
+   * With the class switched off the failure is silent and total. The body is
+   * never mounted, so it never writes a position, so `armFlight` returns false
+   * every frame and the camera never moves — the title changes, the dossier
+   * opens, and the view sits exactly where it was.
+   *
+   * Up the whole parent chain, because `bodyShown` is recursive: reaching a
+   * moon of Pluto needs the dwarf planets on as well as the moons, and without
+   * that rule it would be selected, hidden, and collapsed onto the origin.
+   *
+   * One `set`, rather than a `toggleLayer` per class followed by a
+   * `selectPlanet`. `anchorMinorMoons` puts the swarm away whenever the lit
+   * host is neither the nav's nor the selection's, so a lit-then-select
+   * sequence would switch the minor moons on and straight back off again.
+   */
+  revealAndSelect: (id) => {
+    const body = BODIES_BY_ID[id]
+    if (!body) return
+    carryClockToMission(id)
+    set((s) => {
+      const layers = { ...s.layers }
+      for (let b = body; b; b = b.parent ? BODIES_BY_ID[b.parent] : null) {
+        if (b.kind === 'moon') {
+          if (b.tier === 'minor') layers.minorMoons = b.parent
+          else layers.moons = true
+        } else if (BODY_LAYERS[b.id]) layers[BODY_LAYERS[b.id]] = true
+        else if (b.kind === 'spacecraft') layers.spacecraft = true
+      }
+      const patch = {
+        layers,
+        selectedId: id,
+        systemId: null,
+        flightNonce: s.flightNonce + 1,
+      }
+      // The bar follows the selection anyway; setting the host here keeps the
+      // minor-moon anchor honest if the next action is a bare `toggleLayer`.
+      if (body.kind === 'moon' && body.tier === 'minor') patch.navHost = body.parent
+      return patch
+    })
+  },
+
+  /**
    * Pull back to frame everything orbiting `id`.
    *
    * Selects the parent as well, so the dossier and the title name the body the
@@ -598,6 +647,17 @@ export const useStore = create((set, get) => ({
    */
   eventsOpen: false,
   toggleEvents: () => set((s) => ({ eventsOpen: !s.eventsOpen })),
+
+  /**
+   * Whether the search palette is up.
+   *
+   * Not remembered the way the event filter is: a search is a question you have
+   * already had answered by the time it closes, and re-opening onto the last
+   * one would put a stale list between you and the scene.
+   */
+  searchOpen: false,
+  setSearchOpen: (searchOpen) => set({ searchOpen }),
+  toggleSearch: () => set((s) => ({ searchOpen: !s.searchOpen })),
   eventFilter: 'all',
   setEventFilter: (eventFilter) => set({ eventFilter }),
 

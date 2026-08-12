@@ -1,0 +1,184 @@
+/* Centred, and modal.
+
+   Every edge of this app is already spoken for — the header and breadcrumb top
+   left, the controls and layer panel top right, the nav dock bottom left, the
+   events chip and the timeline bottom right. There is no corner left to dock a
+   search box in, which turned out to be the right answer anyway: this is the
+   one control that takes the keyboard away from everything else while it is up,
+   and a thing that is modal should look modal. */
+.search {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  /* Not the default `stretch`: the cross axis of a row flex container is the
+     vertical one, so the card grew to the full height of the screen and the
+     seven results for "pho" floated in a slab six hundred pixels tall. */
+  align-items: flex-start;
+  /* High rather than centred: the results grow downward, and a list anchored to
+     the middle of the screen walks its own input upward as you type. */
+  padding-top: 14vh;
+}
+
+.search__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(4, 4, 6, 0.5);
+  cursor: default;
+  animation: search-scrim 0.18s var(--ease-out) both;
+}
+
+@keyframes search-scrim {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.search__card {
+  position: relative;
+  width: min(520px, calc(100vw - 44px));
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--panel-shadow);
+  animation: search-in 0.2s var(--ease-out) both;
+}
+
+@keyframes search-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- the field ---- */
+
+.search__field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  color: var(--text-faint);
+}
+
+.search__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.search__input:focus {
+  outline: none;
+}
+
+.search__input::placeholder {
+  color: var(--text-faint);
+}
+
+.search__kbd {
+  padding: 2px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+}
+
+/* ---- results ---- */
+
+.search__list {
+  margin: 0;
+  padding: 2px 4px 4px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--hairline);
+}
+
+.search__list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.search__list::-webkit-scrollbar-thumb {
+  border: 2.5px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  background-clip: content-box;
+}
+
+.search__row {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-family: var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* One highlight, driven by the arrow keys, and the mouse moves it rather than
+   painting a second one of its own. Two highlights on screen at once — one
+   under the pointer and one under the cursor — is the standard way this control
+   goes wrong, and Enter then does the thing you are not looking at. */
+.search__row.is-active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.search__mark {
+  color: var(--text-faint);
+  font-size: 9px;
+  text-align: center;
+}
+
+.search__name {
+  color: var(--text);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search__where {
+  color: var(--text-faint);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.search__empty {
+  padding: 12px 10px;
+  color: var(--text-faint);
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search__card,
+  .search__scrim {
+    animation: none;
+  }
+}

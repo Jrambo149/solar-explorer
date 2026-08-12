@@ -16,7 +16,7 @@ export default function Header() {
       <header className="header">
         <Breadcrumb />
         <p className="header__hint">
-          Drag to orbit · Right-drag to move · Scroll to zoom · Click a planet
+          Drag to orbit · Right-drag to move · Scroll to zoom · Click a planet · Press / to find one
         </p>
         {/* The Solar System Scope maps are CC BY 4.0, which requires visible
             attribution. This used to sit in the bottom-left corner; the

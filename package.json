@@ -20,8 +20,9 @@
     "postinstall": "node scripts/fetch-textures.mjs",
     "verify:bodies": "node scripts/verify-bodies.mjs",
     "verify:shaders": "node scripts/verify-shaders.mjs",
+    "verify:search": "node scripts/verify-search.mjs",
     "verify:framing": "node scripts/verify-framing.mjs",
-    "verify": "npm run verify:orbits && npm run verify:bodies && npm run verify:shaders && npm run verify:framing && npm run verify:spacecraft -- --offline",
+    "verify": "npm run verify:orbits && npm run verify:bodies && npm run verify:shaders && npm run verify:search && npm run verify:framing && npm run verify:spacecraft -- --offline",
     "fetch:reference": "node scripts/fetch-dwarf-reference.mjs",
     "model:sun": "/Applications/Blender.app/Contents/MacOS/Blender -b 'Models/the-sun_206072e0-d3aa-4765-9fd0-1dd1c59e2aff.blend' --python scripts/export-sun-model.py -- public/models/sun.glb",
     "model:nasa": "node scripts/prepare-nasa-model.mjs",
@@ -38,6 +39,7 @@
     "verify:wheel": "node scripts/verify-wheel.mjs",
     "verify:attitude": "node scripts/verify-attitude.mjs",
     "verify:nav": "node scripts/verify-nav.mjs",
+    "verify:goto": "node scripts/verify-goto.mjs",
     "verify:sky": "node scripts/verify-sky.mjs",
     "verify:markers": "node scripts/verify-markers.mjs",
     "verify:models": "node scripts/verify-models.mjs"

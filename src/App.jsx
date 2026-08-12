@@ -7,6 +7,7 @@ import Controls from './ui/Controls'
 import Timeline from './ui/Timeline'
 import LayerPanel from './ui/LayerPanel'
 import EventPanel from './ui/EventPanel'
+import SearchPalette from './ui/SearchPalette'
 import LabelLayer from './ui/LabelLayer'
 import Header from './ui/Header'
 import PlanetTitle from './ui/PlanetTitle'
@@ -96,6 +97,9 @@ export default function App() {
               <ScrollHint />
               <NavBar />
               <Timeline />
+              {/* Last, so it lays over everything else it takes the keyboard
+                  from. */}
+              <SearchPalette />
             </>
           )}
         </div>

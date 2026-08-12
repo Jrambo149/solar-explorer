@@ -45,6 +45,12 @@ const Icon = {
       <path d="M10.4 6.2l3.4 3.6M13.8 6.2l-3.4 3.6" />
     </svg>
   ),
+  search: (
+    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="M10.4 10.4L14.2 14.2" />
+    </svg>
+  ),
   back: (
     <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9.5 3.5L5 8l4.5 4.5" />
@@ -53,6 +59,8 @@ const Icon = {
 }
 
 export default function Controls() {
+  const searchOpen = useStore((s) => s.searchOpen)
+  const toggleSearch = useStore((s) => s.toggleSearch)
   const panelOpen = useStore((s) => s.panelOpen)
   const togglePanel = useStore((s) => s.togglePanel)
   const bloom = useStore((s) => s.bloom)
@@ -70,6 +78,14 @@ export default function Controls() {
           separate slabs — a single continuous surface is what makes it read
           as glass rather than as chrome. */}
       <div className="controls glass">
+        {/* First in the capsule because it is the only one that goes somewhere;
+            the other three change how the scene is drawn. The palette is
+            keyboard-first — `/` or ⌘K — and this is what makes it findable by
+            someone who never presses either. */}
+        <IconButton label="Find a body  ( / )" active={searchOpen} onClick={toggleSearch}>
+          {Icon.search}
+        </IconButton>
+
         <IconButton label="Layers and scale" active={panelOpen} onClick={togglePanel}>
           {Icon.layers}
         </IconButton>
