@@ -526,6 +526,8 @@ export default function Spacecraft({ craft }) {
        * second is far more distracting than either state.
        */
       show = showsModel.current ? px > MODEL_HIDE_PX : px > MODEL_SHOW_PX
+      // What the threshold is actually looking at, for the probe. Dev only.
+      if (import.meta.env.DEV) group.userData.modelPx = px
 
       /*
        * Warm it on the way in, before anything asks to draw it.
@@ -725,18 +727,34 @@ const VELOCITY_STEP_DAYS = 8 / 86400
  * How big a craft has to look before its mesh is drawn, as a screen radius in
  * pixels — and how much smaller it must get before the mesh is put away again.
  *
- * Six pixels of radius is twelve across, which is about where these models stop
- * being a shape and start being a smudge: below it the octahedron marker says
- * the same thing for one draw call instead of sixty. The gap up to eight is the
- * hysteresis, and it is wide enough to cover the jitter of a follow camera
- * without being wide enough to notice.
+ * These are small because the models are small, and the first pair of numbers
+ * here were not: eight pixels was picked from intuition and sat above anything
+ * anyone ever looks at, so parked at Mars the six craft in orbit around it were
+ * all chunky octahedra and the rovers on the ground were diamonds.
  *
- * Measured against the *model's* radius rather than the craft's true size,
- * because that is what is actually drawn — see `spacecraftModelRadius`, which
- * inflates a four-metre probe to something visible next to a planet.
+ * What the app actually draws, measured:
+ *
+ *   solar system overview   0.04 – 0.07 px   nothing legible, 50 craft
+ *   parked at Mars          1.67 – 5.13 px   the six local craft
+ *   parked at Earth         0.44 – 1.32 px   the fleet in near-Earth space
+ *
+ * The gap between "the view you are in" and "the whole solar system" is a
+ * factor of thirty, which is what makes a threshold work at all. One pixel of
+ * radius sits inside that gap with room either side: everything local to a
+ * planet you have flown to draws, and fifty craft scattered across the solar
+ * system — none of them so much as a tenth of a pixel — do not.
+ *
+ * Two pixels across is a smudge, and a smudge in the right shape is still what
+ * the picture wants: it is a spacecraft near a planet, not a diamond. The
+ * marker is for when there is nothing to see at all.
+ *
+ * Measured against the *model's* radius rather than the craft's true size or
+ * the marker's, because that is what is actually drawn — see
+ * `spacecraftModelRadius`, and the note beside `modelRadius` on why the marker
+ * is deliberately the larger of the two.
  */
-const MODEL_SHOW_PX = 8
-const MODEL_HIDE_PX = 6
+const MODEL_SHOW_PX = 1
+const MODEL_HIDE_PX = 0.7
 
 /**
  * Normalises a loaded scene to unit radius, scales it, orients it, and spins it.

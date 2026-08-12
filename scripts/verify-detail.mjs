@@ -82,6 +82,44 @@ try {
     (await page.evaluate(VISIBLE('marker:sc_cassini'))) === false,
   )
 
+  /* ---- at a planet, its own craft are craft ---- */
+
+  /*
+   * The case the first threshold got wrong, and the reason there is a number in
+   * this file at all.
+   *
+   * Eight pixels of radius was picked from intuition, and nothing anyone ever
+   * looks at is that big: parked at Mars, all six orbiters and both rovers came
+   * out as octahedra, so the planet with the most spacecraft around it of
+   * anywhere in the app showed not one of them. The overview looked right, the
+   * frame time looked right, and the feature was pointless.
+   *
+   * So the threshold is asserted where it bites — in a planet's own
+   * neighbourhood — rather than only at the two extremes where any value passes.
+   */
+  await page.evaluate(`window.__solar.state().revealAndSelect('mars')`)
+  await page.frames(320)
+
+  for (const id of [
+    'sc_mars_reconnaissance_orbiter',
+    'sc_mars_odyssey',
+    'sc_trace_gas_orbiter',
+    'sc_mars_express',
+    'sc_mars_science_laboratory',
+  ]) {
+    check(`parked at Mars, ${id} draws its mesh`, (await page.evaluate(VISIBLE(`spin:${id}`))) === true)
+  }
+
+  const atMars = await page.evaluate(STATS)
+  check(
+    'and Mars with its whole fleet still costs under 1200 calls',
+    atMars.calls < 1200,
+    `${atMars.calls} calls`,
+  )
+
+  await page.evaluate(`window.__solar.state().clearSelection()`)
+  await page.frames(300)
+
   /* ---- arrive, and the mesh takes over ---- */
 
   const CRAFT = 'sc_voyager_1'
