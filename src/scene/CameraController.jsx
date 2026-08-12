@@ -32,6 +32,7 @@ import {
   systemFramingDirection,
 } from './splitFraming'
 import { stepFlightHomeEased, stepFlightToPlanetEased, stepFollow } from './followMath'
+import { getAttitude } from './attitude'
 
 /**
  * How much of the frame a satellite system's full width should take up.
@@ -307,6 +308,16 @@ export default function CameraController() {
     () => new THREE.Vector3(...homeCameraPosition(scaleMode)),
     [scaleMode],
   )
+
+  /*
+   * The ride, in refs: which craft is being ridden, its attitude last frame,
+   * and scratch for the delta. Never rendered from — see the ride block in the
+   * frame loop.
+   */
+  const ridden = useRef(null)
+  const rideFrom = useRef(new THREE.Quaternion())
+  const rideDelta = useRef(new THREE.Quaternion())
+  const rideScratch = useRef(new THREE.Vector3())
 
   /** Live flight state. Refs only — none of this should cause a render. */
   const flight = useRef({
@@ -1026,6 +1037,50 @@ export default function CameraController() {
         lastFollow.current.copy(planetPos)
         following.current = planet.id
       }
+
+      /*
+       * --- Riding along ---
+       *
+       * A follow keeps the craft centred while the world stays the right way
+       * up. A ride keeps the *craft* the right way up: turn to point an
+       * instrument and the stars wheel past, which is the thing a spacecraft
+       * actually does and the one view this app could not show.
+       *
+       * The whole of it is one line of geometry — carry the camera through the
+       * craft's rotation as well as its translation. `stepFollow` already
+       * carries the translation, so riding is the same idea applied to the
+       * other half of a rigid motion: take the rotation the craft has made
+       * since the last frame, and apply it to the camera's offset from the
+       * craft and to the pivot's.
+       *
+       * Done as a *delta* rather than by rebuilding the offset in body
+       * coordinates every frame, so a drag stays exactly where the user left
+       * it. The camera keeps whatever angle they chose; it is the frame that
+       * angle is measured in that turns. OrbitControls never learns about any
+       * of this, which is why its damping and its zoom keep working.
+       */
+      const riding = useStore.getState().rideAlong
+      const attitude = riding ? getAttitude(planet.id) : null
+      if (attitude) {
+        if (ridden.current !== planet.id) {
+          // First frame of a ride: no rotation has happened yet, so seed the
+          // reference. Without this the camera would be swung by the craft's
+          // whole absolute attitude on the frame the ride is switched on.
+          rideFrom.current.copy(attitude)
+          ridden.current = planet.id
+        }
+        // delta = now * before⁻¹, the world rotation made since the last frame.
+        rideDelta.current.copy(rideFrom.current).invert().premultiply(attitude)
+        rideFrom.current.copy(attitude)
+
+        rideScratch.current.subVectors(camera.position, planetPos).applyQuaternion(rideDelta.current)
+        camera.position.addVectors(planetPos, rideScratch.current)
+        rideScratch.current.subVectors(controls.target, planetPos).applyQuaternion(rideDelta.current)
+        controls.target.addVectors(planetPos, rideScratch.current)
+      } else {
+        ridden.current = null
+      }
+
       stepFollow({
         cameraPos: camera.position,
         target: controls.target,
@@ -1099,7 +1154,17 @@ export default function CameraController() {
      * from.
      */
     const p = viewScroll.p
-    if (planet && planetPos && !flight.current.active) {
+    /*
+     * The split framing is suspended while riding.
+     *
+     * It rewrites `camera.position` from `controls.target` along its own
+     * direction and distance, which is exactly the thing a ride is holding on
+     * to: one scroll of the dossier and the camera would be yanked out to a
+     * framing distance and lose the craft's frame entirely. The dossier still
+     * opens and still slides the shot aside — that is `setViewOffset` in
+     * `Scene`, a projection shift, and it leaves the camera where it is.
+     */
+    if (planet && planetPos && !flight.current.active && ridden.current === null) {
       const offset = framingScratch.current.subVectors(camera.position, controls.target)
       const current = offset.length()
 

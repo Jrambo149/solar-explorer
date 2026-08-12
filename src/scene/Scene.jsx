@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
+import { spacecraftAttitudes } from './attitude'
 import { BODIES, bodyShown } from '../data/bodies'
 import { useClassLayers } from '../hooks/useClassLayers'
 import { cameraLimits, farPlane, homeCameraPosition, nearPlane } from '../orbit/frames'
@@ -75,11 +76,20 @@ function DevHandle() {
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === 'undefined' || !window.__solar) return undefined
-    Object.assign(window.__solar, { scene, gl, camera })
+    /*
+     * `three` and `attitudes` ride along with the renderer handles because
+     * every probe that asks a question about orientation needs both: the
+     * registry to read a craft's attitude, and the library to do arithmetic
+     * with what comes back. Building either by hand from the console is
+     * possible and tedious.
+     */
+    Object.assign(window.__solar, { scene, gl, camera, three: THREE, attitudes: spacecraftAttitudes })
     return () => {
       delete window.__solar.scene
       delete window.__solar.gl
       delete window.__solar.camera
+      delete window.__solar.three
+      delete window.__solar.attitudes
     }
   }, [scene, gl, camera])
 

@@ -269,6 +269,29 @@ export const useStore = create((set, get) => ({
    */
   systemId: null,
 
+  /**
+   * Riding along with the selected craft, rather than watching it go past.
+   *
+   * The difference is which frame the camera holds still in. Following a craft
+   * keeps it centred while the world stays the right way up; riding it holds
+   * the *craft* the right way up, so as it turns to point an instrument the
+   * stars and the planet wheel around you. That is the whole of what a
+   * ride-along is, and it is why this is a camera mode rather than a distance.
+   *
+   * Cleared by any change of selection, because it means nothing away from a
+   * spacecraft: there is no attitude to ride. Kept in the store rather than in
+   * the camera because the button that turns it on lives in the chrome.
+   */
+  rideAlong: false,
+  toggleRide: () =>
+    set((s) => {
+      const body = s.selectedId ? BODIES_BY_ID[s.selectedId] : null
+      if (!body || body.kind !== 'spacecraft') return { rideAlong: false }
+      return { rideAlong: !s.rideAlong, rideNonce: s.rideNonce + 1 }
+    }),
+  /** Bumped on every entry, so the camera re-seats even if it is already on. */
+  rideNonce: 0,
+
   selectPlanet: (id) => {
     // Before the selection lands, so the craft already exists on the frame the
     // camera controller arms its flight. See `carryClockToMission`.
@@ -279,6 +302,8 @@ export const useStore = create((set, get) => ({
         // same body: clicking Jupiter while framing its moons is a request to go
         // to Jupiter.
         systemId: null,
+        // And always leaves the ride: it belongs to the craft you were on.
+        rideAlong: false,
         ...(s.selectedId === id ? null : { selectedId: id }),
         flightNonce: s.flightNonce + 1,
       }),
@@ -325,6 +350,7 @@ export const useStore = create((set, get) => ({
         layers,
         selectedId: id,
         systemId: null,
+        rideAlong: false,
         flightNonce: s.flightNonce + 1,
       }
       // The bar follows the selection anyway; setting the host here keeps the
@@ -346,6 +372,7 @@ export const useStore = create((set, get) => ({
       anchorMinorMoons(s, {
         selectedId: id,
         systemId: id,
+        rideAlong: false,
         flightNonce: s.flightNonce + 1,
       }),
     ),
@@ -357,6 +384,7 @@ export const useStore = create((set, get) => ({
         releaseView({
           selectedId: null,
           systemId: null,
+          rideAlong: false,
           flightNonce: s.flightNonce + 1,
         }),
       ),

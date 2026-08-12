@@ -9,7 +9,12 @@ import { elementPositionAt, elementsCover, elementsFor } from '../orbit/spacecra
 import { planetPositions, simClock, useStore } from '../store/useStore'
 import { satelliteClearance } from './satelliteFrame'
 import { SPACECRAFT_ATTITUDE } from '../data/spacecraftAttitude'
-import { aimQuaternion } from './attitude'
+import {
+  aimQuaternion,
+  clearAttitude,
+  frameFromVelocity,
+  publishAttitude,
+} from './attitude'
 import { eclipticToWorld } from '../orbit/kepler'
 import { spacecraftHeliocentric, spacecraftModelRadius, spacecraftOffset } from './spacecraftFrame'
 import {
@@ -115,6 +120,8 @@ export default function Spacecraft({ craft }) {
   const showsModel = useRef(false)
   /** Whether this craft's mesh has been handed to the GPU yet. */
   const warmed = useRef(false)
+  /** Scratch for the published attitude; see `publishAttitude`. */
+  const frame = useRef(new THREE.Quaternion())
 
   /*
    * Which frame the craft is in, mirrored into React state.
@@ -174,6 +181,26 @@ export default function Spacecraft({ craft }) {
   // Only thirteen craft need a velocity; the rest should not pay for one.
   const aimsAtVelocity =
     attitude?.align?.primary?.type === 'velocity' || attitude?.align?.secondary?.type === 'velocity'
+
+  /*
+   * Whether this craft is genuinely oriented, or merely drawn in whatever
+   * attitude its modeller authored.
+   *
+   * Thirty-eight of the fifty have an `align` rule and are solved from it;
+   * the rest carry at most a fixed axis correction, which is a *constant*
+   * quaternion — so publishing it as an attitude would tell the ride-along
+   * camera the craft never turns, and the ride would sit perfectly still while
+   * the craft rounded a planet.
+   *
+   * This decides which of the two publishers owns the registry entry for this
+   * craft: with rules, `ModelInstance` writes the solved pointing; without,
+   * the frame loop below writes one built from the heading. Exactly one of
+   * them, because they run at the same priority and the order within a
+   * priority is mount order — which puts the *child* first, so "publish a
+   * fallback and let the real one overwrite it" quietly did the opposite. That
+   * is what made every craft's attitude read as identity.
+   */
+  const hasPointing = !!(attitude?.align || attitude?.spin)
 
   /*
    * The mesh, fetched as soon as the craft is drawn.
@@ -237,7 +264,10 @@ export default function Spacecraft({ craft }) {
    * and the camera both read the registry, not the scene graph, so neither
    * would notice the component had gone.
    */
-  useEffect(() => () => planetPositions.delete(id), [id])
+  useEffect(() => () => {
+    planetPositions.delete(id)
+    clearAttitude(id)
+  }, [id])
 
   const radius = bodyRadius(craft, scaleMode)
 
@@ -436,7 +466,20 @@ export default function Spacecraft({ craft }) {
      * 0.1% of the fastest orbit drawn and still four orders of magnitude above
      * the noise.
      */
-    if (aimsAtVelocity) {
+    /*
+     * The ride's fallback frame needs a heading, and only the craft you are at
+     * needs one — a second ephemeris evaluation per frame is worth paying for
+     * one craft and not for fifty.
+     *
+     * Keyed on the selection rather than on the ride being *on*, so the frame
+     * is already there when the ride is switched on. Waiting for the ride made
+     * the registry empty at the moment the camera first asked for it, which
+     * costs a frame and, worse, makes "is there an attitude for this craft"
+     * depend on the answer to "are we riding it" — two questions that should
+     * not be able to disagree.
+     */
+    const needsHeading = !hasPointing && isSelected(id)
+    if (aimsAtVelocity || needsHeading) {
       let ahead = null
       if (elements && elementsCover(elements, jd + VELOCITY_STEP_DAYS)) {
         elementPositionAt(elements, jd + VELOCITY_STEP_DAYS, aheadLocal.current)
@@ -512,6 +555,22 @@ export default function Spacecraft({ craft }) {
   useFrame((state) => {
     const group = groupRef.current
     if (!group || !markerRef.current) return
+
+    /*
+     * The baseline attitude: where the craft is going.
+     *
+     * `ModelInstance` publishes the solved pointing over the top of this, and
+     * it runs after this callback — same priority, later mount. So a craft
+     * whose mesh is being drawn rides on its real attitude, and one that is
+     * only a marker, or one of the twelve with no pointing rules at all, still
+     * has a frame to ride rather than nothing.
+     */
+    if (!group.visible) clearAttitude(id)
+    else if (!hasPointing) {
+      if (velocity.current.lengthSq() > 0) {
+        publishAttitude(id, frameFromVelocity(velocity.current, frame.current))
+      } else clearAttitude(id)
+    }
 
     let show = false
     if (modelRef.current && group.visible) {
@@ -606,6 +665,7 @@ export default function Spacecraft({ craft }) {
             worldPos={worldPos}
             velocity={velocity}
             live={showsModel}
+            hasPointing={hasPointing}
             onSelect={() => selectPlanet(id)}
             name={name}
           />
@@ -720,6 +780,10 @@ const ORIGIN = new THREE.Vector3(0, 0, 0)
  */
 const SPIN_MAX_DEG_PER_FRAME = 20
 
+/** Is this the craft the camera is parked at? Read per frame, so from the
+ *  store's own copy rather than through a subscription. */
+const isSelected = (id) => useStore.getState().selectedId === id
+
 /** The step used to differentiate position into velocity. Eight seconds. */
 const VELOCITY_STEP_DAYS = 8 / 86400
 
@@ -770,11 +834,22 @@ const MODEL_HIDE_PX = 0.7
  * them in and the only one where a spin axis given as "Y" means the craft's Y
  * rather than the modeller's.
  */
-function ModelInstance({ object, radius, attitude, id, worldPos, velocity, live, onSelect }) {
+function ModelInstance({
+  object,
+  radius,
+  attitude,
+  id,
+  worldPos,
+  velocity,
+  live,
+  hasPointing,
+  onSelect,
+}) {
   const ref = useRef(null)
   const spinRef = useRef(null)
   const aim = useRef(new THREE.Quaternion())
   const composed = useRef(new THREE.Quaternion())
+  const world = useRef(new THREE.Quaternion())
   const spinQuat = useRef(new THREE.Quaternion())
   const primaryDir = useRef(new THREE.Vector3())
   const secondaryDir = useRef(new THREE.Vector3())
@@ -861,6 +936,18 @@ function ModelInstance({ object, radius, attitude, id, worldPos, velocity, live,
      * they disagree, this is the line to revisit.
      */
     spinRef.current.quaternion.copy(composed.current.copy(solved).multiply(spinQuat.current))
+
+    /*
+     * Published for anything that needs to know where the craft is *pointing*
+     * rather than merely how to draw it — today, the ride-along camera.
+     *
+     * The world quaternion rather than this group's own, and the difference is
+     * load-bearing for the rovers: their orientation is the planet's spin and
+     * their latitude, carried on a group two levels up, and reading the local
+     * value would have a rover on Mars facing whatever direction it faced at
+     * the moment it landed.
+     */
+    if (hasPointing) publishAttitude(id, spinRef.current.getWorldQuaternion(world.current))
   }, framePriority.SPACECRAFT_ATTITUDE)
 
   return (
