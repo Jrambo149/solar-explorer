@@ -100,6 +100,23 @@ export default function Spacecraft({ craft }) {
   const aheadOffset = useRef({ x: 0, y: 0, z: 0 })
 
   /*
+   * The two meshes, and which of them is currently drawn.
+   *
+   * Held as refs and switched inside the frame loop rather than as React state,
+   * because the answer changes with the camera — every wheel notch, every frame
+   * of a flight — and a state write per craft per frame would re-render fifty
+   * components sixty times a second to change one boolean.
+   *
+   * `showsModel` starts false so a craft that mounts far away never pays for
+   * its model on the first frame.
+   */
+  const markerRef = useRef(null)
+  const modelRef = useRef(null)
+  const showsModel = useRef(false)
+  /** Whether this craft's mesh has been handed to the GPU yet. */
+  const warmed = useRef(false)
+
+  /*
    * Which frame the craft is in, mirrored into React state.
    *
    * Only so the *model* can be sized in that frame's own units — see
@@ -466,6 +483,80 @@ export default function Spacecraft({ craft }) {
     registry.set(x, y, z)
   }, framePriority.SPACECRAFT)
 
+  /**
+   * Draw the model only when it is big enough to be worth drawing.
+   *
+   * The fleet costs about sixty draw calls a craft — these are Eyes' own
+   * meshes, with a material per antenna and a texture per panel — and until
+   * now every one of the fifty was drawn in full whatever its size on screen.
+   * Switching the layer on took the scene from 99 draw calls to 3,069 and from
+   * 733,000 triangles to 3.2 million, which is 16.7 ms a frame becoming 25.7:
+   * sixty fps to thirty-nine, for objects that are mostly two pixels across.
+   *
+   * A marker is what a two-pixel craft *should* be, and one already exists —
+   * the app just never stopped drawing the mesh behind it. So this is a
+   * threshold rather than a new mechanism: below it the octahedron, above it
+   * the real thing.
+   *
+   * `visible = false` on the wrapper rather than unmounting. Three skips a
+   * hidden object and its whole subtree before it reaches the render list, so
+   * the draw calls go without the model being torn down and rebuilt every time
+   * the camera drifts across the threshold — and the GPU upload, which is the
+   * expensive part, has already happened.
+   *
+   * Its own callback rather than a tail on the placement loop above, because
+   * that loop returns early on six different paths — landed, ended, no frame
+   * body, not flying — and a rule that has to be remembered at each of them
+   * would eventually be forgotten at one.
+   */
+  useFrame((state) => {
+    const group = groupRef.current
+    if (!group || !markerRef.current) return
+
+    let show = false
+    if (modelRef.current && group.visible) {
+      const distance = state.camera.position.distanceTo(worldPos.current)
+      const focalPx = state.size.height / (2 * Math.tan((state.camera.fov * Math.PI) / 360))
+      const px = (modelRadius / distance) * focalPx
+      /*
+       * Hysteresis, not one threshold. A craft sitting exactly at the boundary
+       * — which is what a craft you have just flown to and stopped at does —
+       * would otherwise flip between mesh and marker on the sub-pixel jitter of
+       * the follow camera, and a model appearing and vanishing sixty times a
+       * second is far more distracting than either state.
+       */
+      show = showsModel.current ? px > MODEL_HIDE_PX : px > MODEL_SHOW_PX
+
+      /*
+       * Warm it on the way in, before anything asks to draw it.
+       *
+       * The saving above has a cost: a mesh that is never drawn is never
+       * uploaded, so the whole of that work — vertex buffers, textures, shader
+       * variants — now lands on the single frame the craft crosses the
+       * threshold. Measured at 164 ms arriving at Juno, 120 at Parker: one
+       * visible hitch exactly when the camera is still moving.
+       *
+       * `compileAsync` does the same work off the critical path and resolves
+       * when the GPU has it. Once per craft, on the earlier of two triggers:
+       * being selected, which gives the whole two-second flight to get ready,
+       * and getting within three times the threshold, which is what covers a
+       * craft you merely zoomed towards. Size alone was not enough — the
+       * approach crosses those last few pixels in a handful of frames, and the
+       * warm had barely started when the mesh was wanted.
+       */
+      if (!warmed.current && (px > MODEL_SHOW_PX / 3 || useStore.getState().selectedId === id)) {
+        warmed.current = true
+        state.gl.compileAsync(modelRef.current, state.camera, state.scene)
+      }
+    }
+
+    if (show !== showsModel.current) {
+      showsModel.current = show
+      modelRef.current.visible = show
+      markerRef.current.visible = !show
+    }
+  }, framePriority.SPACECRAFT_ATTITUDE)
+
   return (
     <group ref={groupRef}>
       {/*
@@ -479,7 +570,10 @@ export default function Spacecraft({ craft }) {
         moment it arrives.
       */}
       <mesh
-        visible={!instance}
+        ref={markerRef}
+        /* Named for the same reason the spin and axis groups are: so a probe
+           can ask which of the two meshes is on screen. */
+        name={`marker:${id}`}
         onClick={(event) => {
           if (wasDragged()) return
           event.stopPropagation()
@@ -498,17 +592,22 @@ export default function Spacecraft({ craft }) {
         done here instead because these files ship exactly as Eyes authored
         them, at Eyes' own scale, and are not rewritten.
       */}
+      {/* Hidden until the gate above says otherwise, so a craft that mounts far
+          away never draws its mesh even once. */}
       {instance && (
-        <ModelInstance
-          object={instance}
-          radius={modelRadius}
-          attitude={attitude}
-          id={id}
-          worldPos={worldPos}
-          velocity={velocity}
-          onSelect={() => selectPlanet(id)}
-          name={name}
-        />
+        <group ref={modelRef} visible={false}>
+          <ModelInstance
+            object={instance}
+            radius={modelRadius}
+            attitude={attitude}
+            id={id}
+            worldPos={worldPos}
+            velocity={velocity}
+            live={showsModel}
+            onSelect={() => selectPlanet(id)}
+            name={name}
+          />
+        </group>
       )}
     </group>
   )
@@ -623,6 +722,23 @@ const SPIN_MAX_DEG_PER_FRAME = 20
 const VELOCITY_STEP_DAYS = 8 / 86400
 
 /**
+ * How big a craft has to look before its mesh is drawn, as a screen radius in
+ * pixels — and how much smaller it must get before the mesh is put away again.
+ *
+ * Six pixels of radius is twelve across, which is about where these models stop
+ * being a shape and start being a smudge: below it the octahedron marker says
+ * the same thing for one draw call instead of sixty. The gap up to eight is the
+ * hysteresis, and it is wide enough to cover the jitter of a follow camera
+ * without being wide enough to notice.
+ *
+ * Measured against the *model's* radius rather than the craft's true size,
+ * because that is what is actually drawn — see `spacecraftModelRadius`, which
+ * inflates a four-metre probe to something visible next to a planet.
+ */
+const MODEL_SHOW_PX = 8
+const MODEL_HIDE_PX = 6
+
+/**
  * Normalises a loaded scene to unit radius, scales it, orients it, and spins it.
  *
  * The bounding sphere is measured once, on mount, rather than every frame: it
@@ -636,7 +752,7 @@ const VELOCITY_STEP_DAYS = 8 / 86400
  * them in and the only one where a spin axis given as "Y" means the craft's Y
  * rather than the modeller's.
  */
-function ModelInstance({ object, radius, attitude, id, worldPos, velocity, onSelect }) {
+function ModelInstance({ object, radius, attitude, id, worldPos, velocity, live, onSelect }) {
   const ref = useRef(null)
   const spinRef = useRef(null)
   const aim = useRef(new THREE.Quaternion())
@@ -662,6 +778,22 @@ function ModelInstance({ object, radius, attitude, id, worldPos, velocity, onSel
 
   useFrame(() => {
     if (!spinRef.current) return
+    /*
+     * Nothing to orient while the marker is standing in for the mesh.
+     *
+     * The saving is not the quaternion algebra, which is cheap; it is the two
+     * `resolve` calls behind it, each a registry lookup and a normalise, run
+     * fifty times a frame to point a model that is not being drawn.
+     *
+     * The spin clock is reset rather than carried, so the craft does not
+     * integrate a turn across the whole time it was away and snap to a new
+     * phase the moment it reappears — see the note on `SPIN_MAX_DEG_PER_FRAME`
+     * for why absolute phase is not preserved anyway.
+     */
+    if (live && !live.current) {
+      spin.current.jd = null
+      return
+    }
     const jd = simClock.jd
 
     /* ---- spin ---- */
