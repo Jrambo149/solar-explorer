@@ -6,6 +6,7 @@ import NavBar from './ui/NavBar'
 import Controls from './ui/Controls'
 import Timeline from './ui/Timeline'
 import LayerPanel from './ui/LayerPanel'
+import EventPanel from './ui/EventPanel'
 import LabelLayer from './ui/LabelLayer'
 import Header from './ui/Header'
 import PlanetTitle from './ui/PlanetTitle'
@@ -90,6 +91,7 @@ export default function App() {
               <PlanetTitle />
               <Controls />
               <LayerPanel />
+              <EventPanel />
               <LabelLayer />
               <ScrollHint />
               <NavBar />

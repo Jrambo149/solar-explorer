@@ -25,9 +25,11 @@
  * hours while taking 38 days to go round. Deriving their spin from their orbit
  * would state something known to be false.
  *
- * `axialTilt` is absent throughout. A moon is drawn inside its parent's tilt
- * group, already inclined with the planet, and its own obliquity to its orbit is
- * under a degree for every one of them.
+ * `axialTilt` is absent for all but the Moon. A moon is drawn inside its
+ * parent's frame, already inclined with the planet, and its own obliquity to
+ * its orbit is under a degree for every one of them — except ours, which is
+ * 6.68° and is the only moon here with a published IAU pole, so it is the only
+ * one whose tilt the scene actually orients from and the dossier prints.
  */
 export const MOONS_RAW = [
   {
@@ -36,6 +38,10 @@ export const MOONS_RAW = [
     parent: 'earth',
     color: '#a8a29a',
     radiusKm: 1737.4,
+    // To its own orbit, the convention this repo uses throughout. Quoted
+    // against the ecliptic instead it is 1.54°, which is the figure most
+    // often printed and the one that makes the Moon sound untilted.
+    axialTilt: 6.68,
     diameter: '3,475 km',
     mass: '7.35 × 10²² kg (0.0123 Earth)',
     distance: '384,400 km from Earth',
@@ -43,14 +49,14 @@ export const MOONS_RAW = [
     temperature: '−173 °C to 127 °C',
     atmosphere: 'Effectively none — a trace exosphere of helium, neon and argon',
     description:
-      'The only world beyond Earth that humans have stood on, and by far the largest moon relative to its planet. It stabilises Earth\'s tilt, drives the tides, and is slowly drifting away at about 3.8 cm a year.',
+      "The only world beyond Earth that humans have stood on, and by far the largest moon relative to its planet. It stabilises Earth's tilt, drives the tides, and is slowly drifting away at about 3.8 cm a year.",
     facts: [
       'It is tidally locked, so the same face has looked at Earth for billions of years.',
       'It almost certainly formed from debris thrown off when a Mars-sized body struck the early Earth.',
       'The dark maria are ancient basalt floods — vast lava plains, not seas.',
     ],
     nasaLinks: [
-      { label: 'NASA — Earth\'s Moon', url: 'https://science.nasa.gov/moon/' },
+      { label: "NASA — Earth's Moon", url: 'https://science.nasa.gov/moon/' },
       { label: 'NASA — Artemis', url: 'https://science.nasa.gov/artemis/' },
     ],
   },
@@ -73,9 +79,7 @@ export const MOONS_RAW = [
       'Stickney, its largest crater, is 9 km across on a moon only 22 km wide — the impact nearly destroyed it.',
       'It is drawn here as a sphere, which is generous: Phobos is far too small for gravity to have rounded it.',
     ],
-    nasaLinks: [
-      { label: 'NASA — Phobos', url: 'https://science.nasa.gov/mars/moons/phobos/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Phobos', url: 'https://science.nasa.gov/mars/moons/phobos/' }],
   },
   {
     id: 'deimos',
@@ -90,15 +94,13 @@ export const MOONS_RAW = [
     temperature: '−40 °C (average)',
     atmosphere: 'None',
     description:
-      'The smaller and further of Mars\'s two moons, and the smaller of any moon in the solar system with a name most people have heard. From the Martian surface it would look like a bright star, not a disc.',
+      "The smaller and further of Mars's two moons, and the smaller of any moon in the solar system with a name most people have heard. From the Martian surface it would look like a bright star, not a disc.",
     facts: [
-      'Its surface is smoother than Phobos\'s — a blanket of dust has partly buried its craters.',
+      "Its surface is smoother than Phobos's — a blanket of dust has partly buried its craters.",
       'Unlike Phobos it is slowly moving away from Mars rather than falling in.',
       'Phobos and Deimos are named for the Greek personifications of fear and dread, the sons of Ares.',
     ],
-    nasaLinks: [
-      { label: 'NASA — Deimos', url: 'https://science.nasa.gov/mars/moons/deimos/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Deimos', url: 'https://science.nasa.gov/mars/moons/deimos/' }],
   },
   {
     id: 'io',
@@ -113,15 +115,13 @@ export const MOONS_RAW = [
     temperature: '−143 °C, with volcanic hotspots above 1,300 °C',
     atmosphere: 'A thin, patchy sulphur dioxide atmosphere fed by the volcanoes',
     description:
-      'The most volcanically active body in the solar system. Squeezed between Jupiter\'s gravity and the pull of Europa and Ganymede, Io\'s interior is kneaded until it melts, and hundreds of volcanoes throw sulphur plumes 300 km into space.',
+      "The most volcanically active body in the solar system. Squeezed between Jupiter's gravity and the pull of Europa and Ganymede, Io's interior is kneaded until it melts, and hundreds of volcanoes throw sulphur plumes 300 km into space.",
     facts: [
       'It resurfaces itself so fast that it has essentially no impact craters.',
       'Its volcanoes feed a doughnut of charged particles around Jupiter called the Io plasma torus.',
       'Io, Europa and Ganymede are locked in a 4:2:1 orbital resonance — for every Ganymede orbit, Io makes exactly four.',
     ],
-    nasaLinks: [
-      { label: 'NASA — Io', url: 'https://science.nasa.gov/jupiter/moons/io/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Io', url: 'https://science.nasa.gov/jupiter/moons/io/' }],
   },
   {
     id: 'europa',
@@ -136,7 +136,7 @@ export const MOONS_RAW = [
     temperature: '−160 °C at the equator',
     atmosphere: 'A tenuous oxygen atmosphere, produced by radiation splitting surface ice',
     description:
-      'A shell of water ice wrapped around a salt-water ocean holding perhaps twice as much liquid water as all of Earth\'s. It is one of the most promising places in the solar system to look for life.',
+      "A shell of water ice wrapped around a salt-water ocean holding perhaps twice as much liquid water as all of Earth's. It is one of the most promising places in the solar system to look for life.",
     facts: [
       'Its surface is the smoothest of any solid body known — the ice is young and constantly renewed.',
       'The dark cracks criss-crossing it are fractures where the shell has pulled apart and refrozen.',
@@ -209,12 +209,10 @@ export const MOONS_RAW = [
       'The smallest body in the solar system known to have been pulled round by its own gravity, and the owner of the most disproportionate crater anywhere: Herschel is 130 km across on a moon only 396 km wide, a third of its diameter.',
     facts: [
       'The impact that made Herschel came close to shattering it — fractures on the far side line up with the shock passing through.',
-      'Ring particles in the Cassini Division circle Saturn twice for every one of Mimas\'s orbits, and that 2:1 resonance is what keeps the 4,800 km gap swept clear.',
-      'Cassini\'s final orbits found a wobble in its rotation best explained by a young ocean beneath the ice, which nobody expected of a moon this small.',
+      "Ring particles in the Cassini Division circle Saturn twice for every one of Mimas's orbits, and that 2:1 resonance is what keeps the 4,800 km gap swept clear.",
+      "Cassini's final orbits found a wobble in its rotation best explained by a young ocean beneath the ice, which nobody expected of a moon this small.",
     ],
-    nasaLinks: [
-      { label: 'NASA — Mimas', url: 'https://science.nasa.gov/saturn/moons/mimas/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Mimas', url: 'https://science.nasa.gov/saturn/moons/mimas/' }],
   },
   {
     id: 'enceladus',
@@ -231,7 +229,7 @@ export const MOONS_RAW = [
     description:
       'A moon small enough to fit inside the British Isles, venting water from a global ocean through cracks at its south pole. Cassini flew through those plumes and tasted salt, silica and organic molecules.',
     facts: [
-      'Its plumes escape into orbit and are the entire source of Saturn\'s broad, diffuse E ring.',
+      "Its plumes escape into orbit and are the entire source of Saturn's broad, diffuse E ring.",
       'It reflects about 90% of the sunlight reaching it, making it the most reflective body in the solar system — and one of the coldest.',
       'The chemistry in the plumes points to hot water meeting rock on the ocean floor.',
     ],
@@ -255,12 +253,10 @@ export const MOONS_RAW = [
       'Almost pure water ice — its density is barely more than water itself, so there is very little rock inside. Two features dominate it: a crater two fifths of its width, and a canyon that runs most of the way around it.',
     facts: [
       'Odysseus is 450 km across on a moon 1,062 km wide; its floor has since sagged back upward, flattening the basin.',
-      'Ithaca Chasma is 2,000 km long and up to 100 km wide — the moon\'s ice shell cracking as its interior froze and expanded.',
-      'It is one of the most reflective bodies in the solar system, continuously sandblasted clean by ice from Enceladus\'s plumes.',
+      "Ithaca Chasma is 2,000 km long and up to 100 km wide — the moon's ice shell cracking as its interior froze and expanded.",
+      "It is one of the most reflective bodies in the solar system, continuously sandblasted clean by ice from Enceladus's plumes.",
     ],
-    nasaLinks: [
-      { label: 'NASA — Tethys', url: 'https://science.nasa.gov/saturn/moons/tethys/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Tethys', url: 'https://science.nasa.gov/saturn/moons/tethys/' }],
   },
   {
     id: 'dione',
@@ -281,9 +277,7 @@ export const MOONS_RAW = [
       'It has more craters on its trailing hemisphere than its leading one — the opposite of what orbital motion predicts, so it was probably spun around by a large impact.',
       'Two small moons, Helene and Polydeuces, ride 60° ahead of and behind it in its orbit.',
     ],
-    nasaLinks: [
-      { label: 'NASA — Dione', url: 'https://science.nasa.gov/saturn/moons/dione/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Dione', url: 'https://science.nasa.gov/saturn/moons/dione/' }],
   },
   {
     id: 'rhea',
@@ -298,15 +292,13 @@ export const MOONS_RAW = [
     temperature: '−174 °C in sunlight, −220 °C in shadow',
     atmosphere: 'A tenuous oxygen and carbon dioxide exosphere',
     description:
-      'Saturn\'s second largest moon, and three quarters water ice by mass. An old, quiet, heavily cratered world with bright fracture walls cutting across it — the same kind of ice cliffs as Dione\'s, on a larger body.',
+      "Saturn's second largest moon, and three quarters water ice by mass. An old, quiet, heavily cratered world with bright fracture walls cutting across it — the same kind of ice cliffs as Dione's, on a larger body.",
     facts: [
       'Cassini detected oxygen and carbon dioxide around it, the first time an oxygen atmosphere was found at an icy moon.',
       'For a while it was thought to have its own ring system; a dedicated search found nothing, and the idea was withdrawn.',
       'It is so lightly bound that a rock thrown hard enough by hand could, in principle, be put into orbit around it.',
     ],
-    nasaLinks: [
-      { label: 'NASA — Rhea', url: 'https://science.nasa.gov/saturn/moons/rhea/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Rhea', url: 'https://science.nasa.gov/saturn/moons/rhea/' }],
   },
   {
     id: 'titan',
@@ -319,11 +311,11 @@ export const MOONS_RAW = [
     distance: '1,221,900 km from Saturn',
     yearLength: '15.95 days per orbit',
     temperature: '−179 °C',
-    atmosphere: '95% nitrogen, 5% methane — denser at the surface than Earth\'s',
+    atmosphere: "95% nitrogen, 5% methane — denser at the surface than Earth's",
     description:
       'The only moon with a substantial atmosphere, and the only world besides Earth with standing liquid on its surface: lakes and seas of methane and ethane, fed by rain, feeding rivers that carve valleys.',
     facts: [
-      'Surface pressure is 1.5 times Earth\'s, and the air is so thick and gravity so low that a person could fly by flapping strapped-on wings.',
+      "Surface pressure is 1.5 times Earth's, and the air is so thick and gravity so low that a person could fly by flapping strapped-on wings.",
       'Huygens landed there in 2005 — still the most distant landing ever made.',
       'Its haze is so opaque that its surface was not seen until radar and infrared cut through it.',
     ],
@@ -351,9 +343,7 @@ export const MOONS_RAW = [
       'That dust almost certainly comes from Phoebe, an outer moon orbiting backwards far beyond it.',
       'Its orbit is tilted 15.5° and lies far outside the rings, so it is the only large Saturnian moon from which the rings can be seen at an angle rather than edge-on.',
     ],
-    nasaLinks: [
-      { label: 'NASA — Iapetus', url: 'https://science.nasa.gov/saturn/moons/iapetus/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Iapetus', url: 'https://science.nasa.gov/saturn/moons/iapetus/' }],
   },
   {
     id: 'miranda',
@@ -374,9 +364,7 @@ export const MOONS_RAW = [
       'It may have been broken apart and gravitationally reassembled, or heated by a tidal resonance it has since fallen out of.',
       'Voyager 2 saw only its southern hemisphere. The rest has never been photographed.',
     ],
-    nasaLinks: [
-      { label: 'NASA — Miranda', url: 'https://science.nasa.gov/uranus/moons/miranda/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Miranda', url: 'https://science.nasa.gov/uranus/moons/miranda/' }],
   },
   {
     id: 'ariel',
@@ -391,15 +379,13 @@ export const MOONS_RAW = [
     temperature: '−213 °C (average)',
     atmosphere: 'None',
     description:
-      'The brightest of Uranus\'s moons and the youngest-looking: its craters have been partly erased by something flowing across the surface, and broad rift valleys have floors that look flooded rather than fractured.',
+      "The brightest of Uranus's moons and the youngest-looking: its craters have been partly erased by something flowing across the surface, and broad rift valleys have floors that look flooded rather than fractured.",
     facts: [
       'Whatever resurfaced it was probably an ammonia-water mixture, which stays soft at temperatures where pure ice is rigid rock.',
-      'Carbon dioxide frost has been detected on its trailing side, concentrated where Uranus\'s magnetosphere sweeps across it.',
+      "Carbon dioxide frost has been detected on its trailing side, concentrated where Uranus's magnetosphere sweeps across it.",
       'It reflects about a third of the light that reaches it — twice as much as Umbriel, its near-twin in size.',
     ],
-    nasaLinks: [
-      { label: 'NASA — Ariel', url: 'https://science.nasa.gov/uranus/moons/ariel/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Ariel', url: 'https://science.nasa.gov/uranus/moons/ariel/' }],
   },
   {
     id: 'umbriel',
@@ -418,11 +404,9 @@ export const MOONS_RAW = [
     facts: [
       'One bright ring stands out on an otherwise featureless dark surface — the floor of the crater Wunda, made of something nobody has identified.',
       'Why it is so much darker than its neighbours is unresolved; it may simply never have had the internal warmth to resurface itself.',
-      'Its uniform greyness makes it useful: it is the reference against which the other moons\' brightness variations are measured.',
+      "Its uniform greyness makes it useful: it is the reference against which the other moons' brightness variations are measured.",
     ],
-    nasaLinks: [
-      { label: 'NASA — Umbriel', url: 'https://science.nasa.gov/uranus/moons/umbriel/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Umbriel', url: 'https://science.nasa.gov/uranus/moons/umbriel/' }],
   },
   {
     id: 'titania',
@@ -437,15 +421,13 @@ export const MOONS_RAW = [
     temperature: '−203 °C (average)',
     atmosphere: 'Possibly a seasonal trace of carbon dioxide',
     description:
-      'The largest of Uranus\'s moons and the eighth largest in the solar system. Its surface is cut by a system of enormous fault canyons, one of them nearly as long as the moon\'s own circumference.',
+      "The largest of Uranus's moons and the eighth largest in the solar system. Its surface is cut by a system of enormous fault canyons, one of them nearly as long as the moon's own circumference.",
     facts: [
       'Messina Chasma runs about 1,500 km from near the equator to well south — a rift opened as the interior froze and expanded.',
       'It has fewer large craters than Oberon, so something resurfaced it after the heaviest bombardment ended.',
       'Models allow a liquid ocean at its rock-ice boundary, kept from freezing by ammonia rather than heat.',
     ],
-    nasaLinks: [
-      { label: 'NASA — Titania', url: 'https://science.nasa.gov/uranus/moons/titania/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Titania', url: 'https://science.nasa.gov/uranus/moons/titania/' }],
   },
   {
     id: 'oberon',
@@ -463,12 +445,10 @@ export const MOONS_RAW = [
       'The outermost of the five large Uranian moons, and the most heavily cratered. Many of its crater floors hold dark deposits of unknown material, as though something rose from below and pooled in the low ground.',
     facts: [
       'Voyager 2 caught a mountain about 11 km high in silhouette on its limb, which is why we know it is there at all.',
-      'It orbits far enough out to spend part of each Uranian year outside the planet\'s magnetosphere.',
-      'It and Titania are close enough in size and colour to be near-twins, but Oberon\'s surface is far older.',
+      "It orbits far enough out to spend part of each Uranian year outside the planet's magnetosphere.",
+      "It and Titania are close enough in size and colour to be near-twins, but Oberon's surface is far older.",
     ],
-    nasaLinks: [
-      { label: 'NASA — Oberon', url: 'https://science.nasa.gov/uranus/moons/oberon/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Oberon', url: 'https://science.nasa.gov/uranus/moons/oberon/' }],
   },
   {
     id: 'triton',
@@ -483,15 +463,13 @@ export const MOONS_RAW = [
     temperature: '−235 °C — among the coldest surfaces measured anywhere',
     atmosphere: 'A very thin nitrogen atmosphere with a trace of methane',
     description:
-      'Neptune\'s largest moon, and the only large moon in the solar system that orbits backwards. That retrograde path means it did not form where it is: Triton is a captured Kuiper Belt object, hauled in and circularised by Neptune long ago.',
+      "Neptune's largest moon, and the only large moon in the solar system that orbits backwards. That retrograde path means it did not form where it is: Triton is a captured Kuiper Belt object, hauled in and circularised by Neptune long ago.",
     facts: [
       'Voyager 2 photographed nitrogen geysers erupting 8 km high through its icy crust.',
       'Its backwards orbit is decaying; in a few billion years it will be torn apart into a ring.',
       'Its cantaloupe terrain — a dimpled, ridged landscape — is found nowhere else.',
     ],
-    nasaLinks: [
-      { label: 'NASA — Triton', url: 'https://science.nasa.gov/neptune/moons/triton/' },
-    ],
+    nasaLinks: [{ label: 'NASA — Triton', url: 'https://science.nasa.gov/neptune/moons/triton/' }],
   },
   {
     id: 'charon',
@@ -506,7 +484,7 @@ export const MOONS_RAW = [
     temperature: '−220 °C (average)',
     atmosphere: 'None',
     description:
-      'Half Pluto\'s diameter and an eighth of its mass, which makes this the closest thing to a double planet in the solar system. The two are locked face to face: each permanently shows the other the same hemisphere, and they turn about a point that lies outside Pluto\'s surface.',
+      "Half Pluto's diameter and an eighth of its mass, which makes this the closest thing to a double planet in the solar system. The two are locked face to face: each permanently shows the other the same hemisphere, and they turn about a point that lies outside Pluto's surface.",
     facts: [
       'Serenity Chasma is part of a canyon system running at least 1,800 km, in places four times deeper than the Grand Canyon.',
       'Its dark red north polar cap, Mordor Macula, is made of tholins built from methane that escaped Pluto and froze out here.',
@@ -530,14 +508,14 @@ export const MOONS_RAW = [
     temperature: '−230 °C (estimated)',
     atmosphere: 'None',
     description:
-      'The smallest and faintest of Pluto\'s moons, found in 2012 while Hubble searched for anything New Horizons might collide with. It is a bright chip of water ice, and it tumbles as it goes.',
+      "The smallest and faintest of Pluto's moons, found in 2012 while Hubble searched for anything New Horizons might collide with. It is a bright chip of water ice, and it tumbles as it goes.",
     facts: [
-      'It circles roughly three times for each of Charon\'s orbits, close to but not exactly a 3:1 resonance.',
+      "It circles roughly three times for each of Charon's orbits, close to but not exactly a 3:1 resonance.",
       'Its spin is not locked to its orbit — the shifting pull of the Pluto–Charon pair makes the rotation of all four small moons chaotic.',
       'New Horizons resolved it into a double-lobed shape, suggesting two smaller bodies that merged.',
     ],
     nasaLinks: [
-      { label: 'NASA — Pluto\'s moons', url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
+      { label: "NASA — Pluto's moons", url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
     ],
   },
   {
@@ -558,10 +536,10 @@ export const MOONS_RAW = [
     facts: [
       'That reddish crater is the only strong colour on an otherwise grey-white surface — an impact that dug up something different from below.',
       'It tumbles chaotically, so there is no fixed day: its poles and equator wander over time.',
-      'It is named for the Greek goddess of night, and its discovery images were taken in the same run as Hydra\'s.',
+      "It is named for the Greek goddess of night, and its discovery images were taken in the same run as Hydra's.",
     ],
     nasaLinks: [
-      { label: 'NASA — Pluto\'s moons', url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
+      { label: "NASA — Pluto's moons", url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
     ],
   },
   {
@@ -581,11 +559,11 @@ export const MOONS_RAW = [
       'Found in 2011, and the one that upset the arithmetic: it seemed to be far darker than the other small moons, which would have implied a very different composition. New Horizons arrived and found it bright like the rest — the earlier estimate had been wrong.',
     facts: [
       'It is two lobes stuck together, about 8 and 5 km across, a gentle merger of two objects rather than a single body.',
-      'Its orbit sits between Nix\'s and Hydra\'s, near a 5:1 resonance with Charon.',
+      "Its orbit sits between Nix's and Hydra's, near a 5:1 resonance with Charon.",
       'It is named for the three-headed dog guarding the entrance to the underworld — spelled the Greek way, because Cerberus was already an asteroid.',
     ],
     nasaLinks: [
-      { label: 'NASA — Pluto\'s moons', url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
+      { label: "NASA — Pluto's moons", url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
     ],
   },
   {
@@ -602,14 +580,14 @@ export const MOONS_RAW = [
     temperature: '−230 °C (estimated)',
     atmosphere: 'None',
     description:
-      'The outermost of Pluto\'s five moons and the fastest spinner among them, turning once every ten hours while taking over five weeks to complete one orbit.',
+      "The outermost of Pluto's five moons and the fastest spinner among them, turning once every ten hours while taking over five weeks to complete one orbit.",
     facts: [
       'Its surface is unusually clean water ice, which suggests it is being resurfaced or scoured rather than accumulating dark material.',
-      'It circles almost exactly six times for every one of Charon\'s orbits.',
+      "It circles almost exactly six times for every one of Charon's orbits.",
       'Its irregular outline has at least two obvious lobes, the same merged-pair shape seen on Styx and Kerberos.',
     ],
     nasaLinks: [
-      { label: 'NASA — Pluto\'s moons', url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
+      { label: "NASA — Pluto's moons", url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
     ],
   },
 ]

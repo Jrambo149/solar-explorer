@@ -589,6 +589,19 @@ export const useStore = create((set, get) => ({
   togglePanel: () => set((s) => ({ panelOpen: !s.panelOpen })),
 
   /**
+   * Whether the events panel is open, and which kinds it is showing.
+   *
+   * The filter is remembered rather than reset on close, because it is a
+   * statement about what you came for — someone who opened this to find
+   * eclipses is looking for the next one too, and having to re-narrow a list of
+   * four thousand every time would make the filter worse than useless.
+   */
+  eventsOpen: false,
+  toggleEvents: () => set((s) => ({ eventsOpen: !s.eventsOpen })),
+  eventFilter: 'all',
+  setEventFilter: (eventFilter) => set({ eventFilter }),
+
+  /**
    * Whether the body switcher is expanded.
    *
    * Collapsed by default, the way the layer panel is. The bar used to be

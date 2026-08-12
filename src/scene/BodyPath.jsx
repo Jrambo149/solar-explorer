@@ -9,6 +9,7 @@ import {
   sampleOrbit,
   solveKepler,
 } from '../orbit/kepler'
+import { sampleLunaOrbit } from '../orbit/luna'
 import { warpHeliocentric, warpRadius } from '../orbit/frames'
 import { BODIES_BY_ID, bodyRadius } from '../data/bodies'
 import { planetPositions, simClock, useStore } from '../store/useStore'
@@ -103,11 +104,15 @@ function BodyPath({ planet }) {
     //
     // The Moon is the one body where that reasoning does not hold: its node
     // regresses a full turn every 18.6 years, so its ellipse genuinely does
-    // swing round on a human timescale. It is also 0.0026 AU across and drawn a
-    // couple of world units from Earth, where the difference is a fraction of
-    // the line's own width. Left alone rather than special-cased.
+    // swing round on a human timescale. It now has no ellipse at all — it is
+    // solved from a series (see `orbit/luna.js`) — so its line is a month of
+    // that series rather than a sampled conic. `Body` branches on the same id
+    // for the position; the two must agree or the Moon hangs off its own path.
     const T = centuriesSinceJ2000(simClock.jd)
-    const points = sampleOrbit(planet.elements, T, SEGMENTS)
+    const points =
+      planet.id === 'luna'
+        ? sampleLunaOrbit(simClock.jd, SEGMENTS)
+        : sampleOrbit(planet.elements, T, SEGMENTS)
 
     const clearance = parent ? satelliteClearance(parent, RING_PRESETS) : 0
     const parentRadius = parent ? warpRadius(parent.radiusKm, scaleMode) : 0
@@ -270,7 +275,7 @@ function BodyPath({ planet }) {
       // it — measured at 6.5px when parked at Jupiter, so visible, and 254px when
       // parked at the moon itself, so hidden.
       if (isOrbitLine) {
-        const orbitHeights = (pathRadius / distance) * focalPx / size.height
+        const orbitHeights = ((pathRadius / distance) * focalPx) / size.height
         const over = THREE.MathUtils.clamp(
           (orbitHeights - OVERSIZE_START) / (OVERSIZE_FULL - OVERSIZE_START),
           0,

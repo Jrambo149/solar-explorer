@@ -27,7 +27,13 @@
  */
 
 import * as THREE from 'three'
-import { attachShadows, shadowUniforms, tagShaderVariant } from '../src/scene/shadows.js'
+import {
+  attachEclipse,
+  attachShadows,
+  eclipseUniforms,
+  shadowUniforms,
+  tagShaderVariant,
+} from '../src/scene/shadows.js'
 import { attachNightLights } from '../src/scene/nightLights.js'
 
 let failures = 0
@@ -37,17 +43,24 @@ function check(label, ok, detail) {
   if (!ok) failures++
 }
 
-/** A body as `Body.jsx` builds it: shadows always, night lights only on Earth. */
-function body({ night = false } = {}) {
+/**
+ * A body as `Body.jsx` builds it, in the same order.
+ *
+ * Night lights on Earth only; the real-geometry eclipse on Earth and the Moon
+ * only. The order is load-bearing — see the eclipse checks below.
+ */
+function body({ night = false, eclipse = false } = {}) {
   const mat = new THREE.MeshStandardMaterial({ map: new THREE.Texture() })
   if (night) attachNightLights(mat, new THREE.Texture())
   attachShadows(mat, shadowUniforms())
+  if (eclipse) attachEclipse(mat, eclipseUniforms())
   return mat
 }
 
 const earth = body({ night: true })
 const mars = body()
 const neptune = body()
+const earthWithEclipse = body({ night: true, eclipse: true })
 
 console.log('\nProgram cache keys')
 console.log(`  earth    ${earth.customProgramCacheKey()}`)
@@ -95,6 +108,47 @@ check(
   'an ordinary body carries shadows only',
   marsShader.fragmentShader.includes('sunVisibility') &&
     !marsShader.fragmentShader.includes('uNightMap'),
+)
+
+/*
+ * The eclipse patch, chained on top of both.
+ *
+ * Three bodies' worth of shader now stack on one material, and the eclipse is
+ * the one that arrives last — so it is the one whose injection point has
+ * already been rewritten by the patches before it. `attachShadows` puts the
+ * `lights_fragment_end` include back before its own block, which is what leaves
+ * an anchor for this to find; a change to that ordering would silently drop the
+ * eclipse and nothing else.
+ *
+ * The Moon carries it without the night lights, which is also the case that
+ * matters for the cache key: `shadows|eclipse` has to stay distinct from
+ * `night-lights|shadows|eclipse`, or the Moon inherits Earth's program.
+ */
+const luna = body({ eclipse: true })
+const lunaShader = patch(luna)
+
+check(
+  'the Moon carries shadows and the eclipse, without night lights',
+  lunaShader.fragmentShader.includes('sunVisibility') &&
+    lunaShader.fragmentShader.includes('eclipseVisibility') &&
+    !lunaShader.fragmentShader.includes('uNightMap'),
+)
+
+check(
+  'Earth and the Moon do not share a cache key',
+  earthWithEclipse.customProgramCacheKey() !== luna.customProgramCacheKey(),
+  `${earthWithEclipse.customProgramCacheKey()} vs ${luna.customProgramCacheKey()}`,
+)
+
+check(
+  'the eclipse is applied as a colour, not a fraction',
+  /vec3 eclipse = eclipseVisibility/.test(lunaShader.fragmentShader),
+  'a scalar here would drop the copper from a total lunar eclipse',
+)
+
+check(
+  'and its uniforms reach the shader',
+  'uEclipseCount' in lunaShader.uniforms && 'uEclipseAir' in lunaShader.uniforms,
 )
 
 /* The tag helper itself: order-independent, and idempotent. */

@@ -20,7 +20,11 @@
 
 import { existsSync } from 'node:fs'
 import { DWARF_REFERENCE } from './fixtures/dwarf-reference.js'
+import { MOON_REFERENCE } from './fixtures/moon-reference.js'
+import { JUPITER_SHADOWS } from './fixtures/jupiter-shadows.js'
+import { MOON_ELEMENTS } from '../src/data/moonElements.js'
 import {
+  ALL_MOONS,
   BODIES,
   BODIES_BY_ID,
   COMETS,
@@ -30,12 +34,14 @@ import {
   bodyRadius,
   bodyShown,
   focusDistance,
+  systemMoonsOf,
 } from '../src/data/bodies.js'
 import { PLANETS } from '../src/data/planetData.js'
 import { Vector3 as Vec3 } from 'three'
 import {
   MAX_SPIN_TURNS_PER_SEC,
   centuriesSinceJ2000,
+  deltaTSeconds,
   julianDate,
   periodDays,
   positionAt,
@@ -57,7 +63,23 @@ import {
   warpSpacecraftDistance,
 } from '../src/orbit/frames.js'
 import { satelliteOffset, satelliteSystemRadius } from '../src/scene/satelliteFrame.js'
-import { BODY_POLES, applyBasis, bodyBasis } from '../src/scene/pole.js'
+import { BODY_POLES, applyBasis, bodyBasis, primeMeridianAt } from '../src/scene/pole.js'
+import {
+  REAL_SHADOW_BODIES,
+  REAL_SHADOW_CASTERS,
+  drawnOccluders,
+} from '../src/scene/realShadow.js'
+import { lunaPosition } from '../src/orbit/luna.js'
+import {
+  SUN_RADIUS_KM,
+  groundDistanceKm,
+  lunarEclipseAt,
+  shadowOnSphere,
+  solarEclipseAt,
+  surfacePoint,
+} from '../src/orbit/eclipse.js'
+import { realShadowsOn } from '../src/scene/realShadow.js'
+import { solarEclipses } from '../src/orbit/events.js'
 import { frameReferenceAU, surfaceFloor } from '../src/scene/spacecraftFrame.js'
 import { SPACECRAFT_RAW } from '../src/data/spacecraftData.js'
 import { SPACECRAFT_TRAILS } from '../src/data/spacecraftTrails.js'
@@ -66,6 +88,18 @@ import { surfaceDirection } from '../src/scene/surface.js'
 import { SYSTEM_PLANE_ELEVATION, systemFramingDirection } from '../src/scene/splitFraming.js'
 
 const ARCMIN = Math.PI / (180 * 60)
+const DEGREES = Math.PI / 180
+
+/**
+ * The two moons whose motion a straight line genuinely cannot describe.
+ *
+ * Not a list of things that failed and were waved through. Mimas librates in a
+ * 4:2 resonance with Tethys rather than moving uniformly, and Phobos is
+ * spiralling into Mars, so its mean motion accelerates — a quadratic term the
+ * element model has no slot for. Both are bounded separately below rather than
+ * exempted, so they cannot quietly get worse.
+ */
+const RESONANT = new Set(['mimas', 'phobos'])
 
 let failures = 0
 let checks = 0
@@ -1355,6 +1389,775 @@ console.log('\nWhere each axis points')
     'the Sun stands over the right latitude — the seasons are in phase',
     worst.error < 0.6,
     `worst ${worst.label}: ${worst.got?.toFixed(2)}° against ${worst.expected}°`,
+  )
+}
+
+{
+  /*
+   * Where noon is: the prime meridian, against Horizons.
+   *
+   * The pole says which way the axis points; this says where the body is
+   * *facing*, and until the IAU `W` landed it was arbitrary — `spinAt` derives
+   * an angle from the rotation period alone, so it is zero at J2000 by
+   * construction rather than by measurement. Nothing on a gas giant shows it.
+   * Everything that has to line up with something else does: which face of the
+   * Moon we see, which meridian is in daylight, where an eclipse falls.
+   *
+   * The expected values are Horizons' own, typed in — the same approach
+   * `verify-sky` takes for the Sun, and for the same reason: this suite is
+   * offline, and a number fetched at test time is not a fixed target.
+   *
+   * Three things had to be understood before these agreed, and each was worth
+   * more than the check itself:
+   *
+   *  - **Horizons measures longitude the other way for most bodies.** Its
+   *    planetographic longitude runs *west* for a prograde rotator — Mars,
+   *    Jupiter — and east for Earth (a documented exception, along with the
+   *    Moon and Sun) and for retrograde Venus. The values below are all
+   *    converted to east longitude, which is what this app uses throughout.
+   *  - **Horizons reports the *apparent* sub-solar point**, retarded by the
+   *    light time from the body. Ignoring that left Jupiter 25.6° out, which is
+   *    its rotation during the 43 minutes its light takes to reach us.
+   *  - **The IAU model is in Terrestrial Time.** Feeding it UT left a residual
+   *    per body of exactly that body's rotation in ~70 seconds — 0.70° for
+   *    Jupiter, which matched to two decimals. See `deltaTSeconds`.
+   *
+   * What is left is ~0.17° on Earth, and it is deliberate rather than unsolved:
+   * the IAU pole carries a per-century precession term that this app does not
+   * apply, because everything here is J2000 by design and the sky it is drawn
+   * against is J2000 too. That is 19 km on the ground.
+   */
+  const DEG = Math.PI / 180
+  const wrap = (d) => ((d % 360) + 360) % 360
+
+  const subSolarLongitude = (body, jd) => {
+    const p = positionAt(body.elements, centuriesSinceJ2000(jd))
+    const toSun = { x: -p.x, y: -p.z, z: p.y }
+    const b = bodyBasis(body.id)
+    const bx = toSun.x * b.x.x + toSun.y * b.x.y + toSun.z * b.x.z
+    const bz = toSun.x * b.z.x + toSun.y * b.z.y + toSun.z * b.z.z
+    // `surfaceDirection` puts east longitude L at (cos L, ·, -sin L), so the
+    // longitude of a body-frame direction is atan2(-z, x); take off the
+    // meridian to land back in body-fixed coordinates.
+    return wrap((Math.atan2(-bz, bx) - (primeMeridianAt(body.id, jd) ?? 0)) / DEG)
+  }
+
+  /** Seconds of light per AU, in days. */
+  const LIGHT_DAYS_PER_AU = 0.00577551833
+
+  /* Horizons `QUANTITIES='15'`, converted to east longitude. */
+  const NOON = [
+    ['earth', '2026-07-01T12:00Z', 3.1],
+    ['earth', '2026-07-01T18:00Z', 273.11],
+    ['earth', '2026-10-01T00:00Z', 179.53],
+    ['mars', '2026-01-01T00:00Z', 160.62],
+    ['mars', '2026-06-15T18:00Z', 67.44],
+    ['jupiter', '2026-03-01T00:00Z', 149.5],
+    ['venus', '2026-05-01T00:00Z', 331.39],
+  ]
+
+  let worst = { error: 0 }
+  for (const [id, iso, expected] of NOON) {
+    const body = PLANETS.find((b) => b.id === id)
+    const jd = julianDate(new Date(iso))
+    const at = positionAt(body.elements, centuriesSinceJ2000(jd))
+    const lightDays = Math.hypot(at.x, at.y, at.z) * LIGHT_DAYS_PER_AU
+    const got = subSolarLongitude(body, jd - lightDays)
+    const error = Math.abs(((got - expected + 540) % 360) - 180)
+    if (error > worst.error) worst = { error, id, iso, got, expected }
+  }
+  check(
+    'the Sun stands over the right meridian',
+    worst.error < 0.25,
+    `worst ${worst.id} ${worst.iso}: ${worst.got?.toFixed(2)}°E against ${worst.expected}°E`,
+  )
+}
+
+{
+  /*
+   * Eclipses, against the published tracks.
+   *
+   * This is the check the last three days were building towards, and it is the
+   * strictest one in the file, because a solar eclipse is decided by everything
+   * at once: the Moon's position, the Earth's orbit, the Earth's pole, its
+   * prime meridian, and the time scale they are all evaluated in. Any of them
+   * wrong by a degree moves the shadow by a hundred kilometres or more, and
+   * there is no way to compensate for one error with another — the published
+   * answer is a place on a map at a stated second.
+   *
+   * The figures are NASA's eclipse canon: the instant of greatest eclipse and
+   * the geodetic coordinates of the shadow axis at it. Five of them, spread
+   * across both hemispheres and both kinds, so no single lucky alignment can
+   * carry the check.
+   *
+   * The other half of it is `total` versus `annular`, which is not decided here
+   * but computed: the Moon's apparent size varies 12% over its orbit and the
+   * Sun's 3% over the year, so which one wins is a real question that the
+   * geometry has to answer correctly and separately at each event.
+   */
+  const ECLIPSES = [
+    ['2017-08-21T18:26:40Z', 36.9667, -87.65, true, 'across the United States'],
+    ['2024-04-08T18:17:16Z', 25.2833, -104.1333, true, 'Mexico to Newfoundland'],
+    ['2019-07-02T19:22:57Z', -17.4167, -108.9667, true, 'Chile and Argentina'],
+    ['2020-06-21T06:40:04Z', 30.5167, 79.7167, false, 'the Himalaya'],
+    ['2023-10-14T17:59:32Z', 11.3667, -83.15, false, 'the Americas'],
+  ]
+
+  const earth = PLANETS.find((b) => b.id === 'earth')
+  let worst = { km: 0 }
+  let misclassified = []
+  let missed = []
+  for (const [iso, lat, lon, total, where] of ECLIPSES) {
+    const jd = julianDate(new Date(iso))
+    const hit = solarEclipseAt(jd, earth.elements)
+    if (!hit) {
+      missed.push(where)
+      continue
+    }
+    const at = surfacePoint(hit.point, bodyBasis('earth'), primeMeridianAt('earth', jd))
+    const km = groundDistanceKm(at, { latitude: lat, longitude: lon })
+    if (km > worst.km) worst = { km, where }
+    if (hit.total !== total) misclassified.push(where)
+  }
+
+  check(
+    'the Moon’s shadow lands where the eclipse canon says',
+    missed.length === 0 && worst.km < 120,
+    missed.length
+      ? `no central eclipse computed for ${missed.join(', ')}`
+      : `worst ${worst.km.toFixed(0)} km, ${worst.where}`,
+  )
+  check(
+    'and each one is total or annular as recorded',
+    misclassified.length === 0,
+    misclassified.length ? `wrong for ${misclassified.join(', ')}` : '5 eclipses',
+  )
+}
+
+{
+  /*
+   * The event finder lists every solar eclipse of a decade, and no others.
+   *
+   * A different claim from the eclipse checks below, and the one they cannot
+   * make. Those take a date that is known to be an eclipse and ask whether the
+   * geometry agrees; this asks the geometry to *produce the dates*, which is
+   * the thing the app's event list actually does. It can fail in two directions
+   * they cannot see — a missing eclipse, and an invented one — and both are
+   * silent in a list nobody has counted.
+   *
+   * Completeness is the harder half. Two thirds of solar eclipses are partial
+   * somewhere the shadow axis misses the Earth entirely, so a search that asked
+   * for a central hit would quietly drop them and still return a list of real
+   * eclipses on correct dates.
+   */
+  const SOLAR = [
+    ['2021-06-10', 'annular', '10:43:06'],
+    ['2021-12-04', 'total', '07:34:38'],
+    ['2022-04-30', 'partial', '20:42:36'],
+    ['2022-10-25', 'partial', '11:01:19'],
+    // 2023 Apr 20 is *hybrid* — total along the middle of its track and annular
+    // at each end. The app reports what it is at greatest eclipse, where it is
+    // total, so that is what this expects; a third category would be a
+    // distinction the geometry here genuinely does not draw.
+    ['2023-04-20', 'total', '04:17:55'],
+    ['2023-10-14', 'annular', '18:00:40'],
+    ['2024-04-08', 'total', '18:18:29'],
+    ['2024-10-02', 'annular', '18:46:13'],
+    ['2025-03-29', 'partial', '10:48:36'],
+    ['2025-09-21', 'partial', '19:43:04'],
+    ['2026-02-17', 'annular', '12:13:05'],
+    ['2026-08-12', 'total', '17:47:05'],
+    ['2027-02-06', 'annular', '16:00:47'],
+    ['2027-08-02', 'total', '10:07:49'],
+    ['2028-01-26', 'annular', '15:08:58'],
+    ['2028-07-22', 'total', '02:56:39'],
+    ['2029-01-14', 'partial', '17:13:47'],
+    ['2029-06-12', 'partial', '04:06:13'],
+    ['2029-07-11', 'partial', '15:37:18'],
+    ['2029-12-05', 'partial', '15:03:57'],
+    ['2030-06-01', 'annular', '06:29:13'],
+    ['2030-11-25', 'total', '06:51:37'],
+  ]
+
+  const earth = PLANETS.find((b) => b.id === 'earth')
+  const found = solarEclipses(
+    julianDate(new Date('2021-01-01T00:00:00Z')),
+    julianDate(new Date('2030-12-31T23:59:00Z')),
+    earth.elements,
+  )
+
+  const wrongType = []
+  let worstTime = { seconds: 0 }
+
+  for (const [day, type, hms] of SOLAR) {
+    const target = new Date(`${day}T${hms}Z`).getTime() / 1000
+    let best = null
+    for (const e of found) {
+      const seconds = Math.abs((e.jd - 2440587.5) * 86400 + deltaTSeconds(e.jd) - target)
+      if (!best || seconds < best.seconds) best = { seconds, event: e }
+    }
+    if (best.seconds > worstTime.seconds) worstTime = { seconds: best.seconds, day }
+    if (best.event.type !== type) wrongType.push(`${day} ${best.event.type}≠${type}`)
+  }
+
+  check(
+    'the event finder produces exactly the decade’s solar eclipses',
+    found.length === SOLAR.length,
+    `found ${found.length}, canon lists ${SOLAR.length}`,
+  )
+  check(
+    'each with the right type and instant',
+    wrongType.length === 0 && worstTime.seconds < 180,
+    wrongType.length
+      ? wrongType.join(', ')
+      : `worst ${Math.round(worstTime.seconds)} s on ${worstTime.day}`,
+  )
+}
+
+{
+  /*
+   * Lunar eclipses, against two decades of the canon.
+   *
+   * A different geometry from the solar case and a much broader check. There is
+   * no track and no sub-shadow point — the Moon is smaller than the cone it
+   * enters, so nothing lands anywhere and the published quantity is a
+   * *magnitude*: the fraction of the Moon's diameter inside the umbra at the
+   * deepest moment. That makes it a continuous number rather than a place, and
+   * it can be checked against every eclipse in a period rather than a chosen
+   * handful.
+   *
+   * Which is what makes this worth having alongside the solar check. Five solar
+   * eclipses test the geometry very sharply at five instants; forty-five lunar
+   * ones test it less sharply but everywhere — at every lunar distance, every
+   * season, and both nodes. A fault that happened to cancel at five chosen
+   * dates has nowhere to hide across two decades.
+   *
+   * `deepest` is a search rather than a formula. The instant of greatest
+   * eclipse is where the Moon's centre passes closest to the shadow axis, and
+   * the app has no analytic route to it, so the check scans the day by the
+   * minute and then refines by the second.
+   *
+   * From NASA's five-millennium canon, decade tables. **The times there are TD,
+   * not UT** — the page says so explicitly — so the comparison converts. That
+   * matters less than it looks: see the tolerance note below.
+   */
+  const LUNAR = [
+    ['2011-06-15', '20:13:43', 1.7],
+    ['2011-12-10', '14:32:56', 1.106],
+    ['2012-06-04', '11:04:20', 0.37],
+    ['2012-11-28', '14:34:07', -0.187],
+    ['2013-04-25', '20:08:38', 0.015],
+    ['2013-05-25', '04:11:06', -0.934],
+    ['2013-10-18', '23:51:25', -0.272],
+    ['2014-04-15', '07:46:48', 1.291],
+    ['2014-10-08', '10:55:44', 1.166],
+    ['2015-04-04', '12:01:24', 1.001],
+    ['2015-09-28', '02:48:17', 1.276],
+    ['2016-03-23', '11:48:21', -0.312],
+    ['2016-09-16', '18:55:27', -0.064],
+    ['2017-02-11', '00:45:03', -0.035],
+    ['2017-08-07', '18:21:38', 0.246],
+    ['2018-01-31', '13:31:00', 1.315],
+    ['2018-07-27', '20:22:54', 1.609],
+    ['2019-01-21', '05:13:27', 1.195],
+    ['2019-07-16', '21:31:55', 0.653],
+    ['2020-01-10', '19:11:11', -0.116],
+    ['2020-06-05', '19:26:14', -0.405],
+    ['2020-07-05', '04:31:12', -0.644],
+    ['2020-11-30', '09:44:01', -0.262],
+    ['2021-05-26', '11:19:53', 1.009],
+    ['2021-11-19', '09:04:06', 0.974],
+    ['2022-05-16', '04:12:42', 1.414],
+    ['2022-11-08', '11:00:22', 1.359],
+    ['2023-05-05', '17:24:05', -0.046],
+    ['2023-10-28', '20:15:18', 0.122],
+    ['2024-03-25', '07:13:59', -0.132],
+    ['2024-09-18', '02:45:25', 0.085],
+    ['2025-03-14', '06:59:56', 1.178],
+    ['2025-09-07', '18:12:58', 1.362],
+    ['2026-03-03', '11:34:52', 1.151],
+    ['2026-08-28', '04:14:04', 0.93],
+    ['2027-02-20', '23:14:06', -0.057],
+    ['2027-07-18', '16:04:09', -1.068],
+    ['2027-08-17', '07:14:59', -0.525],
+    ['2028-01-12', '04:14:13', 0.066],
+    ['2028-07-06', '18:20:57', 0.389],
+    ['2028-12-31', '16:53:15', 1.246],
+    ['2029-06-26', '03:23:22', 1.844],
+    ['2029-12-20', '22:43:12', 1.117],
+    ['2030-06-15', '18:34:34', 0.502],
+    ['2030-12-09', '22:28:51', -0.163],
+  ]
+
+  const earth = PLANETS.find((b) => b.id === 'earth')
+
+  /** The moment of least separation from the shadow axis, searched. */
+  const deepest = (day) => {
+    const start = julianDate(new Date(`${day}T00:00:00Z`))
+    let best = null
+    for (let m = 0; m < 60 * 24; m++) {
+      const jd = start + m / (60 * 24)
+      const r = lunarEclipseAt(jd, earth.elements)
+      if (!best || r.separationKm < best.r.separationKm) best = { jd, r }
+    }
+    for (let s = -60; s <= 60; s++) {
+      const jd = best.jd + s / 86400
+      const r = lunarEclipseAt(jd, earth.elements)
+      if (r.separationKm < best.r.separationKm) best = { jd, r }
+    }
+    return best
+  }
+
+  let worstMag = { off: 0 }
+  let worstTime = { seconds: 0 }
+  const wrongKind = []
+
+  for (const [day, hms, magnitude] of LUNAR) {
+    const { jd, r } = deepest(day)
+
+    const off = Math.abs(r.umbralMagnitude - magnitude)
+    if (off > worstMag.off) worstMag = { off, day }
+
+    // The app works in UT; the canon is TD. Convert ours rather than theirs.
+    const mine = (jd - 2440587.5) * 86400 + deltaTSeconds(jd)
+    const seconds = Math.abs(mine - new Date(`${day}T${hms}Z`).getTime() / 1000)
+    if (seconds > worstTime.seconds) worstTime = { seconds, day }
+
+    /*
+     * The kind of eclipse, on the canon's own definition: it publishes one
+     * number, and a negative umbral magnitude *is* what it means by penumbral.
+     * Deriving the label from the magnitude rather than from a second
+     * calculation keeps this from testing anything the line above already did —
+     * what it adds is that the total/partial boundary at exactly 1.0 falls on
+     * the right side, which two eclipses here sit within 0.03 of.
+     */
+    const expected = magnitude >= 1 ? 'total' : magnitude > 0 ? 'partial' : 'penumbral'
+    const got = r.phase === 'none' ? 'penumbral' : r.phase
+    if (got !== expected) wrongKind.push(day)
+  }
+
+  check(
+    'every lunar eclipse for two decades has the published magnitude',
+    worstMag.off < 0.02,
+    `worst ${worstMag.off.toFixed(3)} on ${worstMag.day}, ${LUNAR.length} eclipses`,
+  )
+
+  check(
+    'and each is total, partial or penumbral as recorded',
+    wrongKind.length === 0,
+    wrongKind.length ? `wrong for ${wrongKind.join(', ')}` : `${LUNAR.length} eclipses`,
+  )
+
+  /*
+   * Timing, at a deliberately loose tolerance.
+   *
+   * Three minutes looks generous next to a canon quoted to the second, and it
+   * is set by the lunar theory rather than by this calculation. `luna.js` is
+   * good to 0.016°, and the Moon moves about 0.55 arcsec per second against the
+   * shadow, so its own error is worth roughly 100 seconds of timing on its own.
+   * The measured spread here is ±40 s about a +36 s mean, comfortably inside
+   * that.
+   *
+   * Which also means this check cannot settle whether the canon is UT or TD:
+   * half of ΔT is 35 seconds, smaller than the scatter. The conversion above is
+   * done because the page states the convention, not because the numbers here
+   * could reveal it. Do not tighten this without a better lunar theory — a
+   * passing tighter bound would be luck.
+   */
+  check(
+    'and happens within three minutes of the published instant',
+    worstTime.seconds < 180,
+    `worst ${Math.round(worstTime.seconds)} s on ${worstTime.day}`,
+  )
+}
+
+{
+  /*
+   * Every moon is where JPL says it is, across the whole window.
+   *
+   * The elements in `moonElements.js` are a least-squares fit, and a fit does
+   * not fail by throwing — it produces a row of plausible numbers that put the
+   * moon somewhere else. Every fault found while building that fit looked like
+   * a success from the inside: a mean motion that was quietly the two-body one,
+   * a node sampled once per turn and pronounced stationary, a bootstrap rate
+   * extrapolated onto the wrong revolution. All were invisible in the file and
+   * obvious the instant a position was compared with an ephemeris.
+   *
+   * The dates matter as much as the bodies. The failure this exists to catch is
+   * *epoch-shaped* — the previous elements were exact on 1 January 2000 and put
+   * Io 95° round its orbit a year later — so a check that sampled only the
+   * present would have passed against them happily. These run 1850 to 2049.
+   *
+   * The comparison is in the ecliptic while the elements are fitted in each
+   * planet's equator, which is deliberate: it forces the body basis from
+   * `pole.js` through the comparison instead of letting a wrong pole cancel
+   * itself out on both sides.
+   */
+  const parentOf = Object.fromEntries(ALL_MOONS.map((m) => [m.id, m.parent]))
+  const scratch = { x: 0, y: 0, z: 0 }
+
+  let worst = { degrees: 0 }
+  const offenders = []
+
+  for (const row of MOON_REFERENCE) {
+    const elements = MOON_ELEMENTS[row.body]
+    const local = positionAt(elements, centuriesSinceJ2000(row.jd))
+
+    // Ecliptic → the app's world frame, the parent's basis, then back again.
+    const world = applyBasis(
+      bodyBasis(parentOf[row.body]),
+      { x: local.x, y: local.z, z: -local.y },
+      scratch,
+    )
+    const mine = {
+      x: world.x * KM_PER_AU,
+      y: -world.z * KM_PER_AU,
+      z: world.y * KM_PER_AU,
+    }
+
+    const gap = Math.hypot(mine.x - row.x, mine.y - row.y, mine.z - row.z)
+    const radius = Math.hypot(row.x, row.y, row.z)
+    // As an angle at the planet, which is the honest measure of "wrong place":
+    // it does not flatter a distant moon for having a large orbit.
+    const degrees = (2 * Math.asin(Math.min(1, gap / (2 * radius)))) / DEGREES
+
+    // The worst reported has to be the worst *tested*, or the pass line quotes
+    // a number from a body the check deliberately is not judging.
+    if (RESONANT.has(row.body)) continue
+    if (degrees > worst.degrees) worst = { degrees, body: row.body, date: row.date }
+    if (degrees > 5) offenders.push(`${row.body} ${row.date}`)
+  }
+
+  check(
+    'every moon is where JPL puts it, from 1850 to 2049',
+    offenders.length === 0,
+    offenders.length
+      ? `off by more than 5°: ${offenders.slice(0, 6).join(', ')}`
+      : `${MOON_REFERENCE.length} positions, worst ${worst.degrees.toFixed(2)}° ` +
+        `(${worst.body} ${worst.date})`,
+  )
+
+  /*
+   * And the two exceptions stay exceptions.
+   *
+   * Mimas and Phobos are genuinely beyond a linear model — Mimas librates in a
+   * 4:2 resonance with Tethys instead of moving uniformly, and Phobos is
+   * spiralling into Mars, so its mean motion accelerates. Exempting them
+   * without bounding them would make the check above meaningless for the two
+   * bodies most likely to drift further, so they get a loose bound of their
+   * own rather than a free pass.
+   */
+  let worstResonant = { degrees: 0 }
+  for (const row of MOON_REFERENCE) {
+    if (!RESONANT.has(row.body)) continue
+    const elements = MOON_ELEMENTS[row.body]
+    const local = positionAt(elements, centuriesSinceJ2000(row.jd))
+    const world = applyBasis(
+      bodyBasis(parentOf[row.body]),
+      { x: local.x, y: local.z, z: -local.y },
+      scratch,
+    )
+    const gap = Math.hypot(
+      world.x * KM_PER_AU - row.x,
+      -world.z * KM_PER_AU - row.y,
+      world.y * KM_PER_AU - row.z,
+    )
+    const radius = Math.hypot(row.x, row.y, row.z)
+    const degrees = (2 * Math.asin(Math.min(1, gap / (2 * radius)))) / DEGREES
+    if (degrees > worstResonant.degrees) {
+      worstResonant = { degrees, body: row.body, date: row.date }
+    }
+  }
+
+  check(
+    'and the two a straight line cannot describe stay within 60°',
+    worstResonant.degrees < 60,
+    `worst ${worstResonant.degrees.toFixed(1)}° (${worstResonant.body} ${worstResonant.date}), ` +
+      'Mimas librates and Phobos accelerates',
+  )
+}
+
+{
+  /*
+   * Galilean shadow transits, against times an observer could check.
+   *
+   * The sharpest test the moon elements will ever get, and it is sharp for a
+   * different reason than the eclipse checks: a shadow transit is not a rare
+   * alignment but a *routine* one, published to the minute, 794 contacts in a
+   * single year. Nothing can be right here by luck.
+   *
+   * It also tests the two halves together. The published minute depends on
+   * where Io is (the fitted elements), on Jupiter's pole and rotation (the frame
+   * the elements are solved in), on Jupiter's heliocentric position (the shadow
+   * axis), and on where the Earth is (the light time). A compensating pair of
+   * errors would have to survive four moons at four different orbital speeds.
+   */
+  const R = BODIES_BY_ID.jupiter.radiusKm
+  const SLOT = { io: 0, europa: 1, ganymede: 2, callisto: 3 }
+
+  /*
+   * Light time from Jupiter, which is not a detail here.
+   *
+   * Published contacts are what an observer *sees*, and Jupiter is forty to
+   * fifty light-minutes away. Comparing raw geometric instants against them
+   * reads as a fifty-minute systematic error in the elements — which is far
+   * larger than any real error in them, and would send anyone debugging this
+   * off in entirely the wrong direction.
+   */
+  const lightDays = (jd) => {
+    const T = centuriesSinceJ2000(jd)
+    const j = positionAt(BODIES_BY_ID.jupiter.elements, T)
+    const e = positionAt(BODIES_BY_ID.earth.elements, T)
+    return (Math.hypot(j.x - e.x, j.y - e.y, j.z - e.z) * KM_PER_AU) / 299792.458 / 86400
+  }
+
+  /**
+   * Is the moon's shadow touching Jupiter's disc at this instant?
+   *
+   * The target sphere is inflated by the umbra's own radius so that this
+   * switches at *first and last contact of the shadow's edge*, which is what
+   * the published columns mean. Tracking the axis instead is a systematically
+   * different event — a couple of minutes late at ingress and early at egress —
+   * and the umbra is narrower than the moon, because the Sun is not a point and
+   * the cone converges over the 400,000 km to Jupiter.
+   */
+  const touching = (jd, slot) => {
+    const shadows = realShadowsOn('jupiter', jd)
+    const o = shadows.occulters[slot]
+    const sun = { x: shadows.sun.x * R, y: shadows.sun.y * R, z: shadows.sun.z * R }
+    const occulter = { x: o.x * R, y: o.y * R, z: o.z * R }
+
+    const moonRadius = o.radius * R
+    const toSun = Math.hypot(sun.x - occulter.x, sun.y - occulter.y, sun.z - occulter.z)
+    const toJupiter = Math.hypot(occulter.x, occulter.y, occulter.z)
+    const umbra = moonRadius - (toJupiter * (SUN_RADIUS_KM - moonRadius)) / toSun
+
+    return !!shadowOnSphere({
+      sun,
+      occulter,
+      occulterRadius: moonRadius,
+      targetRadius: R + umbra,
+    })
+  }
+
+  /** The contact nearest `jd`, found by scanning for the crossing then bisecting. */
+  const contactNear = (jd, slot, kind) => {
+    const wanted = kind === 'start'
+    const step = 2 / 1440
+
+    let best = null
+    for (let t = jd - 60 / 1440; t < jd + 60 / 1440; t += step) {
+      if (touching(t, slot) === wanted || touching(t + step, slot) !== wanted) continue
+      if (best === null || Math.abs(t - jd) < Math.abs(best - jd)) best = t
+    }
+    if (best === null) return null
+
+    let lo = best
+    let hi = best + step
+    for (let k = 0; k < 24; k++) {
+      const mid = (lo + hi) / 2
+      if (touching(mid, slot) === wanted) hi = mid
+      else lo = mid
+    }
+    return (lo + hi) / 2
+  }
+
+  let worst = { minutes: 0 }
+  const missed = []
+  const errors = []
+
+  for (const event of JUPITER_SHADOWS) {
+    // Search in geometric time, compare in apparent time.
+    const geometric = contactNear(event.jd - lightDays(event.jd), SLOT[event.moon], event.kind)
+    if (geometric === null) {
+      missed.push(`${event.moon} ${event.when}`)
+      continue
+    }
+
+    const minutes = Math.abs((geometric + lightDays(geometric) - event.jd) * 1440)
+    errors.push(minutes)
+    if (minutes > worst.minutes) {
+      worst = { minutes, moon: event.moon, when: event.when }
+    }
+  }
+
+  errors.sort((a, b) => a - b)
+  const median = errors.length ? errors[errors.length >> 1] : Infinity
+
+  /*
+   * Both a median and a worst case, because they fail differently.
+   *
+   * A worst case alone would miss a regression that shifted every contact by a
+   * minute while leaving the outlier untouched — which is exactly the shape of
+   * a wrong rate. A median alone would miss one moon going badly wrong among
+   * four. Six minutes and one and a half; measured, they sit at 5.0 and 1.4.
+   *
+   * The slack is Jupiter's *shape*, not the moons. It is drawn — and shadowed —
+   * as a sphere of its mean radius, while the real planet is 6.5% flattened and
+   * 2.3% wider at the equator than that sphere. A shadow crossing near the limb
+   * is very sensitive to where the limb is, so the error is largest on grazing
+   * transits and near zero on central ones. That is why Callisto is the worst
+   * of the four by a wide margin: furthest out, so it only transits near
+   * Jupiter's equinox and does it near the limb when it does. Modelling the
+   * oblateness is how to tighten this — a smaller number without that would be
+   * a rounder Jupiter agreeing by accident.
+   */
+  check(
+    'every published Galilean shadow transit happens on time',
+    missed.length === 0 && worst.minutes < 6 && median < 1.5,
+    missed.length
+      ? `${missed.length} contacts not found, first ${missed[0]}`
+      : `${errors.length} contacts, median ${median.toFixed(2)} min, ` +
+        `worst ${worst.minutes.toFixed(1)} (${worst.moon} ${worst.when})`,
+  )
+}
+
+{
+  /*
+   * The two shadow systems do not both draw the same shadow.
+   *
+   * This app shades a body twice over. `sunVisibility` works from the geometry
+   * as *drawn*, which is right for the diorama and is what gives every moon in
+   * the scene a shadow; `eclipseVisibility` works from the real solar system,
+   * and exists for the two events with a published time. Where they describe
+   * the same pair of bodies they must not both run, and the failure when they
+   * do is entirely one-sided: the drawn shadow is evaluated first and takes the
+   * light, so the real one is left with nothing to remove.
+   *
+   * It is invisible from every direction that normally catches things. Nothing
+   * errors, the geometry checks above still pass to the metre, the uniforms
+   * arrive at the GPU with correct values, and the body is *darker* rather than
+   * brighter — so it even looks eclipsed, on the wrong dates and in the wrong
+   * colour. Measured on the night of a real total lunar eclipse the drawn
+   * shadow had already removed 88% of the Moon's direct light, and switching
+   * the real eclipse off changed not one pixel.
+   *
+   * Two assertions, because the first alone is satisfied by an exclusion list
+   * that does nothing at all: the pair has to be excluded, *and* it has to have
+   * been there to exclude.
+   */
+  const missing = []
+  const inert = []
+
+  for (const id of REAL_SHADOW_BODIES) {
+    const body = BODIES_BY_ID[id]
+    const casters = REAL_SHADOW_CASTERS[id]
+    const drawn = new Set(drawnOccluders(body, systemMoonsOf).map((b) => b.id))
+    const unfiltered = new Set(
+      (body.parent
+        ? [BODIES_BY_ID[body.parent], ...systemMoonsOf(body.parent).filter((m) => m.id !== id)]
+        : systemMoonsOf(id)
+      ).map((b) => b.id),
+    )
+
+    for (const caster of casters) {
+      if (drawn.has(caster)) missing.push(`${caster} still shadows ${id} twice`)
+      if (!unfiltered.has(caster)) inert.push(`${id} never had ${caster} to exclude`)
+    }
+  }
+
+  check(
+    'no body is shadowed by the same neighbour twice over',
+    missing.length === 0,
+    missing.length ? missing.join(', ') : `${REAL_SHADOW_BODIES.size} bodies`,
+  )
+
+  check(
+    'and the exclusions that prevent it are doing something',
+    inert.length === 0,
+    inert.length ? inert.join(', ') : 'every excluded pair was a real occluder',
+  )
+}
+
+{
+  /*
+   * The Moon, against Horizons.
+   *
+   * Everything else in this app is a Keplerian ellipse and that is right for
+   * everything else. The Moon is the classical exception: the Sun is 390 times
+   * further away and 27 million times heavier than the Earth, so the orbit
+   * changes shape and orientation as it goes, and the departures have been
+   * named for centuries — evection ±1.274°, variation ±0.658°, the annual
+   * equation ±0.186°. None of them fits inside an ellipse, because each depends
+   * on where the Sun is as well as the Moon.
+   *
+   * The mean-element ellipse this replaced was **up to 1.63° out** — three
+   * lunar diameters, three hours of motion. `orbit/luna.js` is Meeus chapter
+   * 47, and lands inside 0.02°.
+   *
+   * Positions typed from Horizons rather than fetched, as everywhere else in
+   * this offline suite. The dates are deliberately scattered across 150 years
+   * and every phase: a mistyped coefficient in a 60-term table shows up as an
+   * error at *some* phases and not others, so a single well-chosen date would
+   * be no evidence at all.
+   */
+  const KM_PER_AU = 149597870.7
+  /* Geocentric ecliptic J2000 position vectors, AU, from Horizons. */
+  const MOON = [
+    ['1900-03-04T00:00Z', 0.002269360671436569, 0.0008330522972178682, 0.0001779896031109139],
+    ['1969-07-20T20:17Z', -0.002575514503058422, -0.0003753871224131591, -0.00006195375294712386],
+    ['1999-08-11T11:03Z', -0.001863075502857917, 0.001660020175851265, 0.00002138649046660406],
+    ['2017-08-21T18:26Z', -0.002122706858458548, 0.001296394879631485, 0.000018412716107584],
+    ['2024-04-08T18:17Z', 0.002273894660611083, 0.0007834497983597225, 0.00001440737747772125],
+    ['2050-05-20T09:00Z', 0.001532494312331893, 0.002005819292848553, -0.00001003474350751961],
+  ]
+
+  let worstAngle = 0
+  let worstKm = 0
+  for (const [iso, x, y, z] of MOON) {
+    const got = lunaPosition(julianDate(new Date(iso)))
+    const lm = Math.hypot(got.x, got.y, got.z)
+    const lt = Math.hypot(x, y, z)
+    const dot = (got.x * x + got.y * y + got.z * z) / (lm * lt)
+    worstAngle = Math.max(worstAngle, (Math.acos(Math.min(1, dot)) * 180) / Math.PI)
+    worstKm = Math.max(worstKm, Math.abs(lm - lt) * KM_PER_AU)
+  }
+  check(
+    'the Moon is where JPL says it is',
+    worstAngle < 0.03 && worstKm < 40,
+    `worst ${(worstAngle * 60).toFixed(1)} arcmin and ${worstKm.toFixed(0)} km over 150 years`,
+  )
+}
+
+{
+  /*
+   * The Moon keeps its near side to us.
+   *
+   * The most recognisable fact about any body in this app, and it was not true
+   * here until the meridians landed: with a phase that was zero at J2000 by
+   * arithmetic, the Moon presented whatever hemisphere the date happened to
+   * produce. Tycho and Mare Imbrium would swing away and the far side rotate
+   * into view, which is the kind of wrong that needs no instruments to spot.
+   *
+   * Measured as the sub-Earth longitude, which should stay near zero and swing
+   * a few degrees either side — that swing is the optical libration, and it is
+   * real: it comes from the Moon travelling at a varying rate around an
+   * eccentric orbit while turning at a constant one, and it is why we can see
+   * 59% of the surface rather than 50%. The bound is generous at the top
+   * because the app's Moon is a mean-element ellipse; what matters is that the
+   * near side stays the near side.
+   */
+  const DEG = Math.PI / 180
+  const wrap = (d) => ((d % 360) + 360) % 360
+  const luna = MOONS.find((m) => m.id === 'luna')
+
+  let worst = 0
+  for (let k = 0; k < 120; k++) {
+    const jd = julianDate(new Date(Date.UTC(2026, 0, 1))) + k * 0.75
+    const m = positionAt(luna.elements, centuriesSinceJ2000(jd))
+    // Moon → Earth, in the parent frame these elements are solved in.
+    const toEarth = { x: -m.x, y: -m.z, z: m.y }
+    const b = bodyBasis('luna')
+    const bx = toEarth.x * b.x.x + toEarth.y * b.x.y + toEarth.z * b.x.z
+    const bz = toEarth.x * b.z.x + toEarth.y * b.z.y + toEarth.z * b.z.z
+    let lon = wrap((Math.atan2(-bz, bx) - primeMeridianAt('luna', jd)) / DEG)
+    if (lon > 180) lon -= 360
+    worst = Math.max(worst, Math.abs(lon))
+  }
+  check(
+    'the Moon keeps its near side to Earth',
+    worst < 12,
+    `sub-Earth longitude never leaves ±${worst.toFixed(1)}° over 90 days`,
   )
 }
 

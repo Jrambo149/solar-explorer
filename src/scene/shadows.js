@@ -119,8 +119,12 @@ const DECLARATIONS = /* glsl */ `
       float occAngle = radius / dist;
       float separation = acos(clamp(align, -1.0, 1.0));
 
-      // 1 at full overlap, 0 once the discs have pulled apart.
-      float overlap = smoothstep(occAngle + sunAngle, max(occAngle - sunAngle, 0.0), separation);
+      // 1 at full overlap, 0 once the discs have pulled apart. Edges in
+      // increasing order and the result inverted, because GLSL leaves
+      // \`smoothstep\` undefined when the first edge is the larger — see the note
+      // in \`eclipseVisibility\`, where relying on it produced no shadow at all.
+      float overlap =
+        1.0 - smoothstep(max(occAngle - sunAngle, 0.0), occAngle + sunAngle, separation);
       float deepest = clamp((occAngle * occAngle) / (sunAngle * sunAngle), 0.0, 1.0);
 
       visible = min(visible, 1.0 - overlap * deepest);
@@ -223,6 +227,283 @@ export function attachShadows(material, uniforms) {
   }
 
   material.needsUpdate = true
+}
+
+/**
+ * The uniforms an eclipse needs, in kilometres.
+ *
+ * Kilometres, and not world units, because an eclipse is the one shadow in this
+ * app that must not be computed from what is drawn. See `orbit/eclipse.js`: at
+ * diorama scale the bodies are enormous and the lunar orbit squeezed, so the
+ * drawn geometry produces eclipses several times a month and in the wrong
+ * places. That is the honest shadow *of the diorama*, and it is the wrong
+ * answer to "where was the eclipse".
+ *
+ * `uEclipseRadius` is the body's drawn radius in world units, which is the only
+ * thing needed to move between the two: a fragment's real offset from the
+ * centre is its drawn offset divided by that and multiplied by the body's true
+ * radius.
+ */
+export function eclipseUniforms() {
+  return {
+    uEclipseOcculters: {
+      value: Array.from({ length: MAX_ECLIPSE_OCCULTERS }, () => new THREE.Vector4(0, 0, 0, 0)),
+    },
+    uEclipseAir: { value: new Float32Array(MAX_ECLIPSE_OCCULTERS) },
+    uEclipseCount: { value: 0 },
+    uEclipseSun: { value: new THREE.Vector3() },
+    uEclipseCentre: { value: new THREE.Vector3() },
+    uEclipseRadius: { value: 1 },
+    uEclipseSunR: { value: 1 },
+  }
+}
+
+/**
+ * Real-geometry occluder slots.
+ *
+ * Four, set by Jupiter: the Galileans are the only group in this app that can
+ * put more than one shadow on the same face at once, and the sight of two or
+ * three black dots crossing together is the whole reason to compute them from
+ * real geometry rather than from the diorama. Earth and the Moon use one.
+ */
+export const MAX_ECLIPSE_OCCULTERS = 4
+
+/**
+ * What is left of the sunlight that grazes an atmosphere, at full depth.
+ *
+ * This is the copper colour of a totally eclipsed Moon, and it is the one value
+ * in this file chosen by eye rather than derived. Two reasons it has to be.
+ *
+ * The brightness is an exposure choice. A Moon in totality is something like
+ * ten thousand times fainter than a full Moon, and rendered at that ratio
+ * against a lit scene it would be indistinguishable from black — the copper
+ * everyone has seen is what a dark-adapted eye or a long exposure makes of it,
+ * not what a linear camera sees beside a sunlit Earth.
+ *
+ * The colour is not a constant in nature either. How red and how dark a
+ * totality goes depends on how much dust and cloud is in the Earth's limb that
+ * year, which is why observers grade them on the Danjon scale from a nearly
+ * invisible grey to a bright coppery orange. Pinatubo made the December 1992
+ * eclipse so dark the Moon almost vanished. A single value is a portrait of a
+ * typical one, not a prediction.
+ *
+ * What *is* physical is the shape of the transition — see `eclipseVisibility`.
+ */
+const REFRACTED_LIGHT = /* glsl */ 'vec3(0.42, 0.11, 0.045)'
+
+const ECLIPSE_DECLARATIONS = /* glsl */ `
+  uniform vec4 uEclipseOcculters[${MAX_ECLIPSE_OCCULTERS}];
+  uniform float uEclipseAir[${MAX_ECLIPSE_OCCULTERS}];
+  uniform int uEclipseCount;
+  uniform vec3 uEclipseSun;
+  uniform vec3 uEclipseCentre;
+  uniform float uEclipseRadius;
+  uniform float uEclipseSunR;
+
+  /**
+   * How much of the Sun survives at a point on the surface, in real geometry.
+   *
+   * The same overlapping-discs solution as \`sunVisibility\`, which is what makes
+   * the penumbra a genuine gradient and an annular eclipse a partial dimming
+   * rather than a black spot — but evaluated at the real sizes and distances,
+   * so the answer is the eclipse that actually happened rather than the one the
+   * diorama would have.
+   *
+   * Returns a **colour**, not a fraction, because one of the three cases this
+   * serves is not a plain dimming. An airless occulter — our Moon on the Earth,
+   * Io on Jupiter — blocks every wavelength alike and all three channels come
+   * back equal. The Earth on the Moon does not: its atmosphere refracts
+   * sunlight into its own shadow, and the long grazing path through it scatters
+   * the blue out, so what reaches the Moon in totality is the light of every
+   * sunrise and sunset on Earth at once. That is why a totally eclipsed Moon is
+   * copper rather than black, and it cannot be expressed as a scalar.
+   */
+  vec3 eclipseVisibility(vec3 P) {
+    if (uEclipseCount == 0) return vec3(1.0);
+
+    /*
+     * Everything here is in *body radii*, and that is not a stylistic choice.
+     *
+     * The obvious units are kilometres, and in kilometres the Sun sits at
+     * 1.5e8. A GLSL float is only guaranteed 16 bits of exponent-and-mantissa
+     * range in a fragment shader — the floor for \`mediump\` is 65504 — so a
+     * distance like that can arrive as infinity, and every direction derived
+     * from it as a NaN. The symptom is not a wrong shadow, it is *no* shadow at
+     * all, and it survives every check that looks at the JavaScript side.
+     *
+     * Rescaled, the largest number in this function is the Sun's distance at
+     * about 23,500 body radii, and the smallest is the Moon's radius at 0.27.
+     * That range is safe under any precision a fragment shader can offer.
+     *
+     * The fragment's own offset needs no conversion at all: it is the drawn
+     * offset over the drawn radius, which is one body radius by construction.
+     */
+    vec3 q = (P - uEclipseCentre) / uEclipseRadius;
+
+    vec3 toSun = uEclipseSun - q;
+    float sunDist = length(toSun);
+    if (sunDist < 1e-4) return vec3(1.0);
+
+    vec3 L = toSun / sunDist;
+    float sunAngle = uEclipseSunR / sunDist;
+
+    vec3 light = vec3(1.0);
+
+    for (int i = 0; i < ${MAX_ECLIPSE_OCCULTERS}; i++) {
+      if (i >= uEclipseCount) break;
+
+      vec3 toOcc = uEclipseOcculters[i].xyz - q;
+      float occDist = length(toOcc);
+      float occRadius = uEclipseOcculters[i].w;
+      if (occRadius <= 0.0 || occDist < 1e-4) continue;
+
+      vec3 M = toOcc / occDist;
+      float occAngle = occRadius / occDist;
+
+      /*
+       * The occulter has to be on the Sun's side of this fragment.
+       *
+       * The separation below is an *unsigned* angle — it comes from a cross
+       * product, which is just as small for two directions that are exactly
+       * opposite as for two that coincide. So without this test a body directly
+       * *behind* the fragment reads as perfectly aligned with the Sun in front
+       * of it, and blots it out.
+       *
+       * That is a fake eclipse at every full Moon, and at every new Moon seen
+       * from the Moon. It has been harmless only by luck: the anti-solar
+       * direction is the middle of the night side, where there is no direct
+       * light left to remove, so the wrong answer has always been multiplied by
+       * zero. It stops being lucky the moment anything reads this for something
+       * other than shading. \`sunVisibility\` has always had the equivalent test.
+       */
+      if (dot(M, L) <= 0.0) continue;
+      /*
+       * The angle between two nearly-parallel directions, via a cross product.
+       *
+       * "acos(dot(L, M))" is the obvious way to write this and it is the wrong
+       * way. An eclipse happens when the two directions differ by about 0.005
+       * radians, where the dot product is 1 - 1.1e-5 — and a float near 1.0
+       * cannot hold that difference with any precision, so the angle comes out
+       * as noise. That is why this drew no shadow at all while the identical
+       * arithmetic in double-precision JavaScript gave a clean umbra.
+       *
+       * "asin(length(cross(L, M)))" is exact in the same place: the cross
+       * product of two nearly-parallel unit vectors is small, and small floats
+       * have plenty of precision.
+       */
+      float separation = asin(clamp(length(cross(L, M)), 0.0, 1.0));
+
+      // Ordered edges. \`smoothstep(a, b, x)\` is *undefined* in GLSL when a > b,
+      // and the natural way to write "1 when the discs overlap, 0 once they
+      // have pulled apart" puts the larger edge first. Written that way this
+      // returned no shadow at all on Metal while the identical arithmetic in JS
+      // gave a clean umbra and penumbra. Inverting a correctly-ordered
+      // smoothstep is the same function with defined behaviour.
+      float overlap =
+        1.0 - smoothstep(max(occAngle - sunAngle, 0.0), occAngle + sunAngle, separation);
+      float deepest = clamp((occAngle * occAngle) / (sunAngle * sunAngle), 0.0, 1.0);
+      float blocked = overlap * deepest;
+
+      /*
+       * What the atmosphere puts back.
+       *
+       * \`blocked\` is already the depth of immersion: it saturates at 1 once the
+       * occulter's disc covers the Sun's — inside the umbra — and tapers to 0
+       * across exactly the range of separations where the two discs overlap
+       * partially, which is the penumbra. So the shape of the transition comes
+       * out of the geometry rather than being drawn on.
+       *
+       * The **cube** is not geometry, and it is a correction rather than a
+       * flourish. Fading the copper in linearly with immersion tinted the whole
+       * penumbral gradient red, and a partial lunar eclipse does not look like
+       * that: the penumbral part of the disc is plainly grey, because the
+       * refracted light is feeble next to the direct sunlight still arriving
+       * there and only wins once the direct light is gone. Rendered linearly,
+       * the 28 October 2023 eclipse — 12% of the Moon's diameter in the umbra —
+       * came out coppery across nearly half its face. The cube confines the
+       * colour to where the umbra actually is while leaving the *dimming*
+       * untouched, which is the part the geometry does know.
+       *
+       * For an airless occulter \`uEclipseAir\` is zero and this whole term
+       * vanishes, leaving exactly the scalar dimming a black rock casts.
+       */
+      float deep = blocked * blocked * blocked;
+      vec3 refracted = uEclipseAir[i] * ${REFRACTED_LIGHT} * deep;
+
+      light = min(light, vec3(1.0 - blocked) + refracted);
+    }
+
+    return light;
+  }
+`
+
+/**
+ * Adds the real-geometry eclipse shadow to a body that already has `attachShadows`.
+ *
+ * Separate from `attachShadows` rather than folded into it because only a few
+ * bodies have an eclipse worth computing, and because the two answer different
+ * questions — one is the lighting of the scene as drawn, the other is a fact
+ * about the sky on a date. `tagShaderVariant` keeps them apart in the program
+ * cache; without it Earth would silently inherit another planet's compiled
+ * shader. See the note on `tagShaderVariant`.
+ */
+export function attachEclipse(material, uniforms) {
+  tagShaderVariant(material, 'eclipse')
+  const previous = material.onBeforeCompile
+
+  material.onBeforeCompile = (shader, renderer) => {
+    previous?.call(material, shader, renderer)
+    Object.assign(shader.uniforms, uniforms)
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>\n${ECLIPSE_DECLARATIONS}`)
+      .replace(
+        '#include <lights_fragment_end>',
+        `#include <lights_fragment_end>
+         {
+           vec3 eclipse = eclipseVisibility(vShadowWorld);
+           reflectedLight.directDiffuse *= eclipse;
+           // Specular takes the luminance rather than the tint. A highlight is
+           // an image of the source, and the refracted light does not arrive
+           // from a disc — it comes from the whole ring of the Earth's lit limb,
+           // which is far too diffuse to make a coloured glint of.
+           reflectedLight.directSpecular *= dot(eclipse, vec3(0.2126, 0.7152, 0.0722));
+         }`,
+      )
+  }
+
+  material.needsUpdate = true
+}
+
+/**
+ * Uploads a `realShadowsOn` result, plus where the body is drawn.
+ *
+ * `centre` and `drawnRadius` are the only two numbers that cross between the
+ * real solar system and the diorama, and they are all that is needed: a
+ * fragment's offset from the centre divided by the drawn radius is its offset
+ * in body radii, which is the unit everything else here is already in.
+ */
+export function setEclipse(uniforms, shadows, centre, drawnRadius) {
+  if (!shadows) {
+    uniforms.uEclipseCount.value = 0
+    return
+  }
+
+  const slots = uniforms.uEclipseOcculters.value
+  const air = uniforms.uEclipseAir.value
+  const count = Math.min(shadows.count, MAX_ECLIPSE_OCCULTERS)
+
+  for (let i = 0; i < count; i++) {
+    const o = shadows.occulters[i]
+    slots[i].set(o.x, o.y, o.z, o.radius)
+    air[i] = o.air
+  }
+
+  uniforms.uEclipseCount.value = count
+  uniforms.uEclipseSun.value.set(shadows.sun.x, shadows.sun.y, shadows.sun.z)
+  uniforms.uEclipseSunR.value = shadows.sun.radius
+  uniforms.uEclipseCentre.value.copy(centre)
+  uniforms.uEclipseRadius.value = drawnRadius
 }
 
 const scratch = new THREE.Vector3()

@@ -53,15 +53,31 @@
  */
 
 import { starDirection } from './sky.js'
+import { J2000, spinClampFactor, terrestrialTime } from '../orbit/kepler.js'
+
+const RADIANS = Math.PI / 180
 
 /**
- * North pole right ascension and declination at J2000, in degrees.
+ * The IAU rotational elements: where the north pole points, and where the
+ * prime meridian is.
  *
- * IAU WGCCRE. These are checked rather than trusted: `verify-bodies` computes
- * the angle between each pole and that body's own orbit normal and requires it
- * to reproduce the published obliquity in `axialTilt`. Eight of them land
- * within 0.02°, which is a far stronger statement about a typed pair of numbers
- * than reading them twice.
+ * `ra`/`dec` locate the pole at J2000, in degrees. `w0`/`wDot` locate the prime
+ * meridian: `W = w0 + wDot · d` degrees, with `d` in days from J2000, measured
+ * east along the body's equator from the ascending node of that equator on the
+ * J2000 equator — the direction this file calls the basis `x` axis.
+ *
+ * IAU WGCCRE. The poles are checked rather than trusted: `verify-bodies`
+ * computes the angle between each pole and that body's own orbit normal and
+ * requires it to reproduce the published obliquity in `axialTilt`. Eight of
+ * them land within 0.02°, which is a far stronger statement about a typed pair
+ * of numbers than reading them twice.
+ *
+ * **`wDot` is here rather than derived from `rotationHours`, and it has to be.**
+ * That field is a rounded, human-readable period — Jupiter's `9.93` hours — and
+ * rounding is fatal to a phase: `360 / (9.93/24)` is 870.0906 °/day against the
+ * true 870.5360, which over this app's 1800-2050 window is **113 whole turns**
+ * of drift. Mars slips 11 turns and Earth 2. A period good enough to print is
+ * nowhere near good enough to say which way a planet is facing.
  *
  * Two carry a note:
  *
@@ -81,16 +97,50 @@ import { starDirection } from './sky.js'
  * identity and exactly what they were drawn with before.
  */
 export const BODY_POLES = {
-  mercury: { ra: 281.0103, dec: 61.4155 },
-  venus: { ra: 272.76, dec: 67.16 },
-  earth: { ra: 0.0, dec: 90.0 },
-  mars: { ra: 317.68143, dec: 52.8865 },
-  jupiter: { ra: 268.056595, dec: 64.495303 },
-  saturn: { ra: 40.589, dec: 83.537 },
-  uranus: { ra: 257.311, dec: -15.175 },
-  neptune: { ra: 299.334, dec: 42.95 },
-  pluto: { ra: 132.993, dec: -6.163 },
-  ceres: { ra: 291.418, dec: 66.764 },
+  mercury: { ra: 281.0103, dec: 61.4155, w0: 329.5988, wDot: 6.1385108 },
+  venus: { ra: 272.76, dec: 67.16, w0: 160.2, wDot: -1.4813688 },
+  earth: { ra: 0.0, dec: 90.0, w0: 190.147, wDot: 360.9856235 },
+  mars: { ra: 317.68143, dec: 52.8865, w0: 176.63, wDot: 350.89198226 },
+  // System III, the rotation of Jupiter's magnetic field. Its clouds are not a
+  // surface and do not share one period — the equator laps the poles by about
+  // five minutes a rotation — so any single number for Jupiter is a convention,
+  // and this is the one everybody uses.
+  jupiter: { ra: 268.056595, dec: 64.495303, w0: 284.95, wDot: 870.536 },
+  saturn: { ra: 40.589, dec: 83.537, w0: 38.9, wDot: 810.7939024 },
+  uranus: { ra: 257.311, dec: -15.175, w0: 203.81, wDot: -501.1600928 },
+  neptune: { ra: 299.334, dec: 42.95, w0: 253.18, wDot: 536.3128492 },
+  pluto: { ra: 132.993, dec: -6.163, w0: 302.695, wDot: 56.3625225 },
+  ceres: { ra: 291.418, dec: 66.764, w0: 170.9, wDot: 952.1532 },
+
+  /*
+   * The Moon, which had no pole at all and therefore showed a random face.
+   *
+   * It is tidally locked, so `wDot` is its orbital rate and the near side turns
+   * to keep facing us — the single most recognisable fact about the Moon, and
+   * one this app was not reproducing: with an arbitrary phase it presented
+   * whatever hemisphere the date happened to land on. The sub-Earth longitude
+   * now librates between about -6° and +7°, which is the real optical libration
+   * and comes for free from the Moon's eccentric, inclined orbit.
+   *
+   * **These are not the constants from the table, and taking them from the
+   * table is a trap.** The IAU expression for the Moon is
+   * `α₀ = 269.9949 - 3.8787 sin E1 …`, `δ₀ = 66.5392 + 1.5419 cos E1 …`, and
+   * that constant part — 269.9949, 66.5392 — is the *ecliptic pole*, to within
+   * 0.02°. All of the Moon's 1.54° tilt away from the ecliptic lives in the
+   * `E1` term, whose argument is the longitude of its ascending node. Drop the
+   * periodic terms as decoration, as a first pass here did, and the Moon comes
+   * out with no obliquity at all: 5.16° to its orbit where the real figure is
+   * 6.68°, and its poles lit wrongly.
+   *
+   * So `E1` is folded in, evaluated at J2000, where `E1 = 125.045°`. What that
+   * does not model is `E1` turning: the lunar node regresses once every 18.6
+   * years, carrying the pole around a 1.54° cone, and this holds it at one
+   * point on that cone. The error is bounded by the cone — at worst about 3° —
+   * and it does not touch the near side facing Earth, which `W` and the orbit
+   * carry between them. The other twelve arguments are the physical libration,
+   * worth a few hundredths of a degree, and are left out.
+   */
+  luna: { ra: 266.8194, dec: 65.6538, w0: 41.2367, wDot: 13.17635815 },
 
   /*
    * Haumea, and the one pole here that nothing independent confirms.
@@ -183,6 +233,78 @@ export function bodyBasis(id) {
   cache.set(id, basis)
   return basis
 }
+
+/**
+ * Where the body's prime meridian is at `jd`, in radians, or null.
+ *
+ * This is the third and last of the three angles that orient a body, and until
+ * now it was the one nobody had ever supplied. `spinAt` derives an angle from
+ * the rotation period alone, which makes it zero at J2000 *by construction
+ * rather than by measurement* — so every body in this app has been drawn at an
+ * arbitrary longitude phase. Invisible on a gas giant, and decisive for
+ * anything that has to line up with something else: which face of the Moon
+ * points at Earth, which meridian is in daylight, where on the ground an
+ * eclipse falls.
+ *
+ * Returns null for a body with no published `w0`, and those keep the old
+ * arbitrary phase. That is the honest outcome — an invented meridian would be
+ * indistinguishable from a real one on screen.
+ *
+ * The angle is measured the same way `surfaceDirection` measures east
+ * longitude, which is what lets the two compose: a point at east longitude L
+ * ends up at `W + L` from the basis `x` axis. That is also why the frame's `x`
+ * is the equator's ascending node rather than any convenient direction — it is
+ * where the IAU measures `W` from, so no offset has to be invented here.
+ */
+export function primeMeridianAt(id, jd, daysPerSecond = 0) {
+  const r = BODY_POLES[id]
+  if (!r || r.w0 === undefined) return null
+  const factor = spinClampFactor(daysPerSecond, r.wDot)
+  // In Terrestrial Time, because that is what the IAU model is written in. The
+  // app's clock is UT, and the ~70-second gap is 0.29° of Earth and 0.70° of
+  // Jupiter — small, and exactly the size of the residual this removes.
+  const w = r.w0 + r.wDot * (terrestrialTime(jd) - J2000) * factor
+  return (w % 360) * RADIANS
+}
+
+/**
+ * Where a body's *artwork* puts longitude zero, in degrees, when that differs
+ * from where its physics does.
+ *
+ * A body's orientation is a fact about the solar system; where the prime
+ * meridian falls on the image wrapped around it is a fact about an asset. They
+ * are usually the same and for Mars they were measured to be — see
+ * `LONGITUDE_ZERO` in `surface.js`. They are not always: NASA's lunar model
+ * carries its own UV unwrap, and it puts the *far* side where this app's
+ * convention expects the near side.
+ *
+ * This was unobservable until the prime meridians landed, and for the same
+ * reason everything else in this file was: with an arbitrary rotation phase,
+ * "the wrong face is showing" is not a statement that means anything. The
+ * moment `W` became real, the Moon's sub-Earth longitude checked out to ±6.6°
+ * while the picture showed craters where the maria belong.
+ *
+ * The Moon's 180° is not a fudged number, it is the gap between the two ways
+ * an equirectangular map is laid out. This app's convention, measured off the
+ * Mars texture, is `u = (lon - 180)/360` — longitude zero at the *centre* of
+ * the image. NASA's lunar map uses the other one, `u = lon/360`, which starts
+ * the image at the prime meridian instead. The difference between them is
+ * exactly half a turn, which is why the far side was pointing at us.
+ *
+ * Added to the drawn spin only. Nothing that stands on a surface reads it,
+ * because the one body with things standing on it is Mars, whose offset is
+ * zero — but if a lander is ever put on a body listed here, this is the number
+ * that has to go into its placement too.
+ */
+const TEXTURE_MERIDIAN = {
+  luna: 180,
+}
+
+/** The offset, in radians, for the drawn spin. Zero for almost everything. */
+export const textureMeridian = (id) => (TEXTURE_MERIDIAN[id] ?? 0) * RADIANS
+
+/** Whether this body's rotation phase is real rather than arbitrary. */
+export const hasPrimeMeridian = (id) => BODY_POLES[id]?.w0 !== undefined
 
 /**
  * Whether this body's axis direction is actually known.

@@ -12,11 +12,21 @@ import {
 } from '../store/useStore'
 import { centuriesSinceJ2000, positionAt, spinAt } from '../orbit/kepler'
 import { setPlanetSpin } from './surface'
-import { bodyBasis } from './pole'
+import { bodyBasis, primeMeridianAt, textureMeridian } from './pole'
+import { lunaPosition } from '../orbit/luna'
+import { REAL_SHADOW_BODIES, drawnOccluders, realShadowsOn } from './realShadow'
 import { warpHeliocentric, warpRadius, warpSunRadius } from '../orbit/frames'
 import { BODIES_BY_ID, bodyRadius, systemMoonsOf } from '../data/bodies'
 import { getBodySurface } from '../models'
-import { attachShadows, ringNormal, setOccluders, shadowUniforms } from './shadows'
+import {
+  attachEclipse,
+  attachShadows,
+  eclipseUniforms,
+  ringNormal,
+  setEclipse,
+  setOccluders,
+  shadowUniforms,
+} from './shadows'
 import { attachNightLights } from './nightLights'
 import { satelliteClearance, satelliteOffset } from './satelliteFrame'
 import Rings, { RING_PRESETS } from './Rings'
@@ -153,24 +163,20 @@ function Body({ planet }) {
     (id === 'earth' ? getTexture('earth-nasa-normal') : null) ?? surface?.normalMap ?? null
 
   /*
-   * Who can put this body in shadow.
+   * Who can put this body in shadow, using the geometry as drawn.
    *
-   * Only ever something in the same system. A planet is eclipsed by its own
-   * moons — Io's shadow crossing Jupiter is the one everybody recognises — and a
-   * moon by its planet or by a sibling. Nothing else in the scene can ever come
-   * between a body and the Sun, so nothing else is worth testing per fragment.
-   *
-   * Resolved once. The membership never changes; only the positions do.
+   * Resolved once — the membership never changes, only the positions do. See
+   * `drawnOccluders`, which also drops anything the real-geometry eclipse is
+   * already accounting for.
    */
-  const occluders = useMemo(() => {
-    if (parent) return [parent, ...systemMoonsOf(parent.id).filter((m) => m.id !== id)]
-    return systemMoonsOf(id)
-  }, [id, parent])
+  const occluders = useMemo(() => drawnOccluders(planet, systemMoonsOf), [planet])
 
   const rings = planet.rings ? RING_PRESETS[planet.rings] : null
   const ringMap = rings ? getTexture(rings.texture) : null
 
   const uniforms = useMemo(() => shadowUniforms(), [])
+  const eclipse = useMemo(() => eclipseUniforms(), [])
+  const hasRealShadow = REAL_SHADOW_BODIES.has(id)
 
   /*
    * The colour the surface sits at when nothing is hovered or selected.
@@ -222,8 +228,11 @@ function Body({ planet }) {
     })
     if (nightMap) attachNightLights(mat, nightMap)
     attachShadows(mat, uniforms)
+    // The Earth and the Moon: the two faces of the same three-body line-up, and
+    // the only shadows here with a published time someone might check against.
+    if (hasRealShadow) attachEclipse(mat, eclipse)
     return mat
-  }, [map, normalMap, nightMap, baseColor, uniforms, toneMapped])
+  }, [id, hasRealShadow, map, normalMap, nightMap, baseColor, uniforms, eclipse, toneMapped])
 
   // The rings' own shadow, cast onto the planet wearing them. Saturn's is the
   // one worth having: a hard dark band with the Cassini Division drawn through
@@ -266,7 +275,13 @@ function Body({ planet }) {
     // Solve the real orbit at the current date, then compress the result to
     // world units. Nothing accumulates: the position is a pure function of the
     // date, so scrubbing time, pausing, or dropping frames can't cause drift.
-    positionAt(elements, centuriesSinceJ2000(jd), eclipticAU.current)
+    /*
+     * The Moon is solved from a series rather than an ellipse; see `luna.js`.
+     * `BodyPath` branches on the same id to draw the matching orbit line, and
+     * the two have to stay together or the Moon hangs off its own path.
+     */
+    if (id === 'luna') lunaPosition(jd, eclipticAU.current)
+    else positionAt(elements, centuriesSinceJ2000(jd), eclipticAU.current)
 
     let x
     let y
@@ -359,12 +374,26 @@ function Body({ planet }) {
     // cap has to be told the clock is not running, or a body would sit at its
     // capped orientation instead of the true one for the date on screen.
     const clock = useStore.getState()
-    // A null period means nobody has measured one — seven of the comets. The
-    // nucleus is held still rather than turned at an invented rate; `spinAt`
-    // would divide by zero and hand back NaN, which silently removes the mesh.
-    const spin =
-      (rotationHours ? spinAt(jd, rotationHours, clock.paused ? 0 : clock.timeRate) : 0) +
-      showcase.current
+    const rate = clock.paused ? 0 : clock.timeRate
+    /*
+     * The real meridian where one is published, and the old arbitrary phase
+     * everywhere else.
+     *
+     * `primeMeridianAt` returns null rather than guessing, and the fallback is
+     * exactly what every body did before: an angle from the period alone, zero
+     * at J2000 because that is where the arithmetic puts it. A null period —
+     * seven of the comets — means nobody has measured one at all, and the
+     * nucleus is held still rather than turned at an invented rate; `spinAt`
+     * would divide by zero and hand back NaN, which silently removes the mesh.
+     */
+    const meridian = primeMeridianAt(id, jd, rate)
+    const turned =
+      meridian === null
+        ? rotationHours
+          ? spinAt(jd, rotationHours, rate)
+          : 0
+        : meridian + textureMeridian(id)
+    const spin = turned + showcase.current
     if (spinRef.current) spinRef.current.rotation.y = spin
     // Published for anything standing on this body. Recomputing it elsewhere
     // would mean copying this expression — cap, pause and turntable included —
@@ -381,6 +410,41 @@ function Body({ planet }) {
      * satellites, so by the time a moon reads its parent the value is current.
      */
     uniforms.uSunRadius.value = warpSunRadius(scaleMode)
+
+    /*
+     * The eclipse, in real geometry, on whatever globe is on screen.
+     *
+     * Computed from the true solar system rather than from the diorama — see
+     * `orbit/eclipse.js` for why, and `realShadow.js` for why it is handed over
+     * unconditionally instead of being gated on an alignment test. It costs one
+     * evaluation of the lunar series per frame, which is the same work the Moon
+     * itself does.
+     */
+    if (hasRealShadow) {
+      const shadows = realShadowsOn(id, jd)
+      /*
+       * Exposed in DEV, keyed by body, because finding out why this drew
+       * nothing took reading the values on both sides of the GPU. A shader is a
+       * black box from JavaScript — there is no way to print a float out of a
+       * fragment — so the only way to tell "the geometry is wrong" from "the
+       * geometry is right and the shader is eating it" is to check the inputs
+       * here and then substitute a constant in there. Both of those were
+       * needed; see the note on units in `eclipseVisibility`.
+       *
+       * Keyed rather than a bare handle because two bodies now write it, and a
+       * single slot would hold whichever of them `useFrame` reached last — so
+       * an A/B render that switched the effect off would have been switching it
+       * off on the wrong globe, silently, half the time.
+       */
+      if (import.meta.env.DEV && typeof window !== 'undefined' && window.__solar) {
+        ;(window.__solar.eclipseUniforms ??= {})[id] = eclipse
+        // The drawn-geometry shadow too, because the question that matters here
+        // is which of the two is darkening a surface — and they can both be
+        // saying "the Earth is in the way" at once. See `occluders` above.
+        ;(window.__solar.shadowUniforms ??= {})[id] = uniforms
+      }
+      setEclipse(eclipse, shadows, worldPos.current, radius)
+    }
 
     occluderScratch.current.length = 0
     for (const body of occluders) {

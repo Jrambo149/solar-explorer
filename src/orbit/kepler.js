@@ -33,6 +33,91 @@ const TWO_PI = Math.PI * 2
  */
 export const OPEN_ORBIT_MAX_AU = 36
 
+/**
+ * ΔT, the gap between the clock on the wall and the clock the sky keeps, in
+ * seconds.
+ *
+ * Universal Time is tied to the Earth's rotation, which is not a good clock —
+ * it wanders with the tides, the core and the mass of the ice caps. Terrestrial
+ * Time is uniform, and every ephemeris and rotation model is written in it. The
+ * two were together around 1900 and have drifted about 70 seconds apart since.
+ *
+ * Nothing here needed it until the prime meridians landed. Positions do not
+ * care: the Earth moves 0.0008° along its orbit in 70 seconds. *Rotation* cares
+ * a great deal — 70 seconds is 0.29° of Earth turning, 32 km of ground at the
+ * equator, and 0.70° of Jupiter. Feeding UTC to the IAU rotation model left
+ * exactly that much error, and it showed up as a residual against Horizons
+ * whose size, per body, was precisely that body's rotation in 70 seconds.
+ *
+ * These are the Espenak–Meeus polynomials, the standard fit, in the segments
+ * that cover this app's 1800–2050 window. The last segment is an extrapolation
+ * rather than a measurement — the Earth's spin cannot be predicted — and it
+ * currently runs a few seconds long against the observed value, which is 0.03°
+ * of Earth rotation and below anything drawn here.
+ */
+export function deltaTSeconds(jd) {
+  // Calendar year, near enough: these fits are quoted against a decimal year
+  // and are smooth on the scale of a day.
+  const y = 2000 + (jd - J2000) / 365.25
+
+  if (y < 1860) {
+    const t = (y - 1800) / 100
+    return (
+      13.72 -
+      33.2447 * t +
+      68.612 * t ** 2 +
+      4111.6 * t ** 3 -
+      37436 * t ** 4 +
+      121272 * t ** 5 -
+      169900 * t ** 6 +
+      87500 * t ** 7
+    )
+  }
+  if (y < 1900) {
+    const t = y - 1860
+    return (
+      7.62 +
+      0.5737 * t -
+      0.251754 * t ** 2 +
+      0.01680668 * t ** 3 -
+      0.0004473624 * t ** 4 +
+      t ** 5 / 233174
+    )
+  }
+  if (y < 1920) {
+    const t = y - 1900
+    return -2.79 + 1.494119 * t - 0.0598939 * t ** 2 + 0.0061966 * t ** 3 - 0.000197 * t ** 4
+  }
+  if (y < 1941) {
+    const t = y - 1920
+    return 21.2 + 0.84493 * t - 0.0761 * t ** 2 + 0.0020936 * t ** 3
+  }
+  if (y < 1961) {
+    const t = y - 1950
+    return 29.07 + 0.407 * t - t ** 2 / 233 + t ** 3 / 2547
+  }
+  if (y < 1986) {
+    const t = y - 1975
+    return 45.45 + 1.067 * t - t ** 2 / 260 - t ** 3 / 718
+  }
+  if (y < 2005) {
+    const t = y - 2000
+    return (
+      63.86 +
+      0.3345 * t -
+      0.060374 * t ** 2 +
+      0.0017275 * t ** 3 +
+      0.000651814 * t ** 4 +
+      0.00002373599 * t ** 5
+    )
+  }
+  const t = y - 2000
+  return 62.92 + 0.32217 * t + 0.005589 * t ** 2
+}
+
+/** The same instant in Terrestrial Time, which is what the sky is written in. */
+export const terrestrialTime = (jd) => jd + deltaTSeconds(jd) / 86400
+
 /** @param {Date|number} date a Date, or milliseconds since the Unix epoch. */
 export function julianDate(date) {
   const ms = typeof date === 'number' ? date : date.getTime()
@@ -390,9 +475,24 @@ export const MAX_SPIN_TURNS_PER_SEC = 1.1
  * asteroid, there is no visible surface detail for a phase jump to show up in.
  */
 export function spinAt(jd, rotationHours, daysPerSecond = 0) {
-  const turnsPerSecond = Math.abs(daysPerSecond) / (Math.abs(rotationHours) / 24)
-  const factor =
-    turnsPerSecond > MAX_SPIN_TURNS_PER_SEC ? MAX_SPIN_TURNS_PER_SEC / turnsPerSecond : 1
+  const factor = spinClampFactor(daysPerSecond, 360 / (rotationHours / 24))
   const turns = ((jd - J2000) * factor) / (rotationHours / 24)
   return (turns % 1) * TWO_PI
+}
+
+/**
+ * How much to slow a rotation so it does not alias, given the clock's rate.
+ *
+ * Split out of `spinAt` so the prime-meridian path in `scene/pole.js` scales
+ * elapsed time by exactly the same factor. Two copies of this would let a body
+ * with a real meridian and a body without drift apart under the same rate
+ * change, which is the sort of difference that only shows up as "the moons look
+ * wrong at high speed".
+ *
+ * @param daysPerSecond the clock's rate; 0 means "no cap, give the true angle"
+ * @param degreesPerDay the body's rotation rate, signed
+ */
+export function spinClampFactor(daysPerSecond, degreesPerDay) {
+  const turnsPerSecond = (Math.abs(daysPerSecond) * Math.abs(degreesPerDay)) / 360
+  return turnsPerSecond > MAX_SPIN_TURNS_PER_SEC ? MAX_SPIN_TURNS_PER_SEC / turnsPerSecond : 1
 }

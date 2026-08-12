@@ -98,9 +98,15 @@ function toJpeg(png, label) {
   const out = `${stem}.jpg`
   writeFileSync(src, png)
   execFileSync('sips', [
-    '-s', 'format', 'jpeg',
-    '-s', 'formatOptions', String(JPEG_QUALITY),
-    src, '--out', out,
+    '-s',
+    'format',
+    'jpeg',
+    '-s',
+    'formatOptions',
+    String(JPEG_QUALITY),
+    src,
+    '--out',
+    out,
   ])
   const bytes = readFileSync(out)
   unlinkSync(src)
@@ -109,6 +115,131 @@ function toJpeg(png, label) {
 }
 
 /* ---- main ---- */
+
+/**
+ * Turn the resampled map from the *model's* longitude convention into the
+ * app's, which is the ordinary one: east longitude, zero at the centre column.
+ *
+ * `resampleToEquirect` works in the GLB's own coordinates and has no way to
+ * know how that frame is oriented with respect to the Earth — so what it emits
+ * is a perfectly good map of the planet in the wrong frame. NASA's export turns
+ * out to be rotated a quarter turn and handed the other way: the map came out
+ * holding east longitude `L` at `u = (90° - L)/360`, with Africa to the *left*
+ * of South America.
+ *
+ * Nothing could see it until the prime meridians landed. Every body's rotation
+ * phase was arbitrary, so "the wrong meridian faces the Sun" had no meaning;
+ * once `W` was real, the sub-solar point checked out against Horizons to 0.2°
+ * while the *drawn* Earth put the Americas under the noon Sun at 12:00 UTC.
+ *
+ * The 90° is measured, not assumed, and by two independent routes. Coastline
+ * crossings on the equator — Gabon at 9.35°E, the Amazon mouth at 50°W, Ecuador
+ * at 80.4°W — fitted 89.26°. Cross-correlating the land mask against
+ * `public/textures/earth.jpg`, which is an ordinary map of the same planet,
+ * gave 89.75° at 1440 px and 89.90° at 2880 px, converging on a clean quarter
+ * turn as the grid got finer.
+ *
+ * This also fixes a second bug that had nothing to do with the meridians and
+ * was equally invisible: the night-lights map is an ordinary equirectangular
+ * image from a different source, sampled through the same UVs, so the city
+ * lights were landing nowhere near the continents underneath them.
+ */
+function intoEastLongitude(img) {
+  const { width, height, channels, pixels } = img
+  const out = Buffer.alloc(pixels.length)
+
+  for (let x = 0; x < width; x++) {
+    /*
+     * Column `x` of the output holds `L = 180 + 360·x/width`. The input holds
+     * that same longitude at `u = (90 - L)/360`, which reduces to
+     * `-0.25 - x/width` once the constants are folded together.
+     */
+    let u = -0.25 - x / width
+    u = ((u % 1) + 1) % 1
+    const src = Math.min(width - 1, Math.round(u * width))
+    for (let y = 0; y < height; y++) {
+      const from = (y * width + src) * channels
+      const to = (y * width + x) * channels
+      for (let c = 0; c < channels; c++) out[to + c] = pixels[from + c]
+    }
+  }
+
+  return { width, height, channels, pixels: out }
+}
+
+/**
+ * Assert the finished colour map really is in east longitude, by finding
+ * coastlines where they belong.
+ *
+ * The rotation this file corrects was invisible for months and was only caught
+ * because an unrelated feature made it measurable. A quarter turn is exactly
+ * the kind of error that survives review — the map still looks like the Earth —
+ * so the generator checks its own output rather than trusting the arithmetic
+ * above.
+ *
+ * Sampling *inside* well-known features rather than hunting for coastlines:
+ * a coastline crossing is a one-pixel event that cloud, river mouths and JPEG
+ * ringing all disturb, whereas the middle of the Sahara is unambiguous over
+ * hundreds of kilometres. Nine points spread over both hemispheres and all four
+ * quadrants of longitude — any rotation, mirror or pole flip breaks several.
+ */
+const LANDMARKS = [
+  ['Congo basin', 0, 20, true],
+  ['Sahara', 22, 10, true],
+  ['Arabia', 24, 45, true],
+  ['Kazakhstan', 48, 65, true],
+  ['Amazon basin', -5, -62, true],
+  ['central Australia', -24, 133, true],
+  ['mid Pacific', 0, -150, false],
+  ['South Atlantic', -30, -20, false],
+  ['mid Indian Ocean', -30, 80, false],
+]
+/* The ocean points are in the subtropical highs on purpose. This map has the
+   cloud deck composited in, and a thick enough deck reads as neutral rather
+   than blue — (-20°, -25°) does, which is why the South Atlantic sample is
+   taken ten degrees further south where the sky is reliably clear. */
+
+function assertEastLongitude(img) {
+  const { width, height, channels, pixels } = img
+
+  /** Average a small patch, so one bad pixel cannot decide anything. */
+  const isLand = (latDeg, lonDeg) => {
+    // Column holds east longitude L = 180 + 360*x/width; row runs +90 to -90.
+    const x0 = Math.round((((lonDeg - 180) / 360 + 1) % 1) * width)
+    const y0 = Math.round(((90 - latDeg) / 180) * height)
+    let land = 0
+    let seen = 0
+    for (let dy = -8; dy <= 8; dy += 2) {
+      for (let dx = -8; dx <= 8; dx += 2) {
+        const x = (((x0 + dx) % width) + width) % width
+        const y = Math.min(height - 1, Math.max(0, y0 + dy))
+        const i = (y * width + x) * channels
+        const r = pixels[i]
+        const g = pixels[i + 1]
+        const b = pixels[i + 2]
+        if (r + g + b > 620) continue // cloud says nothing either way
+        seen += 1
+        land += b > r + 18 ? -1 : 1
+      }
+    }
+    return { land: land > 0, seen }
+  }
+
+  const wrong = []
+  for (const [name, lat, lon, expected] of LANDMARKS) {
+    const { land, seen } = isLand(lat, lon)
+    if (seen < 8) continue // buried under cloud; no evidence either way
+    if (land !== expected) wrong.push(`${name} reads as ${land ? 'land' : 'ocean'}`)
+  }
+
+  if (wrong.length) {
+    throw new Error(
+      `earth colour map is not in east longitude — ${wrong.length} of ${LANDMARKS.length} ` +
+        `landmarks are wrong: ${wrong.join('; ')}`,
+    )
+  }
+  console.log(`[earth] longitude convention checked against ${LANDMARKS.length} landmarks`)
+}
 
 function main() {
   const { json, bin } = readGlb(SOURCE)
@@ -160,7 +291,9 @@ function main() {
       )
     }
 
-    const bytes = job.encode(encodePNG(resampled))
+    const oriented = intoEastLongitude(resampled)
+    if (job.role === 'colour') assertEastLongitude(oriented)
+    const bytes = job.encode(encodePNG(oriented))
     const path = join(OUT_DIR, job.file)
     writeFileSync(path, bytes)
 
