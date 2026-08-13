@@ -271,6 +271,32 @@ export async function openPage({ url, width = 1600, height = 1000 } = {}) {
     )
   }
 
+  /**
+   * A real press, move and release, for the same reason `wheel` is real.
+   *
+   * OrbitControls listens on the canvas, so what actually decides whether a
+   * drag turns the camera is *hit testing* — which element the browser decides
+   * is under the pointer. A synthetic `pointerdown` aimed at the canvas skips
+   * that decision entirely, and so cannot see a full-screen overlay sitting in
+   * front of it. One did: `.feature-layer` lost a specificity tie to
+   * `.ui-layer > *`, took `pointer-events: auto`, and swallowed every drag over
+   * a planet close enough to have named features.
+   */
+  const drag = async (fromX, fromY, toX, toY, steps = 6) => {
+    const send = (type, x, y) =>
+      browser.send(
+        'Input.dispatchMouseEvent',
+        { type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1 },
+        sessionId,
+      )
+    await send('mousePressed', fromX, fromY)
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps
+      await send('mouseMoved', fromX + (toX - fromX) * t, fromY + (toY - fromY) * t)
+    }
+    await send('mouseReleased', toX, toY)
+  }
+
   const screenshot = async (path) => {
     const { data } = await browser.send(
       'Page.captureScreenshot',
@@ -293,7 +319,7 @@ export async function openPage({ url, width = 1600, height = 1000 } = {}) {
     await rm(profile, { recursive: true, force: true }).catch(() => {})
   }
 
-  return { evaluate, waitFor, frames, wheel, screenshot, errors, close }
+  return { evaluate, waitFor, frames, wheel, drag, screenshot, errors, close }
 }
 
 /**

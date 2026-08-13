@@ -212,6 +212,41 @@ try {
     shown.join(', '),
   )
 
+  /*
+   * And the names do not take the planet away from you.
+   *
+   * The overlay is a full-viewport div sitting over the canvas, so if it ever
+   * takes pointer events it eats every drag — and it did: `.feature-layer`
+   * ties with `.ui-layer > *` in global.css at (0,1,0) and lost on source
+   * order, so it inherited `pointer-events: auto`. Nothing showed it, because
+   * the layer is empty until you are close enough to a body for its features
+   * to appear. The complaint was "when I click on Mars it won't let me drag
+   * the camera".
+   *
+   * Two checks and both are needed. What the browser says is under the pointer
+   * is the cause; whether a real drag turns the camera is the symptom, and a
+   * synthetic pointer event would answer neither.
+   */
+  const centre = await page.evaluate(`(() => {
+    const r = document.querySelector('canvas').getBoundingClientRect()
+    return [r.left + r.width / 2, r.top + r.height / 2]
+  })()`)
+  check(
+    'the pointer reaches the canvas, not the label layer',
+    (await page.evaluate(
+      `document.elementFromPoint(${centre[0]}, ${centre[1]})?.tagName`,
+    )) === 'CANVAS',
+  )
+
+  const eye = () =>
+    page.evaluate(`(() => { const p = window.__solar.camera.position; return [p.x, p.y, p.z] })()`)
+  const from = await eye()
+  await page.drag(centre[0] - 60, centre[1], centre[0] + 70, centre[1] + 20)
+  await page.frames(20)
+  const to = await eye()
+  const moved = Math.hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2])
+  check('and a drag over the labelled globe still turns the camera', moved > 1e-3, moved.toExponential(1))
+
   /* A body with no register entry draws nothing. */
   await page.evaluate(`window.__solar.state().revealAndSelect('jupiter')`)
   await page.frames(200)

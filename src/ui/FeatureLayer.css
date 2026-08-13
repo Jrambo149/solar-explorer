@@ -3,7 +3,17 @@
    Positioned by `SurfaceFeatures` writing `transform` on each node every frame,
    so nothing here may set `transform` itself — the projector would overwrite
    it, and the offset that centres the dot has to live on the children instead. */
-.feature-layer {
+/* Scoped through `.ui-layer` for specificity, not for tidiness.
+
+   `.ui-layer > *` in global.css hands every direct child `pointer-events:
+   auto`, and `.feature-layer` alone ties with it at (0,1,0) and loses on
+   source order. The layer then covers the whole viewport and eats every drag —
+   which is invisible until you are close enough to a body for the names to
+   appear, and then presents as "clicking Mars breaks the camera".
+
+   `.label-layer`, `.navbar-dock` and `.planet-title` all carry the same guard
+   for the same reason. This one was written without it. */
+.ui-layer > .feature-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
