@@ -186,8 +186,27 @@ function parse(kml) {
 
 const round = (n, places) => +n.toFixed(places)
 
+/**
+ * The IAU has adopted names for six landing sites, and they are gold.
+ *
+ * `Statio` is a feature type of its own in the register — Statio
+ * Tranquillitatis, Statio Shiv Shakti, Guang Han Gong and the rest. They are
+ * carried separately rather than with the craters, for two reasons that pull
+ * the same way: they have no diameter, so the size-ranked cap drops every one
+ * of them; and drawing them beside `landingSites.js` would put two labels on
+ * one spot, since that table names the same six places after the missions that
+ * made them.
+ *
+ * What they are for is checking. `landingSites.js` is transcribed rather than
+ * derived — a list of historical facts with no formula behind them — and these
+ * six are the part of it that can be compared against a published source. See
+ * `verify-landing-sites.mjs`.
+ */
+const isStation = (type) => type === 'statio'
+
 async function main() {
   const kept = []
+  const stations = []
   const report = []
 
   for (const [id, target, limit] of BODIES) {
@@ -220,6 +239,9 @@ async function main() {
      * 29 and 40 km, they rank in the thousands, and no size-ranked list of a
      * sane length contains them.
      */
+    for (const f of features.filter((f) => isStation(f.type))) stations.push({ body: id, ...f })
+    features = features.filter((f) => !isStation(f.type))
+
     features.sort((a, b) => b.diameter - a.diameter)
     const top = features.slice(0, limit)
 
@@ -228,6 +250,7 @@ async function main() {
   }
 
   kept.sort((a, b) => (a.body === b.body ? b.diameter - a.diameter : a.body < b.body ? -1 : 1))
+  stations.sort((a, b) => (a.name < b.name ? -1 : 1))
 
   const rows = kept
     .map(
@@ -277,10 +300,34 @@ export const FEATURES_BY_BODY = SURFACE_FEATURES.reduce((map, f) => {
   ;(map[f.body] ??= []).push(f)
   return map
 }, {})
+
+/**
+ * The \`Statio\` entries: the landing sites the IAU has given names of their own.
+ *
+ * Held apart from the features above rather than drawn with them. They have no
+ * diameter, so the size-ranked cap would drop every one; and \`landingSites.js\`
+ * already names these same six places after the missions that made them, so
+ * drawing both would put two labels on one spot.
+ *
+ * They are here to be checked against. That table is transcribed from mission
+ * reports and cannot be derived from anything; these six rows come from the
+ * gazetteer, and \`verify-landing-sites.mjs\` compares them.
+ */
+export const GAZETTEER_STATIONES = [
+${stations
+  .map(
+    (f) =>
+      `  {body:'${f.body}',name:${JSON.stringify(f.name)},lat:${round(f.latitude, 4)},lon:${round(
+        f.longitude,
+        4,
+      )}},`,
+  )
+  .join('\n')}
+]
 `,
   )
 
-  console.log(`[features] ${kept.length} kept: ${report.join(', ')}`)
+  console.log(`[features] ${kept.length} kept, ${stations.length} stationes: ${report.join(', ')}`)
   console.log(`[features] wrote ${OUT}`)
 }
 

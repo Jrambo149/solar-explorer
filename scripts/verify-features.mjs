@@ -116,7 +116,7 @@ try {
   await page.frames(40)
 
   const shown = await page.evaluate(
-    `[...document.querySelectorAll('.feature')].map((n) => n.querySelector('.feature__name').firstChild.textContent)`,
+    `[...document.querySelectorAll('.feature:not(.feature--site)')].map((n) => n.querySelector('.feature__name').firstChild.textContent)`,
   )
   check('the Moon carries labels', shown.length > 6, `${shown.length} of them`)
 
@@ -132,7 +132,7 @@ try {
     const earth = window.__solar.positions.get('earth')
     const toEarth = new THREE.Vector3().subVectors(earth, moon).normalize()
     const out = []
-    for (const node of document.querySelectorAll('.feature')) {
+    for (const node of document.querySelectorAll('.feature:not(.feature--site)')) {
       out.push(node.querySelector('.feature__name').firstChild.textContent)
     }
     return { names: out, toEarth: [toEarth.x, toEarth.y, toEarth.z] }
@@ -217,7 +217,7 @@ try {
   await page.frames(200)
   check(
     'Jupiter, which has no named surface, carries none',
-    (await page.evaluate(`document.querySelectorAll('.feature').length`)) === 0,
+    (await page.evaluate(`document.querySelectorAll('.feature:not(.feature--site)').length`)) === 0,
   )
 
   /* And the switch turns them off. */
@@ -226,10 +226,10 @@ try {
     s.revealAndSelect('luna')
   })()`)
   await page.frames(260)
-  const before = await page.evaluate(`document.querySelectorAll('.feature').length`)
+  const before = await page.evaluate(`document.querySelectorAll('.feature:not(.feature--site)').length`)
   await page.evaluate(`window.__solar.state().toggleLayer('features')`)
   await page.frames(60)
-  const after = await page.evaluate(`document.querySelectorAll('.feature').length`)
+  const after = await page.evaluate(`document.querySelectorAll('.feature:not(.feature--site)').length`)
   check('the layer switch puts them away', before > 0 && after === 0, `${before} → ${after}`)
 } finally {
   await page.close()

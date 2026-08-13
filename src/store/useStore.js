@@ -464,6 +464,17 @@ export const useStore = create((set, get) => ({
      * across, which never happens from the outside. See `SurfaceFeatures`.
      */
     features: true,
+    /**
+     * Where things have landed — and where things have hit.
+     *
+     * On, and beside the features rather than under them because it is a
+     * different claim about the same ground: a crater name says what the
+     * surface is called, and a landing site says something happened here. It
+     * costs even less than the features do, since nothing is drawn until the
+     * body itself fills a good part of the screen and only five bodies in the
+     * app have a site at all. See `SurfaceFeatures`.
+     */
+    landingSites: true,
     /** Screen-space markers, so a body stays findable once it's sub-pixel. */
     icons: true,
     /**

@@ -93,6 +93,10 @@ export default function LayerPanel() {
       else if (key === 'k') state.toggleLayer('constellations')
       // W for the Way, M being the moons'.
       else if (key === 'w') state.toggleLayer('milkyWay')
+      // F for the named ground, and G for what came down on it — "L" for
+      // landings being the labels'.
+      else if (key === 'f') state.toggleLayer('features')
+      else if (key === 'g') state.toggleLayer('landingSites')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -135,6 +139,24 @@ export default function LayerPanel() {
         hint="I"
         checked={layers.icons}
         onChange={() => toggleLayer('icons')}
+      />
+      {/* Two switches for the ground, and they are two because they are two
+          different claims. A feature name says what a piece of surface is
+          called; a landing site says something arrived there on a particular
+          day. Someone reading the Moon as a map may well want one without the
+          other. Neither draws anything until you are close to a body, so both
+          are free at the overview. */}
+      <Toggle
+        label="Surface features"
+        hint="F"
+        checked={layers.features}
+        onChange={() => toggleLayer('features')}
+      />
+      <Toggle
+        label="Landing sites"
+        hint="G"
+        checked={layers.landingSites}
+        onChange={() => toggleLayer('landingSites')}
       />
       {/* The only annotation switch that opens off. The other four draw on the
           subject — an orbit, a name, a marker — and this one draws on the

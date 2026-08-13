@@ -1,9 +1,15 @@
 import { useCallback, useSyncExternalStore } from 'react'
-import { registerFeatureNode, shownFeatures, subscribeFeatures } from '../scene/featureRegistry'
+import {
+  featureKey,
+  registerFeatureNode,
+  shownSurface,
+  siteKey,
+  subscribeSurface,
+} from '../scene/featureRegistry'
 import './FeatureLayer.css'
 
 /**
- * The names of places on a surface.
+ * The names of places on a surface, and the marks where things landed on it.
  *
  * Rendered once per change of the *set* and then left alone —
  * `SurfaceFeatures` moves each node every frame by writing `transform`
@@ -20,10 +26,8 @@ const says = (name, type) => name.toLowerCase().includes(type.slice(0, 4))
 
 /** A dot at the feature, and its name beside it. */
 function Feature({ feature }) {
-  const ref = useCallback(
-    (node) => registerFeatureNode(feature.name, node),
-    [feature.name],
-  )
+  const key = featureKey(feature.name)
+  const ref = useCallback((node) => registerFeatureNode(key, node), [key])
 
   return (
     <div className="feature" ref={ref} style={{ opacity: 0 }}>
@@ -46,15 +50,64 @@ function Feature({ feature }) {
   )
 }
 
-export default function FeatureLayer() {
-  const features = useSyncExternalStore(subscribeFeatures, shownFeatures, shownFeatures)
+/** Landings that arrived intact, and landings that did not. */
+const FAILED = new Set(['crash', 'impact'])
 
-  if (!features.length) return null
+/**
+ * A landing site: a mark, the mission's name, and the year.
+ *
+ * The year rather than the full date, because at this size a label is read at a
+ * glance and "1969" carries almost everything "20 July 1969" does. The full
+ * date is in the data and the event panel is where a date belongs.
+ */
+function Site({ site }) {
+  const key = siteKey(site.name)
+  const ref = useCallback((node) => registerFeatureNode(key, node), [key])
+  const failed = FAILED.has(site.kind)
+  const year = new Date((site.jd - 2440587.5) * 86400000).getUTCFullYear()
+
+  return (
+    <div
+      className={`feature feature--site${failed ? ' feature--failed' : ''}`}
+      ref={ref}
+      style={{ opacity: 0 }}
+      title={site.note ?? undefined}
+    >
+      {/* A ring for something that arrived and stayed, a cross for something
+          that hit. Two glyphs rather than two colours, because a mark on a grey
+          globe has to survive being three pixels across. */}
+      <span className="feature__mark" aria-hidden="true">
+        {failed ? '×' : '○'}
+      </span>
+      <span className="feature__name">
+        {site.name}
+        <em className="feature__type">
+          {/* "c." — circa — is the app admitting it does not know exactly
+              where. Mars 3 was never located; its site is an ellipse a hundred
+              kilometres across and this is the middle of it.
+
+              A tilde was the obvious mark and was worse: at 9 px in this face
+              it reads as a dash, so "~1959" looked like a negative year. */}
+          {site.approximate ? 'c. ' : ''}
+          {year}
+        </em>
+      </span>
+    </div>
+  )
+}
+
+export default function FeatureLayer() {
+  const { features, sites } = useSyncExternalStore(subscribeSurface, shownSurface, shownSurface)
+
+  if (!features.length && !sites.length) return null
 
   return (
     <div className="feature-layer" aria-hidden="true">
       {features.map((feature) => (
         <Feature key={feature.name} feature={feature} />
+      ))}
+      {sites.map((site) => (
+        <Site key={site.name} site={site} />
       ))}
     </div>
   )

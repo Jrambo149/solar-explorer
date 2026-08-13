@@ -3842,3 +3842,24 @@ export const FEATURES_BY_BODY = SURFACE_FEATURES.reduce((map, f) => {
   ;(map[f.body] ??= []).push(f)
   return map
 }, {})
+
+/**
+ * The `Statio` entries: the landing sites the IAU has given names of their own.
+ *
+ * Held apart from the features above rather than drawn with them. They have no
+ * diameter, so the size-ranked cap would drop every one; and `landingSites.js`
+ * already names these same six places after the missions that made them, so
+ * drawing both would put two labels on one spot.
+ *
+ * They are here to be checked against. That table is transcribed from mission
+ * reports and cannot be derived from anything; these six rows come from the
+ * gazetteer, and `verify-landing-sites.mjs` compares them.
+ */
+export const GAZETTEER_STATIONES = [
+  {body:'luna',name:"Guang Han Gong",lat:44.1184,lon:340.4877},
+  {body:'luna',name:"Statio Shiv Shakti",lat:-69.3734,lon:32.3198},
+  {body:'luna',name:"Statio Tianchuan",lat:43.06,lon:308.08},
+  {body:'luna',name:"Statio Tianhe",lat:-45.45,lon:177.6},
+  {body:'luna',name:"Statio Tianjiang",lat:-41.63,lon:206.02},
+  {body:'luna',name:"Statio Tranquillitatis",lat:0.6741,lon:23.4732},
+]

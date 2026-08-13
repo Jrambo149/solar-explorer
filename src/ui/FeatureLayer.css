@@ -53,6 +53,38 @@
   letter-spacing: 0.04em;
 }
 
+/* Landing sites.
+
+   A mark rather than a dot, and a brighter one: a crater name says what the
+   ground is called and a landing site says something happened here, which is
+   the rarer claim and the one worth finding on a globe. The glyph is text so
+   it scales with the label and needs no second element. */
+.feature__mark {
+  flex: none;
+  width: 9px;
+  margin-left: -2px;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--font);
+  font-size: 9px;
+  line-height: 1;
+  text-align: center;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.95),
+    0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.feature--site .feature__name {
+  color: #fff;
+  letter-spacing: 0.08em;
+}
+
+/* The ones that hit rather than landed, held back a step. Still legible — a
+   crash is part of the record — but not competing with the ones that worked. */
+.feature--failed .feature__mark,
+.feature--failed .feature__name {
+  color: rgba(255, 255, 255, 0.55);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .feature {
     transition: none;
