@@ -25,6 +25,7 @@
     "verify:mission-events": "node scripts/verify-mission-events.mjs",
     "verify:event-facts": "node scripts/verify-event-facts.mjs",
     "verify:timeline": "node scripts/verify-timeline.mjs",
+    "verify:eclipse-path": "node scripts/verify-eclipse-path.mjs",
     "verify:framing": "node scripts/verify-framing.mjs",
     "verify": "npm run verify:orbits && npm run verify:bodies && npm run verify:shaders && npm run verify:search && npm run verify:mission-events && npm run verify:event-facts && npm run verify:framing && npm run verify:spacecraft -- --offline",
     "fetch:reference": "node scripts/fetch-dwarf-reference.mjs",

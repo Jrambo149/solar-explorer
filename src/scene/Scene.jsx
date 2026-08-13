@@ -16,6 +16,7 @@ import Constellations from './Constellations'
 import MilkyWay from './MilkyWay'
 import BodyPath from './BodyPath'
 import AsteroidBelt from './AsteroidBelt'
+import EclipsePath from './EclipsePath'
 import CameraController from './CameraController'
 import { SIDE_SHIFT } from './splitFraming'
 import SimulationClock from './SimulationClock'
@@ -305,6 +306,11 @@ function SceneContents() {
         ))}
 
       <AsteroidBelt />
+
+      {/* The eclipse track, laid on the Earth while one is happening. Mounted
+          after the bodies so `getPlanetSpin` has this frame's angle, not last
+          frame's — the same ordering rule the rovers live by. */}
+      <EclipsePath />
 
       <CameraController />
 
