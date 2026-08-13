@@ -375,3 +375,56 @@
     display: none;
   }
 }
+
+/* ---- the selected craft's mission, on the track ---- */
+
+/* Never takes the pointer. The track under it is a slider being dragged, and
+   these are annotations on it — a mark that swallowed a pointerdown would stop
+   the scrub dead at exactly the dates people most want to scrub around. */
+.timeline__mission {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* How long the craft existed, against the 250 years the track covers. Cassini
+   is thirty pixels of a two-thousand-pixel bar, which is the honest picture and
+   is otherwise invisible: scrub past 2017 and the craft simply vanishes. */
+.timeline__span {
+  position: absolute;
+  top: 6px;
+  height: 4px;
+  min-width: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.timeline__mark {
+  position: absolute;
+  top: 3px;
+  width: 2px;
+  height: 10px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text-dim);
+}
+
+/* The two that bound a mission read as ends rather than as incidents. */
+.timeline__mark.is-mission-begins,
+.timeline__mark.is-mission-ends {
+  top: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+/* An arrival or a landing is where the craft stopped travelling, so it is drawn
+   as a dot on the line rather than a stroke across it. */
+.timeline__mark.is-arrival,
+.timeline__mark.is-landing {
+  top: 4px;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: #ffffff;
+}

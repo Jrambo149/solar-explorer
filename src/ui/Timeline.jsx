@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EPOCH_RANGE } from '../data/orbitalElements'
+import { MISSION_EVENTS_BY_CRAFT } from '../data/missionEvents'
+import { getBody } from '../data/bodies'
+import { trajectoryWindow } from '../orbit/trajectory'
 import { dateFromJulian, julianDate } from '../orbit/kepler'
 import { DEFAULT_RATE_DAYS_PER_SEC, setSimulationDate, useStore } from '../store/useStore'
 import './Timeline.css'
@@ -148,6 +151,30 @@ export default function Timeline() {
 
   const date = useMemo(() => dateFromJulian(displayJD), [displayJD])
   const fraction = fractionOf(displayJD)
+
+  /*
+   * The selected craft's own history, laid on the track it happened on.
+   *
+   * Only for a spacecraft, and only for the selected one. Every mission at once
+   * would be a hundred and forty-six marks across two and a half centuries, and
+   * the question this answers is "where in *this* mission am I" — which is a
+   * question about one craft or none.
+   *
+   * The span matters as much as the marks. A craft exists for a few years out
+   * of the 250 the timeline covers, and without it there is nothing on screen
+   * that says Cassini stops in 2017 — you simply scrub and it is gone.
+   */
+  const selectedId = useStore((s) => s.selectedId)
+  const mission = useMemo(() => {
+    const body = getBody(selectedId)
+    if (!body || body.kind !== 'spacecraft') return null
+    const window = trajectoryWindow(body)
+    return {
+      marks: MISSION_EVENTS_BY_CRAFT[selectedId] ?? [],
+      from: fractionOf(window.start),
+      to: fractionOf(window.end),
+    }
+  }, [selectedId])
 
   /* ---- scrubbing ---- */
 
@@ -346,6 +373,28 @@ export default function Timeline() {
             </span>
           ))}
         </div>
+
+        {/* Under the playhead and deliberately not clickable: the track owns
+            the pointer for scrubbing, and a row of tiny targets inside it would
+            fight the drag. The events panel is where these are clicked. */}
+        {mission && (
+          <div className="timeline__mission" aria-hidden="true">
+            <span
+              className="timeline__span"
+              style={{
+                left: `${mission.from * 100}%`,
+                width: `${Math.max(mission.to - mission.from, 0) * 100}%`,
+              }}
+            />
+            {mission.marks.map((event) => (
+              <span
+                key={`${event.kind}-${event.jd}`}
+                className={`timeline__mark is-${event.kind}`}
+                style={{ left: `${fractionOf(event.jd) * 100}%` }}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="timeline__playhead" style={{ left: `${fraction * 100}%` }}>
           <span className="timeline__handle" />

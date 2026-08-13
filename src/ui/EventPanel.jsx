@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { EVENTS } from '../data/events'
+import { MISSION_EVENTS } from '../data/missionEvents'
 import { BODIES_BY_ID } from '../data/bodies'
 import { dateFromJulian } from '../orbit/kepler'
 import { nextShadowTransits } from '../orbit/shadowTransits'
@@ -25,6 +26,12 @@ import './EventPanel.css'
 
 /** Which body to fly to, per kind. The event is *about* something. */
 const SUBJECT = {
+  // A mission event is about the craft, wherever it happens to be.
+  'mission-begins': (e) => e.craft,
+  flyby: (e) => e.craft,
+  arrival: (e) => e.craft,
+  landing: (e) => e.craft,
+  'mission-ends': (e) => e.craft,
   'solar-eclipse': () => 'earth',
   'lunar-eclipse': () => 'luna',
   'shadow-transit': () => 'jupiter',
@@ -49,14 +56,71 @@ const FILTERS = [
     label: 'Planets',
     kinds: ['opposition', 'greatest-elongation', 'conjunction'],
   },
+  {
+    id: 'missions',
+    label: 'Missions',
+    kinds: ['mission-begins', 'flyby', 'arrival', 'landing', 'mission-ends'],
+  },
   { id: 'rings', label: 'Rings', kinds: ['ring-plane-crossing'] },
 ]
 
 const name = (id) => BODIES_BY_ID[id]?.name ?? id
 const capitalise = (s) => s.charAt(0).toUpperCase() + s.slice(1)
 
+/**
+ * How close it came.
+ *
+ * The number is quoted whenever it is a possible one, and hedged when it is
+ * not. An earlier draft hedged on `resolutionKm` — how far the craft moves
+ * between samples — on the theory that a coarse encounter deserves a caveat.
+ * It does not work: that quantity does not predict the error. Cassini's Earth
+ * pass has samples 12,869 km apart and comes out 35 km from the published
+ * altitude, and it was being hedged; Juno's Europa pass has them 4,095 km apart
+ * and is exact to 2 km. What decides the accuracy is how sharply the path
+ * bends, which nothing here can see.
+ *
+ * So the only claim withheld is the one the data plainly cannot support: two of
+ * the forty-four passes come out *inside* the body, where a low perigee is
+ * turned through faster than the samples can follow.
+ */
+function closest(event) {
+  const body = name(event.body)
+  if (event.altitudeKm > 0) {
+    return `${Math.round(event.altitudeKm).toLocaleString()} km above ${body}`
+  }
+  return `A pass too low and too fast for these samples to measure`
+}
+
 function describe(event) {
   switch (event.kind) {
+    case 'mission-begins':
+      return {
+        title: `${name(event.craft)} sets out`,
+        detail: 'The first position JPL publishes for it, a day or two after launch',
+      }
+    case 'flyby':
+      return { title: `${name(event.craft)} passes ${name(event.body)}`, detail: closest(event) }
+    case 'arrival':
+      return {
+        title: `${name(event.craft)} reaches ${name(event.body)}`,
+        /*
+         * Not "and stays N years": `stayDays` runs to the end of the segment,
+         * which for a craft still working is the end of JPL's ephemeris rather
+         * than the end of anything. It had Mars Odyssey staying 25.0 years,
+         * which is a fact about a file.
+         */
+        detail: `Enters ${name(event.body)}'s gravitational sphere`,
+      }
+    case 'landing':
+      return {
+        title: `${name(event.craft)} lands on ${name(event.body)}`,
+        detail: `Touchdown at ${place(event.lat, event.lon)}`,
+      }
+    case 'mission-ends':
+      return {
+        title: `${name(event.craft)} stops`,
+        detail: 'The last position anyone has for it',
+      }
     case 'solar-eclipse':
       return {
         title: `${capitalise(event.type)} solar eclipse`,
@@ -130,7 +194,12 @@ export default function EventPanel() {
   const toggleEvents = useStore((s) => s.toggleEvents)
   const filter = useStore((s) => s.eventFilter)
   const setEventFilter = useStore((s) => s.setEventFilter)
-  const selectPlanet = useStore((s) => s.selectPlanet)
+  /*
+   * `revealAndSelect`, not `selectPlanet`: half of what this panel offers to
+   * fly to is behind a switched-off layer. Every spacecraft is, and the
+   * spacecraft events are most of the list.
+   */
+  const revealAndSelect = useStore((s) => s.revealAndSelect)
 
   /*
    * The date drives the list, so it has to come from the *display* clock rather
@@ -156,7 +225,7 @@ export default function EventPanel() {
   const listed = useMemo(() => {
     if (!open) return []
 
-    const pool = [...EVENTS, ...transits]
+    const pool = [...EVENTS, ...MISSION_EVENTS, ...transits]
       .filter((e) => !kinds || kinds.includes(e.kind))
       .sort((a, b) => a.jd - b.jd)
 
@@ -174,7 +243,7 @@ export default function EventPanel() {
   const go = (event) => {
     setSimulationDate(event.jd)
     const subject = SUBJECT[event.kind]?.(event)
-    if (subject) selectPlanet(subject)
+    if (subject) revealAndSelect(subject)
   }
 
   return (
