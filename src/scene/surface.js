@@ -38,7 +38,7 @@
  */
 
 import * as THREE from 'three'
-import { applyBasis } from './pole.js'
+import { applyBasis, textureMeridian } from './pole.js'
 
 const DEG = Math.PI / 180
 
@@ -61,6 +61,36 @@ export const setPlanetSpin = (id, angle) => {
 }
 
 export const getPlanetSpin = (id) => spins.get(id) ?? null
+
+/**
+ * The spin to place something at a *published* latitude and longitude.
+ *
+ * `getPlanetSpin` returns the angle the mesh is turned by, and for one body
+ * that is not the same thing. `Body` composes it as `meridian +
+ * textureMeridian(id)`: the physical rotation, plus a correction for an image
+ * whose longitudes do not start where this app's convention starts. NASA's
+ * lunar map runs `u = lon/360` where the Mars-calibrated convention here runs
+ * `u = (lon - 180)/360`, so the Moon's mesh carries an extra half turn to put
+ * the near side where it belongs on screen.
+ *
+ * That correction belongs to the *picture*. A coordinate does not have it: a
+ * feature at 345°E is at 345°E in the body's own frame, and placing it means
+ * undoing the offset the mesh was given. So this subtracts what `Body` added.
+ *
+ * The difference is invisible on Mars, whose offset is zero — which is why the
+ * rovers never noticed, and why the note beside `TEXTURE_MERIDIAN` in `pole.js`
+ * predicted this exact bug for the day something needed placing on the Moon.
+ * The gazetteer was that day: every lunar feature went to the far side, with
+ * the labels sitting neatly on craters, and the maria carrying the names of the
+ * highlands behind them.
+ *
+ * What caught it was a fact rather than a picture. The Moon is tidally locked,
+ * so Mare Imbrium *must* face the Earth — and it measured 142° away.
+ */
+export const surfaceSpin = (id) => {
+  const spin = spins.get(id)
+  return spin === undefined ? null : spin - textureMeridian(id)
+}
 
 /**
  * Where longitude zero sits on the drawn body, in degrees.

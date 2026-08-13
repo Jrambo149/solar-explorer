@@ -6,7 +6,7 @@ import { EVENTS } from '../data/events'
 import { eclipseTrack } from '../orbit/eclipsePath'
 import { planetPositions, simClock, useStore } from '../store/useStore'
 import { bodyBasis } from './pole'
-import { getPlanetSpin, surfaceDirection } from './surface'
+import { surfaceDirection, surfaceSpin } from './surface'
 
 /**
  * The eclipse's track, drawn on the ground.
@@ -127,7 +127,7 @@ export default function EclipsePath() {
     if (!group) return
 
     const position = planetPositions.get('earth')
-    const spin = getPlanetSpin('earth')
+    const spin = surfaceSpin('earth')
     if (!geometry || !position || spin === null) {
       group.visible = false
       return

@@ -3,6 +3,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { spacecraftAttitudes } from './attitude'
+import { surfaceDirection, surfaceOffset, surfaceSpin } from './surface'
+import { bodyBasis, primeMeridianAt } from './pole'
 import { BODIES, bodyShown } from '../data/bodies'
 import { useClassLayers } from '../hooks/useClassLayers'
 import { cameraLimits, farPlane, homeCameraPosition, nearPlane } from '../orbit/frames'
@@ -17,6 +19,7 @@ import MilkyWay from './MilkyWay'
 import BodyPath from './BodyPath'
 import AsteroidBelt from './AsteroidBelt'
 import EclipsePath from './EclipsePath'
+import SurfaceFeatures from './SurfaceFeatures'
 import CameraController from './CameraController'
 import { SIDE_SHIFT } from './splitFraming'
 import SimulationClock from './SimulationClock'
@@ -84,13 +87,32 @@ function DevHandle() {
      * with what comes back. Building either by hand from the console is
      * possible and tedious.
      */
-    Object.assign(window.__solar, { scene, gl, camera, three: THREE, attitudes: spacecraftAttitudes })
+    /*
+     * The surface transform, from *this* module instance.
+     *
+     * Not a convenience. A probe that reaches for these with a dynamic
+     * `import('/src/scene/surface.js')` gets a second copy of the module —
+     * Vite's dev server hands out a fresh instance once HMR has touched the
+     * graph — and that copy's spin registry is empty, so every placement it
+     * computes silently uses a spin of zero. An entire round of lunar
+     * measurements came back wrong that way, and looked like a bug in the
+     * placement rather than in the measuring.
+     */
+    Object.assign(window.__solar, {
+      scene,
+      gl,
+      camera,
+      three: THREE,
+      attitudes: spacecraftAttitudes,
+      surface: { surfaceDirection, surfaceOffset, surfaceSpin, bodyBasis, primeMeridianAt },
+    })
     return () => {
       delete window.__solar.scene
       delete window.__solar.gl
       delete window.__solar.camera
       delete window.__solar.three
       delete window.__solar.attitudes
+      delete window.__solar.surface
     }
   }, [scene, gl, camera])
 
@@ -311,6 +333,10 @@ function SceneContents() {
           after the bodies so `getPlanetSpin` has this frame's angle, not last
           frame's — the same ordering rule the rovers live by. */}
       <EclipsePath />
+
+      {/* Named places on whichever surface you are at. After the bodies, so the
+          spin it reads is this frame's. */}
+      <SurfaceFeatures />
 
       <CameraController />
 

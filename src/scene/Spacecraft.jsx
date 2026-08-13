@@ -24,7 +24,7 @@ import {
   requestSpacecraftModel,
   setDrawnRadius,
 } from './spacecraftModels'
-import { getPlanetSpin, surfaceOffset, surfaceUpright } from './surface'
+import { surfaceOffset, surfaceSpin, surfaceUpright } from './surface'
 import { bodyBasis } from './pole'
 import { landedCraft } from '../data/landedCraft'
 import { RING_PRESETS } from './Rings'
@@ -354,7 +354,7 @@ export default function Spacecraft({ craft }) {
       if (down) {
         const host = BODIES_BY_ID[landed.body]
         const hostPos = host ? planetPositions.get(host.id) : null
-        const spin = host ? getPlanetSpin(host.id) : null
+        const spin = host ? surfaceSpin(host.id) : null
         if (!host || !hostPos || spin === null) {
           if (groupRef.current) groupRef.current.visible = false
           planetPositions.delete(id)

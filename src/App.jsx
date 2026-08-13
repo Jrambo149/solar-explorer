@@ -9,6 +9,7 @@ import LayerPanel from './ui/LayerPanel'
 import EventPanel from './ui/EventPanel'
 import SearchPalette from './ui/SearchPalette'
 import LabelLayer from './ui/LabelLayer'
+import FeatureLayer from './ui/FeatureLayer'
 import Header from './ui/Header'
 import PlanetTitle from './ui/PlanetTitle'
 import ScrollHint from './ui/ScrollHint'
@@ -94,6 +95,7 @@ export default function App() {
               <LayerPanel />
               <EventPanel />
               <LabelLayer />
+              <FeatureLayer />
               <ScrollHint />
               <NavBar />
               <Timeline />

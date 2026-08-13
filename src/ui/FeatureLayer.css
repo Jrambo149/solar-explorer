@@ -1,0 +1,60 @@
+/* Names on a surface.
+
+   Positioned by `SurfaceFeatures` writing `transform` on each node every frame,
+   so nothing here may set `transform` itself — the projector would overwrite
+   it, and the offset that centres the dot has to live on the children instead. */
+.feature-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 11;
+}
+
+.feature {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* The node's origin is the point on the ground, so the row hangs from it. */
+  margin: -5px 0 0 -5px;
+  transition: opacity 0.35s var(--ease-out);
+  will-change: transform;
+}
+
+.feature__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  flex: none;
+}
+
+.feature__name {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: rgba(255, 255, 255, 0.86);
+  font-family: var(--font);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  /* Legible over ice and over shadow alike, without a plate behind it. */
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.95),
+    0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.feature__type {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feature {
+    transition: none;
+  }
+}

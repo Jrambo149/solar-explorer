@@ -456,6 +456,14 @@ export const useStore = create((set, get) => ({
     trails: true,
     /** Name text beside each body. */
     labels: true,
+    /**
+     * Named places on a surface — craters, seas, mountains.
+     *
+     * On, and it costs nothing at the overview: nothing is drawn until you are
+     * close enough to a body for its features to be several tens of pixels
+     * across, which never happens from the outside. See `SurfaceFeatures`.
+     */
+    features: true,
     /** Screen-space markers, so a body stays findable once it's sub-pixel. */
     icons: true,
     /**

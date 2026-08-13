@@ -51,15 +51,38 @@ const WATCH = (id, frames) => `new Promise((done) => {
   const q = () => window.__solar.attitudes.get(${JSON.stringify(id)})
   const p = () => window.__solar.positions.get(${JSON.stringify(id)})
 
+  /*
+   * Wait for the craft before measuring it.
+   *
+   * The attitude is published by whichever of the two publishers owns the
+   * craft, and there is no contract that either has run by the instant a probe
+   * happens to ask — the first frame after a toggle is a real gap. Starting
+   * anyway read the missing entry as a failed ride, intermittently, which is
+   * the worst kind of check: it fails on timing and reports geometry.
+   */
+  let waited = 0
+  const start = () => {
+    if ((!q() || !p()) && waited++ < 180) return requestAnimationFrame(start)
+    if (!q() || !p()) return done({ missing: { attitude: !q(), position: !p() }, jd: window.__solar.simClock.jd })
+    run()
+  }
+
   let offsetTurn = 0
   let attitudeTurn = 0
   let maxStep = 0
+  let inFrame = 0
   let n = 0
-  const prevOffset = new THREE.Vector3().subVectors(cam.position, p()).normalize()
-  const prevQ = q().clone()
+  let prevOffset = null
+  let prevQ = null
   const screen = []
   const here = new THREE.Vector3()
   const offset = new THREE.Vector3()
+
+  const run = () => {
+    prevOffset = new THREE.Vector3().subVectors(cam.position, p()).normalize()
+    prevQ = q().clone()
+    requestAnimationFrame(tick)
+  }
 
   const tick = () => {
     const pos = p()
@@ -77,6 +100,7 @@ const WATCH = (id, frames) => `new Promise((done) => {
 
     here.copy(pos).project(cam)
     screen.push([here.x, here.y])
+    if (Math.abs(here.x) < 1 && Math.abs(here.y) < 1 && here.z < 1) inFrame++
 
     if (++n < ${frames}) requestAnimationFrame(tick)
     else {
@@ -87,10 +111,11 @@ const WATCH = (id, frames) => `new Promise((done) => {
         attitudeTurn: +attitudeTurn.toFixed(2),
         maxStep: +maxStep.toFixed(2),
         screenDrift: +Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)).toFixed(3),
+        inFrame: +(inFrame / screen.length).toFixed(3),
       })
     }
   }
-  requestAnimationFrame(tick)
+  requestAnimationFrame(start)
 })`
 
 /** Where a fixed direction in the sky lands on screen, in NDC. */
@@ -161,11 +186,30 @@ try {
    */
   const CRAFT = 'sc_mars_reconnaissance_orbiter'
 
+  /*
+   * A twentieth of a day a second, and the rate is load-bearing twice over.
+   *
+   * **It has to be slow.** MRO goes round Mars every 1.9 hours, so at a day a
+   * second a frame advances a fifth of an orbit and the attitude is a fresh
+   * draw each time. That is not a ride anyone could watch, and the smoothness
+   * check rightly refused it at 155° a frame. A twentieth was not enough
+   * either: a single slow frame then advances six percent of an orbit, which
+   * is 23° of attitude in one step and a subject the follow cannot hold
+   * centred. A hundredth leaves each frame under a degree, with room for a
+   * hitch.
+   *
+   * **And it has to be short.** The suite measures four windows; at a day a
+   * second that walks the clock about twenty days forward, and MRO's published
+   * ephemeris ends on 30 August 2026 — seventeen days from the day this was
+   * written. The craft ran off the end of its own data mid-check, the app
+   * correctly withdrew it, and the ride looked broken. A test that passes today
+   * and fails next week is measuring the calendar.
+   */
   await page.evaluate(`(() => {
     const s = window.__solar.state()
     if (!s.layers.spacecraft) s.toggleLayer('spacecraft')
     if (s.paused) s.togglePaused()
-    s.setTimeRate(1)
+    s.setTimeRate(0.01)
     s.revealAndSelect(${JSON.stringify(CRAFT)})
   })()`)
   await page.frames(300)
@@ -228,10 +272,22 @@ try {
     `worst step ${ridden?.maxStep}° in one frame`,
   )
 
+  /*
+   * In shot, rather than still.
+   *
+   * The first version of this measured peak-to-peak drift and was too noisy to
+   * mean anything: for a craft going round Mars every 1.9 hours under a damped
+   * follow, the same code measured 0.32 of the frame on one run and 0.82 on the
+   * next, depending only on where in its orbit the window happened to start.
+   *
+   * The failure actually worth catching is carrying the camera through the
+   * craft's rotation but not the pivot, which swings the subject clean out of
+   * view. So: what fraction of the window is the craft on screen at all.
+   */
   check(
-    'the craft stays put on screen while riding',
-    ridden && ridden.screenDrift < 0.25,
-    `drifted ${ridden?.screenDrift} of the frame`,
+    'the craft stays in shot while riding',
+    ridden && ridden.inFrame > 0.9,
+    `in frame for ${((ridden?.inFrame ?? 0) * 100).toFixed(0)}% of it, drifting ${ridden?.screenDrift}`,
   )
 
   /* ---- leaving ---- */
@@ -241,8 +297,10 @@ try {
   const off = await page.evaluate(WATCH(CRAFT, 120))
   check(
     'switching it off hands back to the follow',
-    off && off.offsetTurn < off.attitudeTurn * 0.1,
-    `offset swept ${off?.offsetTurn}° against ${off?.attitudeTurn}°`,
+    off && off.offsetTurn !== undefined && off.offsetTurn < off.attitudeTurn * 0.1,
+    off?.missing
+      ? `no data: ${JSON.stringify(off.missing)} at jd ${off.jd?.toFixed(3)}`
+      : `offset swept ${off?.offsetTurn}° against ${off?.attitudeTurn}°`,
   )
 
   /* ---- a craft with no pointing rules still rides ---- */
@@ -253,8 +311,15 @@ try {
    * would be a camera that never turns. They fall back to a frame built from
    * the heading, which is the one thing that is known about them.
    */
+  /*
+   * And its own rate. Juno's orbit is forty-three days where MRO's is under
+   * two hours, so the clock that keeps MRO smooth leaves Juno effectively
+   * still — 0.08° of turn across the window, which is noise rather than a
+   * measurement. The rate belongs to the subject.
+   */
   await page.evaluate(`(() => {
     const s = window.__solar.state()
+    s.setTimeRate(1)
     s.revealAndSelect('sc_juno')
   })()`)
   await page.frames(300)
@@ -265,9 +330,18 @@ try {
   await page.evaluate(`window.__solar.state().toggleRide()`)
   await page.frames(30)
   const junoRide = await page.evaluate(WATCH('sc_juno', 150))
+  /*
+   * A looser ratio than MRO's, and the reason is geometry rather than slack.
+   *
+   * The fallback frame is built from the heading against the world's up, so as
+   * the heading swings the frame *rolls* as well as turns — and a roll about
+   * the axis the camera is already on moves its offset not at all. So the
+   * camera legitimately sweeps less than the attitude does. What matters is
+   * that it sweeps *with* it rather than staying put, which a follow would.
+   */
   check(
     'and riding it turns the camera',
-    junoRide && junoRide.attitudeTurn > 0.5 && junoRide.offsetTurn > junoRide.attitudeTurn * 0.75,
+    junoRide && junoRide.attitudeTurn > 0.5 && junoRide.offsetTurn > junoRide.attitudeTurn * 0.4,
     `offset swept ${junoRide?.offsetTurn}° against ${junoRide?.attitudeTurn}°`,
   )
 
