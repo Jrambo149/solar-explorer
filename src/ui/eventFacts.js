@@ -24,7 +24,9 @@ import { BODIES_BY_ID } from '../data/bodies.js'
 import { KM_PER_AU } from '../orbit/frames.js'
 import { centuriesSinceJ2000, positionAt } from '../orbit/kepler.js'
 import { lunaPosition } from '../orbit/luna.js'
-import { earthMoonSun, lunarEclipseAt, solarEclipseAt } from '../orbit/eclipse.js'
+import { earthMoonSun, lunarEclipseAt, solarEclipseAt, surfacePoint } from '../orbit/eclipse.js'
+import { bodyBasis, primeMeridianAt } from '../scene/pole.js'
+import { dateFromJulian } from '../orbit/kepler.js'
 import { segmentAt, sampleSegment } from '../orbit/trajectory.js'
 
 /* The elements the eclipse geometry needs, from the assembled roster rather
@@ -143,6 +145,55 @@ function windowAround(jd, test, step, limit) {
 
 /* ---- the facts, per kind ---- */
 
+/** A place on the Earth, said the way an atlas would. */
+function placeOf(jd) {
+  const hit = solarEclipseAt(jd, EARTH.elements)
+  if (!hit) return null
+  const p = surfacePoint(hit.point, bodyBasis('earth', jd), primeMeridianAt('earth', jd))
+  const ns = p.latitude >= 0 ? 'N' : 'S'
+  const ew = p.longitude >= 0 ? 'E' : 'W'
+  return `${Math.abs(p.latitude).toFixed(1)}°${ns} ${Math.abs(p.longitude).toFixed(1)}°${ew}`
+}
+
+const CLOCK = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'UTC',
+})
+
+/**
+ * Where the shadow touches down and where it leaves, by walking out from
+ * greatest eclipse until the axis misses the Earth.
+ *
+ * This is the fact the panel was missing, and its absence is a genuine trap
+ * rather than a nicety: the time on the event is the instant of *greatest*
+ * eclipse, and for 12 August 2026 that is the Atlantic north of Iceland. Spain
+ * — where most people watched it — is forty-five minutes further on, and
+ * someone who jumps to the event and sees no shadow over Spain has been told
+ * something misleading by omission.
+ */
+function trackEnds(jd) {
+  const step = 2 / 1440
+  const edge = (direction) => {
+    let inside = jd
+    for (let t = step; t <= 3 / 24; t += step) {
+      const at = jd + direction * t
+      if (!solarEclipseAt(at, EARTH.elements)) {
+        let outside = at
+        for (let i = 0; i < 20; i++) {
+          const mid = (inside + outside) / 2
+          if (solarEclipseAt(mid, EARTH.elements)) inside = mid
+          else outside = mid
+        }
+        break
+      }
+      inside = at
+    }
+    return inside
+  }
+  return { from: edge(-1), to: edge(1) }
+}
+
 function solarEclipseFacts(event) {
   const at = solarEclipseAt(event.jd, EARTH.elements)
   const facts = []
@@ -193,6 +244,22 @@ function solarEclipseFacts(event) {
       facts.push({
         label: 'Shadow on Earth',
         value: `The ${event.type === 'total' ? 'umbra' : 'antumbra'} crosses the Earth over ${duration(held)}`,
+      })
+    }
+  }
+
+  if (event.latitude !== undefined) {
+    const { from, to } = trackEnds(event.jd)
+    const start = placeOf(from)
+    const end = placeOf(to)
+    if (start && end) {
+      facts.push({
+        label: 'Shadow track',
+        value: `${CLOCK.format(dateFromJulian(from))} at ${start} → ${CLOCK.format(dateFromJulian(to))} at ${end}, all UTC`,
+      })
+      facts.push({
+        label: 'Greatest at',
+        value: `${CLOCK.format(dateFromJulian(event.jd))} — the moment shown, not the whole track`,
       })
     }
   }

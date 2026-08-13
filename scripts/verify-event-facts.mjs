@@ -117,6 +117,42 @@ for (const e of EVENTS.filter((x) => x.kind === 'solar-eclipse' && x.type === 't
 check('no eclipse reports the search limit as its answer', limits.length === 0, limits.join(', '))
 
 /*
+ * The shadow track, which is the fact this panel was missing.
+ *
+ * The event's time is *greatest* eclipse, and for 12 August 2026 that is the
+ * Atlantic north of Iceland — while almost everyone who watched it watched from
+ * Spain, forty-five minutes later. The track begins in the Arctic north of
+ * Siberia at sunrise and ends in the Mediterranean off the Spanish coast at
+ * sunset, and the panel now says so.
+ */
+const trackFacts = factsFor(total)
+const track = value(trackFacts, 'Shadow track') ?? ''
+const ends = [...track.matchAll(/([\d.]+)°([NS]) ([\d.]+)°([EW])/g)].map((m) => ({
+  lat: Number(m[1]) * (m[2] === 'N' ? 1 : -1),
+  lon: Number(m[3]) * (m[4] === 'E' ? 1 : -1),
+}))
+check(
+  'the 2026 track starts in the Arctic',
+  ends[0] && ends[0].lat > 70,
+  track,
+)
+check(
+  'and ends off the Spanish coast at sunset',
+  ends[1] && Math.abs(ends[1].lat - 39.0) < 2 && Math.abs(ends[1].lon - 5.5) < 3,
+  ends[1] && `${ends[1].lat.toFixed(1)}N ${ends[1].lon.toFixed(1)}E`,
+)
+
+// The times have to bracket greatest eclipse, or the walk found the wrong edge.
+const times = [...track.matchAll(/(\d\d):(\d\d)/g)].map((m) => Number(m[1]) * 60 + Number(m[2]))
+const greatestMinutes = Number(/(\d\d):(\d\d)/.exec(value(trackFacts, 'Greatest at'))?.[1]) * 60 +
+  Number(/(\d\d):(\d\d)/.exec(value(trackFacts, 'Greatest at'))?.[2])
+check(
+  'and greatest eclipse falls between the two',
+  times.length === 2 && times[0] < greatestMinutes && greatestMinutes < times[1],
+  `${track} vs greatest ${value(trackFacts, 'Greatest at')}`,
+)
+
+/*
  * New Horizons passed Pluto at 13.78 km/s, and the light-time that day was
  * about four and a half hours — the number everyone waited out for the first
  * pictures.
