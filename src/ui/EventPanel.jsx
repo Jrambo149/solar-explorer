@@ -1,10 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { EVENTS } from '../data/events'
 import { MISSION_EVENTS } from '../data/missionEvents'
 import { BODIES_BY_ID } from '../data/bodies'
 import { dateFromJulian } from '../orbit/kepler'
 import { nextShadowTransits } from '../orbit/shadowTransits'
 import { setSimulationDate, useStore } from '../store/useStore'
+import { factsFor } from './eventFacts'
 import './EventPanel.css'
 
 /**
@@ -189,6 +190,29 @@ const FORMAT = new Intl.DateTimeFormat('en-GB', {
 const AHEAD = 24
 const BEHIND = 2
 
+/**
+ * The open row's extra facts.
+ *
+ * Its own component so the work is keyed to the row being open: mount it and
+ * the facts are computed, unmount it and they are gone. Nothing is cached,
+ * because nothing needs to be — one event costs an eclipse solve or a couple of
+ * ephemeris lookups, and it happens on a click.
+ */
+function EventFacts({ event }) {
+  const facts = useMemo(() => factsFor(event), [event])
+  if (!facts.length) return null
+  return (
+    <dl className="events__facts">
+      {facts.map((fact) => (
+        <div className="events__fact" key={fact.label}>
+          <dt>{fact.label}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 export default function EventPanel() {
   const open = useStore((s) => s.eventsOpen)
   const toggleEvents = useStore((s) => s.toggleEvents)
@@ -240,7 +264,27 @@ export default function EventPanel() {
     }))
   }, [open, kinds, transits, displayJD])
 
-  const go = (event) => {
+  /*
+   * Which row is open, and its facts.
+   *
+   * One at a time, and computed on demand — see `eventFacts.js`. Doing it for
+   * the whole list would be four thousand eclipse solves to fill a panel
+   * showing twenty-six rows, and most of them will never be looked at.
+   */
+  const [openKey, setOpenKey] = useState(null)
+
+  const go = (event, key) => {
+    /*
+     * Clicking the open row closes it and goes nowhere. Anything else opens
+     * and travels — the two are one gesture, because a row you have opened to
+     * read about is a row you are deciding whether to visit, and making that
+     * two clicks would put the answer behind the question.
+     */
+    if (openKey === key) {
+      setOpenKey(null)
+      return
+    }
+    setOpenKey(key)
     setSimulationDate(event.jd)
     const subject = SUBJECT[event.kind]?.(event)
     if (subject) revealAndSelect(subject)
@@ -286,17 +330,23 @@ export default function EventPanel() {
           <ul className="events__list">
             {listed.map((event, i) => {
               const { title, detail } = describe(event)
+              const key = `${event.kind}-${event.jd}-${i}`
+              const open = openKey === key
               return (
-                <li key={`${event.kind}-${event.jd}-${i}`}>
+                <li key={key}>
                   <button
                     type="button"
-                    className={`events__row${event.past ? ' is-past' : ''}`}
-                    onClick={() => go(event)}
+                    className={`events__row${event.past ? ' is-past' : ''}${
+                      open ? ' is-open' : ''
+                    }`}
+                    onClick={() => go(event, key)}
+                    aria-expanded={open}
                   >
                     <span className="events__when">{FORMAT.format(dateFromJulian(event.jd))}</span>
                     <span className="events__title">{title}</span>
                     <span className="events__detail">{detail}</span>
                   </button>
+                  {open && <EventFacts event={event} />}
                 </li>
               )
             })}
