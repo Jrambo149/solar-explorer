@@ -326,6 +326,36 @@ try {
     seventy.join(', '),
   )
 
+  /*
+   * And they are there on a short window too.
+   *
+   * The gate is a fraction of the viewport height rather than a pixel count,
+   * because the arrival framing is: flying to a body parks it at 0.283 of the
+   * window's height whatever the window. Written as an absolute 240 px it was
+   * met on a tall browser and missed on a laptop — the same flight to the same
+   * body, and no marks at all until you zoomed in by hand.
+   *
+   * That is worse than a hidden annotation. Clicking a mark is how you stand on
+   * the ground, so the gate was hiding the way in.
+   */
+  await page.evaluate(`window.__solar.setSimulationDate(${julianDate(new Date())})`)
+  await page.frames(60)
+  for (const height of [1400, 900, 700, 560]) {
+    await page.resize(1280, height)
+    await page.evaluate(`window.__solar.state().revealAndSelect('luna')`)
+    await page.frames(320)
+    await standAtEarth()
+    await page.frames(40)
+    const marks = await shown()
+    check(
+      `marks appear on arrival in a ${height}px-tall window`,
+      marks.length > 3,
+      `${marks.length}`,
+    )
+  }
+  await page.resize(1280, 900)
+  await page.frames(40)
+
   /* And the switch puts them away. */
   await page.evaluate(`window.__solar.state().toggleLayer('landingSites')`)
   await page.frames(60)

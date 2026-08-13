@@ -63,28 +63,33 @@ import { surfaceDirection, surfaceSpin } from './surface'
 const MIN_PIXELS = 38
 
 /**
- * How large the *body* has to be before its unsized features are named.
+ * How large the *body* has to be before its unsized features are named, as a
+ * fraction of the viewport height.
  *
- * A quarter of the viewport height, so they arrive when you are properly at
- * the moon rather than passing it.
+ * **A fraction, not a pixel count, and that distinction is load-bearing.** The
+ * arrival framing is proportional to the window: flying to a body always parks
+ * it at 0.283 of the viewport height, whatever the window. Written as an
+ * absolute 220 px this gate was met on a tall window and missed on a short one
+ * — the same flight to the same body, and on a 700 px-tall browser nothing was
+ * ever named until you zoomed in by hand.
  */
-const UNSIZED_BODY_PIXELS = 220
+const UNSIZED_BODY_HEIGHT = 0.24
 
 /**
- * And how large before the landing sites are marked.
+ * And how large before the landing sites are marked. Same units, same reason.
  *
- * **Measured against where the app actually parks.** Flying to a body frames
- * it at 258 pixels — the same number for the Moon and for Mars, since the
- * framing is a multiple of the drawn radius rather than a distance. A
- * threshold above that would mean arriving at the Moon and finding no landing
- * sites until you zoomed further, which is precisely the moment someone wants
- * them; 300 did exactly that, and the check caught it.
+ * **Measured against where the app actually parks.** Flying to a body frames it
+ * at 0.283 of the viewport height — the same figure for the Moon and for Mars,
+ * since the framing is a multiple of the drawn radius rather than a distance.
+ * A threshold above that means arriving at the Moon and finding no landing
+ * sites until you zoom further, which is exactly the moment someone wants them.
  *
- * So this sits just under the arrival framing, as `UNSIZED_BODY_PIXELS` does
- * for the same reason: the marks are there when you get there, and they leave
- * when you back away.
+ * So this sits just under the arrival framing: the marks are there when you get
+ * there, and they leave when you back away. Since standing on the ground is
+ * reached by clicking one, a gate set too high does not merely hide an
+ * annotation — it hides the way in.
  */
-const SITE_BODY_PIXELS = 240
+const SITE_BODY_HEIGHT = 0.26
 
 /** And how many names at once. Past this it stops being a map. */
 const MAX_LABELS = 18
@@ -258,7 +263,7 @@ export default function SurfaceFeatures() {
      */
     const taken = []
     const siteList = []
-    if (bodyPx >= SITE_BODY_PIXELS) {
+    if (bodyPx >= SITE_BODY_HEIGHT * size.height) {
       const jd = simClock.jd
       for (const site of sites) {
         // Nothing is there before it lands.
@@ -309,7 +314,7 @@ export default function SurfaceFeatures() {
        * rule is to show them once you are close to the body itself.
        */
       const px = feature.km > 0 ? (feature.km / kmPerWorld / distance) * focalPx : 0
-      if (feature.km > 0 ? px < MIN_PIXELS : bodyPx < UNSIZED_BODY_PIXELS) continue
+      if (feature.km > 0 ? px < MIN_PIXELS : bodyPx < UNSIZED_BODY_HEIGHT * size.height) continue
       if (place(feature.lat, feature.lon) < FACING) continue
       /*
        * Against the sites only, not against the other features. Crater names

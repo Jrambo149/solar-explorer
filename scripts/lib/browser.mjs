@@ -297,6 +297,24 @@ export async function openPage({ url, width = 1600, height = 1000 } = {}) {
     await send('mouseReleased', toX, toY)
   }
 
+  /**
+   * Resize the viewport, so a check can ask what a laptop sees.
+   *
+   * More than cosmetic. Anything the app gates on a pixel count is really
+   * gating on a fraction of *this* number, since every framing distance in the
+   * camera is proportional to the viewport height — so a threshold that passes
+   * at 1400 px can silently fail at 700 and nothing else in the suite would
+   * notice. The landing-site marks did exactly that, and they are the way into
+   * the surface view.
+   */
+  const resize = async (width, height) => {
+    await browser.send(
+      'Emulation.setDeviceMetricsOverride',
+      { width, height, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    )
+  }
+
   const screenshot = async (path) => {
     const { data } = await browser.send(
       'Page.captureScreenshot',
@@ -319,7 +337,7 @@ export async function openPage({ url, width = 1600, height = 1000 } = {}) {
     await rm(profile, { recursive: true, force: true }).catch(() => {})
   }
 
-  return { evaluate, waitFor, frames, wheel, drag, screenshot, errors, close }
+  return { evaluate, waitFor, frames, wheel, drag, resize, screenshot, errors, close }
 }
 
 /**
