@@ -83,9 +83,43 @@
     0 0 10px rgba(0, 0, 0, 0.8);
 }
 
+/* A site is a button: clicking one stands you on it.
+
+   `pointer-events` comes back on *here* and nowhere else in this layer. The
+   parent must stay transparent to the pointer — it covers the whole viewport,
+   and the one time it did not it swallowed every drag over the planet. A label
+   is a hundred pixels wide and the camera can be dragged from anywhere else,
+   which is a different bargain entirely. */
+button.feature--site {
+  pointer-events: auto;
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
 .feature--site .feature__name {
   color: #fff;
   letter-spacing: 0.08em;
+}
+
+button.feature--site:hover .feature__name,
+button.feature--site:focus-visible .feature__name {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+button.feature--site:hover .feature__mark {
+  color: #fff;
+  transform: scale(1.35);
+}
+
+.feature__mark {
+  transition: transform 0.15s var(--ease-out);
 }
 
 /* The ones that hit rather than landed, held back a step. Still legible — a

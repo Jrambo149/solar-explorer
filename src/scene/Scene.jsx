@@ -205,6 +205,25 @@ function SceneContents() {
   const showConstellations = useStore((s) => s.layers.constellations)
   const showMilkyWay = useStore((s) => s.layers.milkyWay)
 
+  /*
+   * Standing on the ground puts the orbit lines away.
+   *
+   * Not a preference and not a performance measure: from a surface they are
+   * *false*. An orbit is a path drawn through space to show where a body has
+   * been and will go, and it is a useful fiction seen from outside. Standing
+   * in Gale Crater at sunrise with Earth's ellipse arcing over the horizon is
+   * a picture of something nobody has ever seen and nothing could ever see.
+   *
+   * The labels and the markers stay, because they annotate objects that are
+   * genuinely up there: "that speck is Earth" is the question a person actually
+   * has standing on Mars, and it is the one thing the view cannot answer for
+   * itself.
+   *
+   * Read here rather than by switching `layers` off in the store, so the user's
+   * own settings are untouched and come back exactly as they were.
+   */
+  const standing = useStore((s) => s.surface !== null)
+
   // Which bodies exist at all this frame. Filtering here rather than hiding
   // inside each body means a switched-off class costs nothing: no geometry, no
   // material, no `useFrame` subscriber solving an orbit nobody will see. With
@@ -272,11 +291,10 @@ function SceneContents() {
       {/* Spacecraft paths are excluded here and drawn by `Spacecraft` itself:
           `BodyPath` samples a Keplerian orbit, and a trajectory is neither
           closed nor in a single frame. */}
-      {visible
-        .filter((body) => body.kind !== 'spacecraft')
-        .map((body) => (
-          <BodyPath key={`path-${body.id}`} planet={body} />
-        ))}
+      {!standing &&
+        visible
+          .filter((body) => body.kind !== 'spacecraft')
+          .map((body) => <BodyPath key={`path-${body.id}`} planet={body} />)}
 
       {/* Primaries before satellites, and this is load-bearing rather than
           tidy: a moon's world position is its parent's plus an offset, and
@@ -321,13 +339,16 @@ function SceneContents() {
 
       {/* Trails, after the craft themselves so a path reads its frame body's
           position in the same frame it was written. */}
-      {visible
-        .filter((body) => body.kind === 'spacecraft')
-        .map((body) => (
-          <SpacecraftPath key={`path-${body.id}`} craft={body} />
-        ))}
+      {!standing &&
+        visible
+          .filter((body) => body.kind === 'spacecraft')
+          .map((body) => <SpacecraftPath key={`path-${body.id}`} craft={body} />)}
 
-      <AsteroidBelt />
+      {/* And the belt, which is the other thing that cannot be there. It is a
+          procedural cloud standing in for a real population, drawn at a size
+          that reads from across the solar system — which from the surface of
+          Mars puts boulder-sized specks across the whole sky. */}
+      {!standing && <AsteroidBelt />}
 
       {/* The eclipse track, laid on the Earth while one is happening. Mounted
           after the bodies so `getPlanetSpin` has this frame's angle, not last

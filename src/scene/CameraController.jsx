@@ -33,6 +33,9 @@ import {
 } from './splitFraming'
 import { stepFlightHomeEased, stepFlightToPlanetEased, stepFollow } from './followMath'
 import { getAttitude } from './attitude'
+import { horizonFrame, lookDirection } from './horizon'
+import { bodyBasis } from './pole'
+import { surfaceOffset, surfaceSpin } from './surface'
 
 /**
  * How much of the frame a satellite system's full width should take up.
@@ -44,6 +47,79 @@ import { getAttitude } from './attitude'
  * riding the edge at the point in its orbit where it swings widest.
  */
 const SYSTEM_FRAME_FRACTION = 0.72
+
+/**
+ * Eye height, as a fraction of the body's drawn radius.
+ *
+ * 3e-6 is about nineteen metres on the Earth — a low hill rather than a person,
+ * and chosen for the near plane's sake rather than the view's. What it buys is
+ * a horizon: on a smooth sphere the ground curves away at √(2Rh), which here is
+ * fifteen kilometres, so there is something to see the sky meet.
+ *
+ * A real 1.7 m eye would put the horizon at 4.7 km and want a near plane around
+ * a nanometre of world space. The renderer runs a logarithmic depth buffer and
+ * would probably survive it; nothing about the sky would change; and the app
+ * would be spending its depth range to move a horizon nobody can measure.
+ */
+const EYE_HEIGHT = 3e-6
+
+/** And the near plane, closer in than the eye is high. */
+const SURFACE_NEAR = 1e-6
+
+/**
+ * The field of view the orbit camera is built around — `Scene`'s own.
+ *
+ * Every framing distance in this file is derived from it, so a surface view
+ * that narrows the field to peer at something has to hand it back on the way
+ * out or the whole scene is left slightly zoomed.
+ */
+const ORBIT_FOV = 55
+
+const _eye = new THREE.Vector3()
+const _look = new THREE.Vector3()
+const _pole = new THREE.Vector3()
+const _offset = { x: 0, y: 0, z: 0 }
+const _frame = {
+  up: new THREE.Vector3(),
+  north: new THREE.Vector3(),
+  east: new THREE.Vector3(),
+}
+
+/**
+ * Where the eye is and which way it faces, standing at a place on a body.
+ *
+ * Returns false when the body is not currently drawn — a moon whose layer is
+ * off, a planet before its position has been written this frame — which the
+ * caller has to treat as "not standing yet" rather than as an error. It happens
+ * for a frame or two after arriving and would otherwise put the camera at the
+ * origin.
+ */
+function standAt(surface, scaleMode) {
+  const body = getBody(surface.body)
+  const position = body ? planetPositions.get(body.id) : null
+  const spin = body ? surfaceSpin(body.id) : null
+  if (!body || !position || spin === null) return false
+
+  const radius = bodyRadius(body, scaleMode)
+  const basis = bodyBasis(body.id)
+
+  // The same call a rover is placed with, so the eye is on the ground the
+  // labels name rather than on a second, nearly-identical sphere.
+  surfaceOffset(surface.lat, surface.lon, basis, spin, radius, _offset)
+  _frame.up.set(_offset.x, _offset.y, _offset.z).normalize()
+
+  // The spin axis in world space: the `y` column of the body's basis, which is
+  // what `surfaceOffset` turns about.
+  _pole.set(basis.y.x, basis.y.y, basis.y.z).normalize()
+  horizonFrame(_frame.up, _pole, _frame)
+
+  _eye
+    .set(_offset.x, _offset.y, _offset.z)
+    .multiplyScalar(1 + EYE_HEIGHT)
+    .add(position)
+  lookDirection(_frame, surface.azimuth, surface.altitude, _look)
+  return { radius }
+}
 
 /** Scratch for the dev-only flight error readout below. */
 const _errorScratch = new THREE.Vector3()
@@ -584,6 +660,97 @@ export default function CameraController() {
   /* --- Distinguish drags from clicks for every scene handler --- */
   useEffect(() => attachDragGuard(gl.domElement), [gl])
 
+  /* --- Looking around, from the ground ---
+   *
+   * OrbitControls is switched off while standing, so the two gestures have to
+   * be rebuilt — and both mean something different from what they mean out in
+   * orbit, which is the reason they are rebuilt rather than reconfigured.
+   *
+   * A drag out there swings the camera around a body. Here it turns your head:
+   * the eye does not move at all. So the pointer maps to *angles*, and it maps
+   * the way a hand does — drag left and the sky goes left, which means the
+   * heading decreases. Both signs are the opposite of an orbit drag, where you
+   * are pulling the world rather than turning in it.
+   *
+   * The wheel out there flies you closer. There is no closer from the ground,
+   * so it narrows the field of view instead — a pair of binoculars rather than
+   * a step forward. 3° is roughly a spotting scope and takes in the whole of
+   * the Moon with room to spare; 90° is about what you take in at a glance.
+   *
+   * Listeners on the window rather than the canvas, so a gesture that starts on
+   * the scene and wanders over a panel keeps working — there is no drag guard
+   * to worry about here, since nothing on the ground is clickable.
+   */
+  useEffect(() => {
+    const canvas = gl.domElement
+    const stage = canvas.closest('.stage') ?? canvas
+
+    /** Degrees of turn per pixel of drag, at the standard field of view. */
+    const RATE = 0.12
+    const FOV_MIN = 3
+    const FOV_MAX = 90
+    /** How close to straight up or down the view may be pitched. */
+    const PITCH_LIMIT = 88
+
+    let from = null
+
+    const onDown = (event) => {
+      if (!useStore.getState().surface) return
+      if (event.button !== 0) return
+      const { azimuth, altitude } = useStore.getState().surface
+      from = { x: event.clientX, y: event.clientY, azimuth, altitude }
+    }
+
+    const onMove = (event) => {
+      if (!from) return
+      const state = useStore.getState()
+      if (!state.surface) {
+        from = null
+        return
+      }
+      /*
+       * Scaled by the field of view, so a narrow view turns slowly. Without
+       * this, zooming in to 3° makes every drag a wild swing — the same pixel
+       * of travel covers twenty times the sky.
+       */
+      const rate = (RATE * state.surface.fov) / ORBIT_FOV
+      const azimuth = from.azimuth - (event.clientX - from.x) * rate
+      const altitude = THREE.MathUtils.clamp(
+        from.altitude - (event.clientY - from.y) * rate,
+        -PITCH_LIMIT,
+        PITCH_LIMIT,
+      )
+      state.lookAround(((azimuth % 360) + 360) % 360, altitude)
+    }
+
+    const onUp = () => {
+      from = null
+    }
+
+    const onWheel = (event) => {
+      const state = useStore.getState()
+      if (!state.surface) return
+      // Ahead of the camera's own wheel handler, which would otherwise flip the
+      // sign and hand it to a zoom that no longer exists.
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      const step = Math.exp(event.deltaY * 0.0016)
+      state.setSurfaceFov(THREE.MathUtils.clamp(state.surface.fov * step, FOV_MIN, FOV_MAX))
+    }
+
+    stage.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    // Capture, so it runs before the inversion handler further down this file.
+    stage.addEventListener('wheel', onWheel, { passive: false, capture: true })
+    return () => {
+      stage.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      stage.removeEventListener('wheel', onWheel, { capture: true })
+    }
+  }, [gl])
+
   /* --- The camera follows the scale ---
      Two things have to happen when the scale changes.
 
@@ -908,6 +1075,64 @@ export default function CameraController() {
     if (!controls) return
 
     const dt = Math.min(delta, 0.1)
+
+    /*
+     * --- Standing on the ground ---
+     *
+     * Before everything else, and it returns rather than falling through. A
+     * surface view is not a variation on the orbit camera — it is the other
+     * kind of camera. Out there the eye orbits a target and the world stays the
+     * right way up; here the eye is *fixed to the ground* and turns in place,
+     * and the world goes past it. Nothing below applies: there is no follow
+     * distance, no framing, no flight, and no pivot.
+     *
+     * OrbitControls is switched off outright rather than left enabled with its
+     * inputs disabled. Drei's wrapper runs its own `update()` in a frame
+     * callback ahead of this one, and with damping on that would keep writing
+     * the camera position from a target this branch never sets.
+     *
+     * Deliberately ahead of the arming block, so no flight is armed while
+     * standing — and so that leaving *does* arm one, on the first frame after
+     * `surface` goes null. Standing up is a cut; sitting back down is a flight
+     * out to orbit, which is the right way round.
+     */
+    const standing = useStore.getState().surface
+    if (standing) {
+      const stood = standAt(standing, useStore.getState().scaleMode)
+      if (stood) {
+        controls.enabled = false
+        camera.up.copy(_frame.up)
+        camera.position.copy(_eye)
+        camera.lookAt(_look.add(_eye))
+
+        if (camera.fov !== standing.fov) {
+          camera.fov = standing.fov
+          camera.updateProjectionMatrix()
+        }
+        const near = stood.radius * SURFACE_NEAR
+        if (near > 0 && Math.abs(Math.log(near / camera.near)) > 0.1) {
+          camera.near = near
+          camera.updateProjectionMatrix()
+        }
+      }
+      return
+    }
+
+    if (!controls.enabled) {
+      /*
+       * Just stood up. The camera is on the ground pointing at the sky and
+       * `camera.up` is whatever the local vertical was, so both have to be put
+       * back before the orbit camera is handed control — an OrbitControls
+       * whose `up` is not the world's rolls the whole scene.
+       */
+      controls.enabled = true
+      camera.up.set(0, 1, 0)
+      if (camera.fov !== ORBIT_FOV) {
+        camera.fov = ORBIT_FOV
+        camera.updateProjectionMatrix()
+      }
+      following.current = null
+    }
 
     /*
      * Arm before anything else looks at the selection.

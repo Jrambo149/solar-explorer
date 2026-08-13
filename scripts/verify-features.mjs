@@ -227,16 +227,39 @@ try {
    * is the cause; whether a real drag turns the camera is the symptom, and a
    * synthetic pointer event would answer neither.
    */
-  const centre = await page.evaluate(`(() => {
+  /*
+   * Sampled over the globe rather than at one point, and asked for *most*
+   * rather than all.
+   *
+   * The landing-site marks are buttons on purpose — clicking one stands you on
+   * it — so a handful of hundred-pixel rectangles legitimately belong to the
+   * overlay, and one of them can easily sit at dead centre. What must not
+   * happen is the *layer* claiming the whole viewport, which is a difference of
+   * three orders of magnitude in area and shows up plainly in this ratio.
+   */
+  const hits = await page.evaluate(`(() => {
     const r = document.querySelector('canvas').getBoundingClientRect()
-    return [r.left + r.width / 2, r.top + r.height / 2]
+    const cx = r.left + r.width / 2
+    const cy = r.top + r.height / 2
+    const out = []
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2
+      const x = cx + Math.cos(a) * r.height * 0.18
+      const y = cy + Math.sin(a) * r.height * 0.18
+      out.push([x, y, document.elementFromPoint(x, y)?.tagName ?? 'none'])
+    }
+    return out
   })()`)
+  const canvasHits = hits.filter(([, , tag]) => tag === 'CANVAS')
   check(
-    'the pointer reaches the canvas, not the label layer',
-    (await page.evaluate(
-      `document.elementFromPoint(${centre[0]}, ${centre[1]})?.tagName`,
-    )) === 'CANVAS',
+    'the pointer reaches the canvas nearly everywhere over the globe',
+    canvasHits.length >= hits.length - 3,
+    `${canvasHits.length} of ${hits.length}`,
   )
+
+  // Start the drag from a point that really is the canvas, so this measures
+  // the camera rather than accidentally clicking a landing site.
+  const centre = canvasHits.length ? [canvasHits[0][0], canvasHits[0][1]] : [0, 0]
 
   const eye = () =>
     page.evaluate(`(() => { const p = window.__solar.camera.position; return [p.x, p.y, p.z] })()`)

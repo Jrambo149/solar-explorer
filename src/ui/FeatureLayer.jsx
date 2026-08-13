@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react'
+import { useStore } from '../store/useStore'
 import {
   featureKey,
   registerFeatureNode,
@@ -63,15 +64,26 @@ const FAILED = new Set(['crash', 'impact'])
 function Site({ site }) {
   const key = siteKey(site.name)
   const ref = useCallback((node) => registerFeatureNode(key, node), [key])
+  const standOn = useStore((s) => s.standOn)
   const failed = FAILED.has(site.kind)
   const year = new Date((site.jd - 2440587.5) * 86400000).getUTCFullYear()
 
+  /* The one thing in this layer you can click, and the only reason the layer
+     is not `aria-hidden` outright. A crater name is decoration; a landing site
+     is a place, and the obvious thing to do with a place is go and stand in
+     it.
+
+     `pointer-events` is re-enabled on this element alone — see the note in the
+     stylesheet. The layer itself must stay transparent to the pointer or it
+     eats every drag over the planet. */
   return (
-    <div
+    <button
+      type="button"
       className={`feature feature--site${failed ? ' feature--failed' : ''}`}
       ref={ref}
       style={{ opacity: 0 }}
-      title={site.note ?? undefined}
+      title={site.note ? `${site.note} — click to stand here` : 'Click to stand here'}
+      onClick={() => standOn(site.body, site.lat, site.lon, site.name)}
     >
       {/* A ring for something that arrived and stayed, a cross for something
           that hit. Two glyphs rather than two colours, because a mark on a grey
@@ -92,7 +104,7 @@ function Site({ site }) {
           {year}
         </em>
       </span>
-    </div>
+    </button>
   )
 }
 
@@ -102,7 +114,7 @@ export default function FeatureLayer() {
   if (!features.length && !sites.length) return null
 
   return (
-    <div className="feature-layer" aria-hidden="true">
+    <div className="feature-layer">
       {features.map((feature) => (
         <Feature key={feature.name} feature={feature} />
       ))}

@@ -1,0 +1,120 @@
+/* Top centre, under the planet title.
+
+   Not the bottom: the timeline and the nav dock are both down there, and this
+   bar has to be readable against a sky rather than against the chrome. Top
+   centre is also where the eye already is — the title sits there — and while
+   standing on a surface the title is the one piece of chrome that says nothing
+   the bar does not say better. */
+.surface-bar {
+  position: absolute;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 16;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 10px 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  /* Wide enough for the note to sit on one line, and never wider than the
+     window on a phone. */
+  max-width: min(760px, calc(100vw - 32px));
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.surface-bar__where,
+.surface-bar__facing {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.15;
+}
+
+.surface-bar__label {
+  color: var(--text-dim);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.surface-bar__place,
+.surface-bar__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--text);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.surface-bar__body,
+.surface-bar__heading em {
+  color: var(--text-dim);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: 0.08em;
+}
+
+/* Fixed width, so the bar does not jitter sideways as the heading ticks
+   through 9° → 10° → 100° while you drag. */
+.surface-bar__facing {
+  min-width: 92px;
+}
+
+.surface-bar__leave {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  transition:
+    border-color 0.2s var(--ease-out),
+    background 0.2s var(--ease-out);
+}
+
+.surface-bar__leave:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.surface-bar__leave kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+/* On its own line under the rest, and dim: it is read once. */
+.surface-bar__note {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .surface-bar {
+    gap: 14px;
+    top: 76px;
+  }
+
+  .surface-bar__note {
+    display: none;
+  }
+}

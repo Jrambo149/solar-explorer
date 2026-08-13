@@ -292,6 +292,70 @@ export const useStore = create((set, get) => ({
   /** Bumped on every entry, so the camera re-seats even if it is already on. */
   rideNonce: 0,
 
+  /**
+   * Standing on the ground somewhere, or null.
+   *
+   * `{ body, lat, lon, name }` — where — and `{ azimuth, altitude, fov }`, which
+   * way you are looking and how much of the sky you can see at once. The look
+   * angles live here rather than in the camera because the readout names the
+   * direction you are facing, and because leaving and coming back should put you
+   * back where you were looking.
+   *
+   * ## Standing up takes the scale dial to true, and it has to
+   *
+   * A view from orbit is a picture; a view from the ground is a claim about
+   * *angles*, and the diorama cannot support one. Measured from the Earth's
+   * surface, the Moon subtends:
+   *
+   *     diorama (0)     6.342°     twelve times too big
+   *     mid-dial (0.5) 13.244°     worse than either end
+   *     true (1)        0.548°     against a real 0.518° at mean distance
+   *
+   * The mid-dial being the worst of the three is not a bug either: body radii
+   * and orbital distances are warped on different curves, so they cross over
+   * somewhere in the middle and the ratio between them is at its furthest from
+   * the truth there. There is exactly one setting at which standing on a planet
+   * and looking up shows you the sky that is actually over that spot, so
+   * standing sets it.
+   *
+   * The dial is left where it is put on the way back out. Restoring it would be
+   * tidier and would also undo a change the user can see happening, which reads
+   * as the app fighting them.
+   */
+  surface: null,
+
+  /**
+   * Stand at a latitude and longitude on a body.
+   *
+   * Selects the body too, so the breadcrumb and the title agree with where you
+   * are — and because the camera's follow works off the selection.
+   */
+  standOn: (body, lat, lon, name = null) =>
+    set((s) => ({
+      ...anchorMinorMoons(s, { selectedId: body, systemId: null, rideAlong: false }),
+      scaleMode: 1,
+      surface: {
+        body,
+        lat,
+        lon,
+        name,
+        // Facing north, level with the horizon: the one starting direction that
+        // is a statement about the place rather than about the last camera.
+        azimuth: 0,
+        altitude: 12,
+        fov: 60,
+      },
+    })),
+
+  /** Where you are looking from where you are standing. */
+  lookAround: (azimuth, altitude) =>
+    set((s) => (s.surface ? { surface: { ...s.surface, azimuth, altitude } } : {})),
+
+  setSurfaceFov: (fov) =>
+    set((s) => (s.surface ? { surface: { ...s.surface, fov } } : {})),
+
+  leaveSurface: () => set({ surface: null }),
+
   selectPlanet: (id) => {
     // Before the selection lands, so the craft already exists on the frame the
     // camera controller arms its flight. See `carryClockToMission`.
@@ -304,6 +368,9 @@ export const useStore = create((set, get) => ({
         systemId: null,
         // And always leaves the ride: it belongs to the craft you were on.
         rideAlong: false,
+        // And the ground: standing somewhere is a place, and this is a request
+        // to go to a different one.
+        surface: null,
         ...(s.selectedId === id ? null : { selectedId: id }),
         flightNonce: s.flightNonce + 1,
       }),
@@ -351,6 +418,7 @@ export const useStore = create((set, get) => ({
         selectedId: id,
         systemId: null,
         rideAlong: false,
+        surface: null,
         flightNonce: s.flightNonce + 1,
       }
       // The bar follows the selection anyway; setting the host here keeps the
@@ -373,6 +441,7 @@ export const useStore = create((set, get) => ({
         selectedId: id,
         systemId: id,
         rideAlong: false,
+        surface: null,
         flightNonce: s.flightNonce + 1,
       }),
     ),
@@ -385,6 +454,7 @@ export const useStore = create((set, get) => ({
           selectedId: null,
           systemId: null,
           rideAlong: false,
+          surface: null,
           flightNonce: s.flightNonce + 1,
         }),
       ),

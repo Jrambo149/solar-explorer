@@ -28,6 +28,7 @@
     "verify:eclipse-path": "node scripts/verify-eclipse-path.mjs",
     "verify:features": "node scripts/verify-features.mjs",
     "verify:landing-sites": "node scripts/verify-landing-sites.mjs",
+    "verify:horizon": "node scripts/verify-horizon.mjs",
     "verify:framing": "node scripts/verify-framing.mjs",
     "verify": "npm run verify:orbits && npm run verify:bodies && npm run verify:shaders && npm run verify:search && npm run verify:mission-events && npm run verify:event-facts && npm run verify:framing && npm run verify:spacecraft -- --offline",
     "fetch:reference": "node scripts/fetch-dwarf-reference.mjs",

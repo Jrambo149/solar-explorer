@@ -40,7 +40,12 @@ export default function PlanetTitle() {
   // From `shown`, so the name fades out with the body it belongs to.
   const name = useBodyName(shown)
 
-  const visible = Boolean(planet)
+  /* Away while standing on the ground. The surface bar occupies the same strip
+     of screen and says strictly more — the body's name plus the place on it —
+     so two headings would be one heading too many, and they overlapped. */
+  const standing = useStore((s) => s.surface !== null)
+
+  const visible = Boolean(planet) && !standing
 
   return (
     <div className={`planet-title${visible ? ' is-visible' : ''}`} aria-hidden="true">
