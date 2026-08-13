@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { getDaylight } from './daylight'
 import * as THREE from 'three'
 import { galacticDirection, galacticLongitudeAt } from './sky'
 
@@ -130,7 +131,17 @@ export default function MilkyWay({ radius = RADIUS, brightness = BRIGHTNESS }) {
 
   const mesh = useRef(null)
   useFrame(({ camera }) => {
-    if (mesh.current) mesh.current.position.copy(camera.position)
+    if (!mesh.current) return
+    mesh.current.position.copy(camera.position)
+    /*
+     * And out in daylight, with the stars.
+     *
+     * The same rule and the same reason — see scene/daylight.js. Easy to miss
+     * when the stars were done first: they went out over a blue midday sky and
+     * the galaxy stayed, which is a stranger picture than leaving both.
+     */
+    const lit = 1 - getDaylight() * getDaylight()
+    mesh.current.material.color.setScalar(brightness * lit)
   })
 
   if (!map) return null

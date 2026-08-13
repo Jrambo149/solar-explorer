@@ -87,6 +87,29 @@ const CORONA_RADII = 2.2
 const MIN_CORONA_ANGLE = 0.018
 
 /**
+ * How bright the corona is once the Sun has stopped being resolvable.
+ *
+ * **Two regimes wearing one number, which is what made the Sun look wrong from
+ * the ground on Mars.** The sprite's 0.22 opacity was chosen for the case where
+ * the photosphere is *underneath* it — being additive and camera-facing, it lays
+ * its centre brightness over the whole disc, and at anything higher it washed
+ * the granulation away.
+ *
+ * When the angular floor takes over there is no photosphere underneath. The
+ * disc is a fraction of a pixel, so the sprite is the entire star, and at 0.22
+ * of a warm gradient it peaked at 132 of 255 — measurably dimmer than the
+ * ordinary field stars around it, which reach 252. The Sun was the faintest
+ * bright thing in the sky.
+ *
+ * So the corona brightens as the floor takes over, and goes past 1.0 on the way
+ * — which is the bloom threshold, and the point: an unresolved star should be a
+ * small brilliant point with glare around it, not a flat orange dot. It also
+ * turns whiter, because the warm limb tint belongs to a disc you can resolve.
+ */
+const POINT_COLOR = new THREE.Color(2.6, 2.35, 2.0)
+const DISC_COLOR = new THREE.Color(1, 1, 1)
+
+/**
  * A soft radial falloff drawn on a camera-facing quad, used for the corona.
  * Generated once as a canvas texture — cheaper and softer than a sprite sheet.
  */
@@ -114,6 +137,8 @@ export default function Sun() {
   const prominenceRef = useRef()
   const materialRef = useRef()
   const glowRef = useRef()
+  const glowMaterialRef = useRef()
+  const offset = useRef(new THREE.Vector3())
   const glowTexture = useGlowTexture()
   const map = getTexture('sun')
   const scaleMode = useStore((s) => s.scaleMode)
@@ -152,6 +177,41 @@ export default function Sun() {
       const floorSize = state.camera.position.length() * MIN_CORONA_ANGLE
       const s = Math.max(trueSize, floorSize) * (1 + pulse * 0.03)
       glowRef.current.scale.set(s, s, 1)
+
+      /*
+       * Pulled toward the camera by a little over one solar radius, so the
+       * photosphere cannot eat its own corona.
+       *
+       * A sprite is a camera-facing quad and every fragment of it sits at the
+       * *centre's* depth. The photosphere's near pole is a full radius closer
+       * than that, so the sphere depth-rejected a disc of the sprite exactly
+       * its own angular size — which is precisely where the gradient is
+       * brightest. Invisible at diorama scale, where the disc underneath is
+       * large and already at full brightness. Decisive from the surface of Mars
+       * at true scale, where the disc is 2.7 px across: the whole bright core of
+       * the star was being clipped away by 2.7 px of the star, leaving a dim
+       * orange dot fainter than the field stars around it. Measured at peak
+       * luminance 143; 247 once the core survives.
+       *
+       * Moving the quad rather than switching `depthTest` off, which was the
+       * quicker fix and the wrong one: the corona would then draw straight
+       * through anything in front of it, including the ground you are standing
+       * on when the Sun is below the horizon.
+       */
+      offset.current.copy(state.camera.position).normalize().multiplyScalar(radius * 1.05)
+      glowRef.current.position.copy(offset.current)
+
+      /*
+       * And how far into the floored regime we are, which is what decides
+       * whether this sprite is a halo around a disc or the star itself. One is
+       * a decoration over something already at full brightness; the other has
+       * to carry the whole of it. See `POINT_COLOR`.
+       */
+      if (glowMaterialRef.current) {
+        const point = THREE.MathUtils.smoothstep(floorSize / trueSize, 1, 2.4)
+        glowMaterialRef.current.opacity = THREE.MathUtils.lerp(0.22, 1, point)
+        glowMaterialRef.current.color.lerpColors(DISC_COLOR, POINT_COLOR, point)
+      }
     }
   })
 
@@ -194,6 +254,7 @@ export default function Sun() {
           (61% to 62%); cutting this is what let the surface come back. */}
       <sprite ref={glowRef} scale={[radius * CORONA_RADII, radius * CORONA_RADII, 1]}>
         <spriteMaterial
+          ref={glowMaterialRef}
           map={glowTexture}
           transparent
           depthWrite={false}

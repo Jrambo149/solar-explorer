@@ -18,6 +18,7 @@ import Constellations from './Constellations'
 import MilkyWay from './MilkyWay'
 import BodyPath from './BodyPath'
 import AsteroidBelt from './AsteroidBelt'
+import SkyDome from './SkyDome'
 import EclipsePath from './EclipsePath'
 import SurfaceFeatures from './SurfaceFeatures'
 import CameraController from './CameraController'
@@ -349,6 +350,11 @@ function SceneContents() {
           that reads from across the solar system — which from the surface of
           Mars puts boulder-sized specks across the whole sky. */}
       {!standing && <AsteroidBelt />}
+
+      {/* Last of everything, because it acts on everything: the sky multiplies
+          and then adds over the whole frame. Only drawn while standing on a
+          body that has air. */}
+      <SkyDome />
 
       {/* The eclipse track, laid on the Earth while one is happening. Mounted
           after the bodies so `getPlanetSpin` has this frame's angle, not last

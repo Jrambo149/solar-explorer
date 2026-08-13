@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { STARS } from '../data/stars'
+import { getDaylight } from './daylight'
 import { starAlpha, starColour, starDirection, starSize } from './sky'
 
 /**
@@ -86,6 +87,7 @@ const VERTEX = /* glsl */ `
   uniform float uTime;
   uniform float uTwinkle;
   uniform float uScale;
+  uniform float uDaylight;
 
   varying vec3 vColor;
   varying float vAlpha;
@@ -111,7 +113,17 @@ const VERTEX = /* glsl */ `
     // which is a single global sin(time) scaling every star at once — that reads
     // as the whole field glimmering rather than as individual stars.
     float twinkle = 1.0 + uTwinkle * sin(uTime + aPhase);
-    vAlpha = aAlpha * twinkle;
+    /*
+     * And stand down in daylight. See scene/daylight.js: this is a contrast rule,
+     * not an extinction one — the stars are still there and the air barely
+     * dims them, but the sky beside them is brighter than the eye can hold.
+     * Zero everywhere except standing on a lit surface, so no orbit view is
+     * affected.
+     *
+     * Squared, so a twilight sky still has stars in it: the brightest survive
+     * well past sunset, which is exactly when people look.
+     */
+    vAlpha = aAlpha * twinkle * (1.0 - uDaylight * uDaylight);
   }
 `
 
@@ -244,13 +256,40 @@ export default function Starfield({
       uTime: { value: 0 },
       uTwinkle: { value: twinkle },
       uScale: { value: 0 },
+      uDaylight: { value: 0 },
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }),
     [],
   )
 
+  /*
+   * **Written through the material, not through the object handed to it.**
+   *
+   * three's `ShaderMaterial` takes a *copy* of the uniforms it is constructed
+   * with — `UniformsUtils.clone`, which deep-clones every value — so the object
+   * this component holds and the object the shader reads are two different
+   * things from the moment the material is built. Anything assigned here before
+   * mount survives, because it is copied; anything assigned afterwards is
+   * written into a map nothing renders from.
+   *
+   * That is why `uScale` and `uTwinkle` have always worked and `uTime` has
+   * always been zero: the twinkle in this file has never once animated, and
+   * nobody noticed, because a field of stars that does not twinkle looks like a
+   * field of stars. It surfaced only when the daylight fade was added and the
+   * stars refused to go out over a blue midday sky.
+   *
+   * A ref onto the material is the fix, and it is the pattern `Sun.jsx` already
+   * uses for exactly this reason.
+   */
+  const materialRef = useRef(null)
+  const write = (name, value) => {
+    if (materialRef.current) materialRef.current.uniforms[name].value = value
+  }
+
   uniforms.uTwinkle.value = twinkle
   uniforms.uScale.value = (starPixels * dpr * radius) / averageSize
+  write('uTwinkle', twinkle)
+  write('uScale', uniforms.uScale.value)
 
   /*
    * The field rides with the camera, which is what stops you flying out of it.
@@ -269,7 +308,11 @@ export default function Starfield({
   const points = useRef(null)
 
   useFrame(({ camera }, delta) => {
-    uniforms.uTime.value += delta * 0.6
+    const material = materialRef.current
+    if (material) {
+      material.uniforms.uTime.value += delta * 0.6
+      material.uniforms.uDaylight.value = getDaylight()
+    }
     if (points.current) points.current.position.copy(camera.position)
   })
 
@@ -301,6 +344,7 @@ export default function Starfield({
   return (
     <points ref={points} geometry={geometry} frustumCulled={false} renderOrder={-1000}>
       <shaderMaterial
+        ref={materialRef}
         vertexShader={VERTEX}
         fragmentShader={FRAGMENT}
         uniforms={uniforms}

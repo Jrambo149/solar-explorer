@@ -315,6 +315,68 @@ export async function openPage({ url, width = 1600, height = 1000 } = {}) {
     )
   }
 
+  /**
+   * The colours actually on screen, in a rectangle.
+   *
+   * Goes through a screenshot rather than `gl.readPixels`, which is the whole
+   * reason this is fiddly enough to need a helper. The WebGL drawing buffer is
+   * undefined once the frame has been composited — the renderer runs without
+   * `preserveDrawingBuffer`, so reading it back from the page returns a
+   * rectangle of zeros, and it does so *silently*: a check written that way
+   * reports a black sky over a lit landscape and looks like a rendering bug.
+   *
+   * `Page.captureScreenshot` composites properly, so the picture it returns is
+   * the picture. It comes back as a PNG, which Node cannot decode without a
+   * dependency — so it is handed back to the page, drawn to a 2D canvas, and
+   * read from there.
+   *
+   * Returns `{ mean, peak, peakLuminance, bright, pixels }`, all channels 0–255
+   * in sRGB. `mean` is what a colour check wants (a sky is a broad wash), `peak`
+   * is what a "is the Sun there" check wants, and `bright` — how many pixels
+   * stand clearly above the local mean — is what a "how many stars" check
+   * wants. The last one exists because the brightest pixel in a patch of
+   * daytime sky is a planet, and planets are *supposed* to be visible by day;
+   * only a count can tell a sky with two planets in it from a sky with two
+   * planets and four hundred stars.
+   */
+  const pixels = async (x, y, width, height) => {
+    const { data } = await browser.send(
+      'Page.captureScreenshot',
+      { format: 'png', clip: { x, y, width, height, scale: 1 }, captureBeyondViewport: false },
+      sessionId,
+    )
+    return evaluate(`(async () => {
+      const image = new Image()
+      image.src = 'data:image/png;base64,${data}'
+      await image.decode()
+      const canvas = document.createElement('canvas')
+      canvas.width = image.width
+      canvas.height = image.height
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      ctx.drawImage(image, 0, 0)
+      const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+      let r = 0, g = 0, b = 0, n = 0
+      let peak = [0, 0, 0], best = -1
+      const lum = new Float32Array(d.length / 4)
+      for (let i = 0; i < d.length; i += 4) {
+        r += d[i]; g += d[i + 1]; b += d[i + 2]
+        const l = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]
+        lum[n++] = l
+        if (l > best) { best = l; peak = [d[i], d[i + 1], d[i + 2]] }
+      }
+      const meanLum = lum.reduce((a, v) => a + v, 0) / n
+      let bright = 0
+      for (let i = 0; i < n; i++) if (lum[i] > meanLum + 24) bright++
+      return {
+        mean: [r / n, g / n, b / n].map((v) => Math.round(v)),
+        peak,
+        peakLuminance: Math.round(best),
+        bright,
+        pixels: n,
+      }
+    })()`)
+  }
+
   const screenshot = async (path) => {
     const { data } = await browser.send(
       'Page.captureScreenshot',
@@ -337,7 +399,7 @@ export async function openPage({ url, width = 1600, height = 1000 } = {}) {
     await rm(profile, { recursive: true, force: true }).catch(() => {})
   }
 
-  return { evaluate, waitFor, frames, wheel, drag, resize, screenshot, errors, close }
+  return { evaluate, waitFor, frames, wheel, drag, resize, pixels, screenshot, errors, close }
 }
 
 /**
