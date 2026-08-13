@@ -258,8 +258,18 @@ export default function EventPanel() {
         <span className="events__chevron" aria-hidden="true" />
       </button>
 
+      {/*
+        The wheel belongs to this list, including at its ends.
+
+        `CameraController` otherwise applies the rule it uses for thin overlays —
+        a control that has run out of scroll passes the gesture on — and for an
+        open list of four thousand events that is wrong: reaching the last row
+        and carrying on flung the camera in and out behind the panel. The marker
+        makes the panel's rectangle claim the wheel outright, which is what the
+        nav dock and the search palette already do. See `wheelOwner`.
+      */}
       {open && (
-        <div className="events__body">
+        <div className="events__body" data-wheel="ui">
           <div className="events__filters" role="group" aria-label="Event kinds">
             {FILTERS.map((f) => (
               <button

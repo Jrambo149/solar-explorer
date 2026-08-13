@@ -120,6 +120,68 @@ try {
     check(`the ${what} does not scroll the page`, now.scrollY === was.scrollY)
   }
 
+  /*
+   * The events list, at the end of its scroll — the case the panels above do
+   * not cover.
+   *
+   * A panel that is merely *scrollable* keeps its own wheel through the
+   * `scrollsItself` path, which deliberately hands the gesture on once the
+   * control has run out of room: right for a thin overlay laid across the
+   * scene, wrong for an open list. So this was fine everywhere except at the
+   * ends, where reaching the last row and carrying on flung the camera in and
+   * out behind the panel — and only there, which is why it survived the checks
+   * above.
+   *
+   * Scrolled hard to the bottom first, then wheeled again at the same spot.
+   */
+  await page.evaluate(`(() => {
+    const s = window.__solar.state()
+    // The layer panel is still open from the case above, and it is tall: both
+    // are marked \`data-wheel="ui"\`, \`wheelOwner\` returns the first whose
+    // rectangle contains the point, and the two overlap on the right edge. With
+    // it open this scrolled the layer panel and reported the events list stuck.
+    if (s.panelOpen) s.togglePanel()
+    if (!s.eventsOpen) s.toggleEvents()
+  })()`)
+  await page.frames(60)
+
+  const list = await centreOf(page, '.events__list')
+  if (!list) check('the events list is on screen', false)
+  else {
+    // To the bottom, and confirm it is actually there — a list that never
+    // reached its end would pass the check below for the wrong reason.
+    for (let i = 0; i < 40; i++) await page.wheel(list.x, list.y, 240)
+    await page.frames(60)
+    const atEnd = await page.evaluate(`(() => {
+      const el = document.querySelector('.events__list')
+      return el.scrollTop >= el.scrollHeight - el.clientHeight - 2
+    })()`)
+    check('the events list scrolls, and reaches its end', atEnd)
+
+    const was = await page.evaluate(READ)
+    for (let i = 0; i < 8; i++) await page.wheel(list.x, list.y, 240)
+    await page.frames(90)
+    const now = await page.evaluate(READ)
+    check('scrolling past the end does not move the camera', moved(was, now) === 0,
+      `camera moved ${moved(was, now).toExponential(2)} world units`)
+    check('and does not scroll the page', now.scrollY === was.scrollY)
+
+    // The other end, which fails independently: `scrollTop` at 0 with an
+    // upward wheel is a different branch of the same room test.
+    for (let i = 0; i < 40; i++) await page.wheel(list.x, list.y, -240)
+    await page.frames(60)
+    const top = await page.evaluate(READ)
+    for (let i = 0; i < 8; i++) await page.wheel(list.x, list.y, -240)
+    await page.frames(90)
+    const stillTop = await page.evaluate(READ)
+    check('scrolling past the top does not move the camera either',
+      moved(top, stillTop) === 0,
+      `camera moved ${moved(top, stillTop).toExponential(2)} world units`)
+
+    await page.evaluate(`window.__solar.state().toggleEvents()`)
+    await page.frames(30)
+  }
+
   // And the scene still has the wheel everywhere else, which is the thing a
   // fix like this is most likely to break.
   const c0 = await page.evaluate(READ)
