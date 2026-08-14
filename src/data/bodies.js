@@ -757,6 +757,44 @@ export function lineageOf(id) {
 }
 
 /**
+ * The visibility layer that governs a body, or null if nothing does.
+ *
+ * Exported because this mapping was being kept in two places — here, as the
+ * ladder inside `bodyShown`, and again in `useStore` as `BODY_LAYERS`, which
+ * decides whether hiding a layer should drop the selection. They disagreed:
+ * `asteroids` was added to the store's copy and not to this one, so the switch
+ * updated its own state, deselected correctly, and never hid a single asteroid.
+ *
+ * One function, two callers, and a class can no longer be half-wired.
+ *
+ * `null` for the Sun, which has no switch and is never not drawn.
+ */
+export function bodyLayer(body) {
+  switch (body?.kind) {
+    case 'planet':
+      return 'planets'
+    case 'dwarf':
+      return 'dwarfPlanets'
+    // The five that are places. The belt's three and a half thousand are not in
+    // `BODIES` at all — they are a population drawn by `AsteroidBelt`, and no
+    // more optional than the stars.
+    case 'asteroid':
+      return 'asteroids'
+    case 'comet':
+      return 'comets'
+    case 'spacecraft':
+      return 'spacecraft'
+    // Two peer switches, not a switch and a sub-switch: `moons` governs the
+    // moons that are places, `minorMoons` the unresolved ones, and neither
+    // implies the other. See the notes beside them in `useStore`.
+    case 'moon':
+      return body.tier === 'minor' ? 'minorMoons' : 'moons'
+    default:
+      return null
+  }
+}
+
+/**
  * Whether a body is drawn at all, given the visibility layers.
  *
  * The two class switches are the obvious half. The third rule is the one that
@@ -781,22 +819,14 @@ export function lineageOf(id) {
  */
 export function bodyShown(body, layers) {
   if (!body) return false
-  if (body.kind === 'planet' && !layers.planets) return false
-  if (body.kind === 'dwarf' && !layers.dwarfPlanets) return false
-  if (body.kind === 'comet' && !layers.comets) return false
-  if (body.kind === 'spacecraft' && !layers.spacecraft) return false
-  // Two peer switches, not a switch and a sub-switch: `moons` governs the moons
-  // that are places, `minorMoons` the unresolved ones, and neither implies the
-  // other. See the notes beside them in `useStore`.
-  //
-  // `minorMoons` is a host id rather than a boolean, so a minor moon is drawn
-  // only when its own parent is the one host currently switched on — 413 of
-  // these exist and no view wants them all at once.
-  if (body.kind === 'moon') {
-    if (body.tier === 'minor') {
-      if (layers.minorMoons !== body.parent) return false
-    } else if (!layers.moons) return false
-  }
+
+  const layer = bodyLayer(body)
+  if (layer === 'minorMoons') {
+    // The one switch that is not a boolean: it holds a *host id*, so a minor
+    // moon is drawn only when its own parent is the host currently switched on
+    // — 413 of these exist and no view wants them all at once.
+    if (layers.minorMoons !== body.parent) return false
+  } else if (layer && !layers[layer]) return false
   if (body.parent) return bodyShown(BODIES_BY_ID[body.parent], layers)
   return true
 }

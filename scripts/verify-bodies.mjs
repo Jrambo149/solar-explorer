@@ -32,6 +32,7 @@ import {
   DWARF_PLANETS,
   MOONS,
   SPACECRAFT,
+  bodyLayer,
   bodyRadius,
   bodyShown,
   focusDistance,
@@ -715,6 +716,46 @@ function poleFromEclipticDeg(parentId) {
       COMETS.every((c) => bodyShown(c, hidden)),
       'comets orbit the Sun, not a planet',
     )
+  }
+
+  /*
+   * Every class, including the ones added after this file was written.
+   *
+   * The checks above name their switches, which is why `asteroids` shipped
+   * doing nothing: the class was added to the store, the panel, the nav bar and
+   * the search, and `bodyShown` — the one place that decides what is drawn —
+   * never learned about it. Nothing here named it, so nothing here missed it.
+   *
+   * So the list is taken from the bodies themselves via `bodyLayer`. A class
+   * added tomorrow is covered the moment one body claims it, and cannot ship
+   * half-wired the way this one did.
+   *
+   * `minorMoons` is excluded because it is not a boolean — it holds a host id,
+   * and its scoping is checked on its own terms above.
+   */
+  {
+    const classes = [...new Set(BODIES.map(bodyLayer).filter(Boolean))].filter(
+      (layer) => layer !== 'minorMoons',
+    )
+    const ALL = Object.fromEntries(classes.map((layer) => [layer, true]))
+    ALL.minorMoons = null
+
+    for (const layer of classes) {
+      const members = BODIES.filter((b) => bodyLayer(b) === layer)
+      // Against `ALL`, not against the body alone: a moon needs its planet, so
+      // "shown when on" is only meaningful with the parents switched on too.
+      const shownWhenOn = members.filter((b) => bodyShown(b, ALL))
+      const shownWhenOff = members.filter((b) => bodyShown(b, { ...ALL, [layer]: false }))
+      check(
+        `the ${layer} switch decides whether its ${members.length} bodies are drawn`,
+        shownWhenOn.length === members.length && shownWhenOff.length === 0,
+        shownWhenOff.length
+          ? `${shownWhenOff.length} still drawn with the switch off, e.g. ${shownWhenOff[0].name} — bodyShown does not know this class`
+          : shownWhenOn.length < members.length
+            ? `${members.length - shownWhenOn.length} not drawn with it on, e.g. ${members.find((b) => !shownWhenOn.includes(b)).name}`
+            : `${members.length} on, none off`,
+      )
+    }
   }
 
   check(

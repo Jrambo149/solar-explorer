@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import * as THREE from 'three'
 import { julianDate } from '../orbit/kepler'
 import { EPOCH_RANGE } from '../data/orbitalElements'
-import { BODIES, BODIES_BY_ID, bodyShown } from '../data/bodies'
+import { BODIES, BODIES_BY_ID, bodyLayer, bodyShown } from '../data/bodies'
 import { isFlying, trajectoryWindow } from '../orbit/trajectory'
 import { landedCraft } from '../data/landedCraft'
 
@@ -22,25 +22,13 @@ import { landedCraft } from '../data/landedCraft'
  * switchable tiers: a minor moon's kind is still `'moon'`, but the switch that
  * governs it is `minorMoons`. Keying on the layer directly means `toggleLayer`
  * below asks the question it actually needs answered.
+ *
+ * The mapping itself now lives beside `bodyShown`, which is the other half of
+ * the same question. It was written out twice, and the two copies drifted: this
+ * one knew about `asteroids` and the drawing rule did not, so the switch
+ * deselected Vesta perfectly well and left it on screen.
  */
-const BODY_LAYERS = Object.fromEntries(
-  BODIES.map((b) => [
-    b.id,
-    b.kind === 'planet'
-      ? 'planets'
-      : b.kind === 'dwarf'
-        ? 'dwarfPlanets'
-        : b.kind === 'comet'
-          ? 'comets'
-          : b.kind === 'asteroid'
-            ? 'asteroids'
-            : b.kind === 'moon'
-              ? b.tier === 'minor'
-                ? 'minorMoons'
-                : 'moons'
-              : null,
-  ]),
-)
+const BODY_LAYERS = Object.fromEntries(BODIES.map((b) => [b.id, bodyLayer(b)]))
 
 /** The layers that populate the scene rather than annotate it. */
 export const CLASS_LAYERS = [
