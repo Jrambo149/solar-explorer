@@ -1,0 +1,66 @@
+/* Scoped through `.ui-layer`, and it has to be.
+
+   `global.css` grants `pointer-events: auto` to `.ui-layer > *` with a bare
+   class selector, which ties this layer's own rule on specificity and wins on
+   source order — so a full-screen overlay declared as `.constellation-labels`
+   alone would swallow every drag over the scene. This app has been bitten by
+   that four times now; see FeatureLayer.css. */
+.ui-layer > .constellation-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Under the panels and the nav dock, over the scene. A name is an annotation
+     of the sky and must never sit on top of a control. */
+  z-index: 11;
+}
+
+/* The transform written each frame puts the label's *anchor* at the middle of
+   the region, so the box has to centre itself on that point rather than hang
+   from its top-left corner. Two transforms cannot coexist on one element, so
+   the centring is done with margins instead — the projector owns `transform`
+   outright. */
+.constellation-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: -9px 0 0 -60px;
+  width: 120px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-align: center;
+  text-transform: uppercase;
+  /* The one piece of chrome in this app drawn over a field of stars with
+     nothing behind it. A shadow rather than a plate: a name on a star chart is
+     printed on the sky, not in a box on it. */
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.95), 0 0 3px rgba(0, 0, 0, 1);
+  pointer-events: auto;
+  transition:
+    color 0.18s var(--ease-out),
+    opacity 0.25s var(--ease-out);
+  /* Placed by the projector; `opacity` is its handle for showing and hiding. */
+  will-change: transform, opacity;
+}
+
+.constellation-label:hover {
+  color: var(--text);
+}
+
+/* The picked one, in the same warm accent its figure is drawn in — so the name
+   and the lines on the sky read as one answer rather than two highlights. */
+.constellation-label.is-picked {
+  color: #ffdb9e;
+  letter-spacing: 0.19em;
+}
+
+@media (max-width: 640px) {
+  .constellation-label {
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+  }
+}

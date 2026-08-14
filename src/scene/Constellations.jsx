@@ -1,9 +1,10 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CONSTELLATIONS, STARS } from '../data/stars'
 import { CONSTELLATION_REGIONS } from '../data/constellations'
 import { useStore } from '../store/useStore'
+import { constellationNodes, publishConstellations } from './constellationRegistry'
 import { starDirection } from './sky'
 
 /**
@@ -150,6 +151,142 @@ function Region({ index, radius }) {
 const PICKED_COLOUR = new THREE.Color(1, 0.86, 0.62)
 const BOUNDARY_COLOUR = new THREE.Color(0.62, 0.66, 0.78)
 
+/* ------------------------------------------------------------------ *
+ * The names.
+ * ------------------------------------------------------------------ */
+
+/**
+ * How many names to write at once.
+ *
+ * A printed star chart labels all 88 because it has a whole sheet of paper and
+ * a reader with time. This has a browser window that may be showing the entire
+ * celestial sphere at once, where 88 names is not a chart but a fog — so the
+ * most prominent are written and the rest are left to be found by clicking.
+ */
+const MAX_NAMES = 16
+
+/**
+ * Clearance around a name, in pixels, before another is suppressed.
+ *
+ * Generous in x because the names are words rather than the numbers the surface
+ * labels are — "Camelopardalis" is fourteen characters — and tight in y so that
+ * a column of small constellations can still all be written.
+ */
+const CLEAR_X = 104
+const CLEAR_Y = 15
+
+/**
+ * Which names get written when they cannot all fit.
+ *
+ * Not by area, which would fill the sky with the enormous faint ones — Hydra,
+ * Eridanus and Cetus are three of the four largest constellations and two of
+ * them are nearly invisible. Not by brightness alone either, or Crux and
+ * Triangulum Australe would outrank Ursa Major.
+ *
+ * So: the brightness of the brightest star, with a nudge for size. That puts
+ * Orion, Scorpius and the Southern Cross first, which is the order someone
+ * looking at the sky would put them in, and it is stable — computed once,
+ * because nothing in it depends on where the camera is.
+ */
+const PROMINENCE = CONSTELLATION_REGIONS.map((region, index) => ({
+  index,
+  score: -STARS[region.brightest][2] + Math.log10(region.area) * 0.6,
+}))
+  .sort((a, b) => b.score - a.score)
+  .map((entry) => entry.index)
+
+/** How often the *set* may cross into React, in milliseconds. */
+const LIST_INTERVAL_MS = 180
+
+const _centre = new THREE.Vector3()
+const _screen = new THREE.Vector3()
+
+/**
+ * Writes each visible constellation's name at the middle of its own region.
+ *
+ * The position is the area-weighted mean direction from the bake — not the
+ * middle of the figure, which for a constellation like Ursa Major is a long way
+ * from the middle of the region it names, and not the brightest star, which
+ * would put "Orion" on Rigel's toe.
+ *
+ * Runs in the same `useFrame` pass as everything else on the sky, and writes
+ * `transform` straight onto the DOM nodes — React sees the set change a few
+ * times a second and never sees the motion.
+ */
+function Names({ radius, picked }) {
+  const lastList = useRef({ at: 0, key: '' })
+  const placed = useRef(new Map())
+
+  /*
+   * Switching the layer off unmounts this, and the overlay would otherwise be
+   * left rendering whatever was published last — a set of names frozen mid-sky,
+   * with nothing moving them and no figures under them, because the thing that
+   * moved them is gone. The publisher has to retract on the way out.
+   */
+  useEffect(() => () => publishConstellations([]), [])
+
+  useFrame(({ camera, size }) => {
+    const taken = []
+    const chosen = []
+
+    /*
+     * The picked one first, always, whatever it collides with.
+     *
+     * It is the answer to a question the user just asked, and suppressing it
+     * because Orion is nearby would be answering a different one. Every other
+     * name gives way to it rather than the reverse.
+     */
+    const order = picked === null ? PROMINENCE : [picked, ...PROMINENCE.filter((i) => i !== picked)]
+
+    for (const index of order) {
+      if (chosen.length >= MAX_NAMES) break
+      const region = CONSTELLATION_REGIONS[index]
+      starDirection(region.centre[0], region.centre[1], _centre)
+
+      // The sky rides with the camera, so a direction becomes a world point by
+      // hanging it off the camera's own position — the same trick the lines use.
+      _screen
+        .set(_centre.x, _centre.y, _centre.z)
+        .multiplyScalar(radius)
+        .add(camera.position)
+        .project(camera)
+
+      // Behind the camera, where `project` mirrors the point back into view.
+      if (_screen.z > 1) continue
+
+      const x = (_screen.x * 0.5 + 0.5) * size.width
+      const y = (-_screen.y * 0.5 + 0.5) * size.height
+      if (x < 0 || y < 0 || x > size.width || y > size.height) continue
+      if (taken.some(([tx, ty]) => Math.abs(tx - x) < CLEAR_X && Math.abs(ty - y) < CLEAR_Y)) continue
+
+      taken.push([x, y])
+      chosen.push({ index, x, y })
+    }
+
+    const key = chosen.map((c) => c.index).join('|')
+    const now = performance.now()
+    if (key !== lastList.current.key && now - lastList.current.at > LIST_INTERVAL_MS) {
+      lastList.current = { at: now, key }
+      publishConstellations(chosen.map((c) => c.index))
+    }
+
+    placed.current.clear()
+    for (const item of chosen) placed.current.set(item.index, item)
+
+    for (const [index, node] of constellationNodes) {
+      const item = placed.current.get(index)
+      if (!item) {
+        node.style.opacity = '0'
+        continue
+      }
+      node.style.transform = `translate3d(${item.x.toFixed(1)}px, ${item.y.toFixed(1)}px, 0)`
+      node.style.opacity = '1'
+    }
+  })
+
+  return null
+}
+
 export default function Constellations({ radius = DOME_RADIUS }) {
   const picked = useStore((s) => s.constellation)
 
@@ -200,6 +337,7 @@ export default function Constellations({ radius = DOME_RADIUS }) {
         />
       </lineSegments>
       {picked !== null && <Region index={picked} radius={radius} />}
+      <Names radius={radius} picked={picked} />
     </>
   )
 }

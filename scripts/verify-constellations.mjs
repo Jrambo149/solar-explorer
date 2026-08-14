@@ -694,6 +694,126 @@ try {
     'nothing left naming a region with no region drawn',
   )
 
+  /* ---- the names written across the sky ---- */
+
+  await page.evaluate(`(() => {
+    const s = window.__solar.state()
+    if (!s.layers.constellations) s.toggleLayer('constellations')
+    s.clearConstellation()
+  })()`)
+  await page.frames(45)
+
+  const labels = await page.evaluate(`[...document.querySelectorAll('.constellation-label')].map((el) => {
+    const b = el.getBoundingClientRect()
+    return { name: el.textContent, x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2), picked: el.classList.contains('is-picked') }
+  })`)
+
+  const names = new Set(CONSTELLATION_REGIONS.map((c) => c.name))
+  check(
+    'the sky carries names, and every one of them is a constellation',
+    labels.length > 0 && labels.every((l) => names.has(l.name)),
+    `${labels.length} written: ${labels.map((l) => l.name).slice(0, 5).join(', ')}…`,
+  )
+
+  /*
+   * And they do not sit on top of one another.
+   *
+   * The declutter is the only thing standing between this and a fog of
+   * overlapping words: the app can show the entire celestial sphere at once, at
+   * which point every one of the 88 centres is on screen. Measured against the
+   * boxes the browser actually laid out rather than the projector's own
+   * arithmetic, since it is the rendered text that overlaps.
+   */
+  {
+    let worst = null
+    for (let i = 0; i < labels.length; i++) {
+      for (let j = i + 1; j < labels.length; j++) {
+        const dx = Math.abs(labels[i].x - labels[j].x)
+        const dy = Math.abs(labels[i].y - labels[j].y)
+        if (dx < 104 && dy < 15) worst = `${labels[i].name} and ${labels[j].name}`
+      }
+    }
+    check('no two names are written over each other', worst === null, worst ?? `${labels.length} names, all clear`)
+  }
+
+  /* Clicking a name does what clicking its patch of sky does. */
+  {
+    const target = labels[0]
+    await page.evaluate(`[...document.querySelectorAll('.constellation-label')].find((el) => el.textContent === ${JSON.stringify(target.name)}).click()`)
+    await page.frames(40)
+    const state = await page.evaluate(`(() => {
+      const i = window.__solar.state().constellation
+      const el = document.querySelector('.constellation-label.is-picked')
+      return { index: i, marked: el?.textContent ?? null }
+    })()`)
+    check(
+      'clicking a name selects it, and the name marks itself',
+      state.index !== null && CONSTELLATION_REGIONS[state.index].name === target.name && state.marked === target.name,
+      `${target.name} → ${state.index === null ? 'nothing' : CONSTELLATION_REGIONS[state.index].name}`,
+    )
+  }
+
+  /*
+   * The labels must not eat the drag.
+   *
+   * This app has lost a drag to a full-screen overlay four times: `.ui-layer > *`
+   * grants `pointer-events: auto` with a bare class, which ties any layer's own
+   * rule on specificity and wins on source order. The names are a full-screen
+   * layer over the sky, which is precisely where the user drags to look around,
+   * so this is the one regression that would make the feature actively harmful.
+   *
+   * Two claims. The layer itself declares `pointer-events: none` — the direct
+   * statement of the rule — and a real drag over it moves the camera.
+   *
+   * The drag point is *found* rather than chosen, and the first version of this
+   * check is why: a hand-picked point in the middle of the window landed on a
+   * planet marker, which swallows the drag by design, and the check failed
+   * with the label layer entirely innocent. So it searches for somewhere the
+   * topmost element is the canvas — genuinely empty sky, under the names —
+   * and reports honestly if the window has nowhere like that.
+   */
+  {
+    const pe = await page.evaluate(
+      `getComputedStyle(document.querySelector('.constellation-labels')).pointerEvents`,
+    )
+    check('the names layer is transparent to the pointer', pe === 'none', `pointer-events: ${pe}`)
+
+    const spot = await page.evaluate(`(() => {
+      for (let y = 200; y < window.innerHeight - 260; y += 40) {
+        for (let x = 380; x < window.innerWidth - 380; x += 40) {
+          const top = document.elementsFromPoint(x, y)[0]
+          if (top && top.tagName === 'CANVAS') return [x, y]
+        }
+      }
+      return null
+    })()`)
+
+    if (!spot) {
+      check('dragging across the names still orbits the camera', false, 'found no clear sky to drag from')
+    } else {
+      const before = await page.evaluate(`window.__solar.camera.position.toArray().join(',')`)
+      await page.drag(spot[0], spot[1], spot[0] + 150, spot[1] + 70, 8)
+      await page.frames(45)
+      const after = await page.evaluate(`window.__solar.camera.position.toArray().join(',')`)
+      check(
+        'dragging across the names still orbits the camera',
+        before !== after,
+        before === after
+          ? `the drag from ${spot.join(',')} was swallowed`
+          : `orbited from ${spot.join(',')}, under the names`,
+      )
+    }
+  }
+
+  /* And the names go when the figures do. */
+  await page.evaluate(`window.__solar.state().toggleLayer('constellations')`)
+  await page.frames(45)
+  check(
+    'switching the figures off takes the names with them',
+    (await page.evaluate(`document.querySelectorAll('.constellation-label').length`)) === 0,
+    'the publisher retracts on unmount',
+  )
+
   const errors = page.errors.filter((e) => !e.startsWith('warning:'))
   check('no console errors', errors.length === 0, errors.slice(0, 3).join(' | '))
 } finally {
