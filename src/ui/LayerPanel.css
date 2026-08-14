@@ -271,3 +271,14 @@
     width: 208px;
   }
 }
+
+/* Sits under the constellations toggle when it is on, and is the only place
+   the app says the sky can be clicked. Indented to the row's text column and
+   dim, because it is an instruction read once. */
+.layer-panel__note {
+  margin: -2px 0 6px;
+  color: var(--text-faint);
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+}

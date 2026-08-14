@@ -26,6 +26,7 @@ import { SIDE_SHIFT } from './splitFraming'
 import SimulationClock from './SimulationClock'
 import LabelProjector from './LabelProjector'
 import { wasDragged } from './dragGuard'
+import { constellationAtDirection } from './constellationLookup'
 
 /**
  * Holds ACES tone mapping on while the bloom pass is mounted.
@@ -199,6 +200,7 @@ function ViewFraming() {
 function SceneContents() {
   const bloom = useStore((s) => s.bloom)
   const clearSelection = useStore((s) => s.clearSelection)
+  const selectConstellation = useStore((s) => s.selectConstellation)
   const scaleMode = useStore((s) => s.scaleMode)
   const limits = cameraLimits(scaleMode)
 
@@ -374,10 +376,37 @@ function SceneContents() {
           everything and never blocks a planet, since planets stop propagation.
           The drag guard is essential here: without it every orbit gesture that
           ended over empty space counted as a click and yanked the camera back
-          to the overview. */}
+          to the overview.
+
+          With the constellations switched on it does something else instead —
+          it names the patch of sky you clicked. Both behaviours on the same
+          gesture would be unusable: identifying a figure would fling the camera
+          back to the overview every time, so asking "what is that?" would cost
+          you the view you were asking about.
+
+          Gated on the layer rather than offered always, which is the rule the
+          rest of the app already follows: you cannot select what is not drawn.
+          With the figures switched off there is nothing on screen to suggest
+          the sky is clickable, and the click means what it has always meant. */}
       <mesh
-        onClick={() => {
-          if (!wasDragged()) clearSelection()
+        onClick={(event) => {
+          if (wasDragged()) return
+          if (!showConstellations) {
+            clearSelection()
+            return
+          }
+          /*
+           * The ray's *direction*, not the point it struck.
+           *
+           * This sphere is a finite backdrop parked at the far clip plane, and
+           * the sky is not on it — the stars ride with the camera, at infinity.
+           * The hit point is therefore a position on an arbitrary shell whose
+           * radius changes with the scale dial, while the direction is exactly
+           * the question being asked: which way is the user pointing.
+           */
+          const { x, y, z } = event.ray.direction
+          const index = constellationAtDirection(x, y, z)
+          if (index !== null) selectConstellation(index)
         }}
         scale={limits.maxDistance}
         renderOrder={-1}

@@ -2,6 +2,8 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CONSTELLATIONS, STARS } from '../data/stars'
+import { CONSTELLATION_REGIONS } from '../data/constellations'
+import { useStore } from '../store/useStore'
 import { starDirection } from './sky'
 
 /**
@@ -49,7 +51,108 @@ const LINE_COLOUR = new THREE.Color(0.35, 0.7, 1)
  */
 const LINE_OPACITY = 0.28
 
+/**
+ * The picked region, drawn back.
+ *
+ * A click on the sky has to produce something *on the sky*, or the only
+ * evidence that it landed is a panel appearing at the edge of the screen —
+ * which tells you a name without telling you what was named, and is exactly no
+ * use to someone asking "what am I looking at?".
+ *
+ * So the answer is drawn where the question was asked: the region's own
+ * boundary, and its figure brightened out of the crowd. Both come from
+ * `constellations.js`, whose outlines were derived from the same table the
+ * click was looked up in — so the shape drawn around the answer is guaranteed
+ * to be the shape that produced it.
+ *
+ * ## Why the outline is not a closed loop
+ *
+ * A constellation's boundary is a set of arcs, not a polygon, and this draws
+ * them as such. Serpens alone would defeat any assumption otherwise: it is one
+ * constellation in two disconnected pieces, so there is no single loop to walk.
+ * `LineSegments` over disjoint arcs has no opinion on the matter.
+ */
+function Region({ index, radius }) {
+  const geometry = useMemo(() => {
+    const region = CONSTELLATION_REGIONS[index]
+    const figure = CONSTELLATIONS[index]
+
+    const points = []
+    const direction = { x: 0, y: 0, z: 0 }
+    const push = (ra, dec) => {
+      starDirection(ra, dec, direction)
+      points.push(direction.x * radius, direction.y * radius, direction.z * radius)
+    }
+
+    // The outline, as consecutive pairs: a polyline of n points becomes n-1
+    // segments, each written out twice over.
+    for (const line of region.outline) {
+      for (let i = 0; i + 3 < line.length; i += 2) {
+        push(line[i], line[i + 1])
+        push(line[i + 2], line[i + 3])
+      }
+    }
+
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(points, 3))
+
+    // And the figure inside it, on its own geometry so the two can be drawn at
+    // different weights — the boundary is a fact about the sky, the figure is a
+    // drawing, and they should not read as one object.
+    const stick = []
+    for (const starIndex of figure.segments) {
+      const star = STARS[starIndex]
+      starDirection(star[0], star[1], direction)
+      stick.push(direction.x * radius, direction.y * radius, direction.z * radius)
+    }
+    const s = new THREE.BufferGeometry()
+    s.setAttribute('position', new THREE.Float32BufferAttribute(stick, 3))
+
+    return { boundary: g, figure: s }
+  }, [index, radius])
+
+  const group = useRef(null)
+  useFrame(({ camera }) => {
+    if (group.current) group.current.position.copy(camera.position)
+  })
+
+  return (
+    <group ref={group}>
+      <lineSegments geometry={geometry.boundary} frustumCulled={false} renderOrder={-998}>
+        <lineBasicMaterial
+          color={BOUNDARY_COLOUR}
+          transparent
+          opacity={0.5}
+          depthTest={false}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </lineSegments>
+      <lineSegments geometry={geometry.figure} frustumCulled={false} renderOrder={-997}>
+        <lineBasicMaterial
+          color={PICKED_COLOUR}
+          transparent
+          opacity={0.95}
+          depthTest={false}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </lineSegments>
+    </group>
+  )
+}
+
+/**
+ * The picked figure and its boundary, in the app's own accent rather than the
+ * sky blue the other 87 are drawn in. The boundary is dimmer than the figure it
+ * encloses: it is a container, and it should not compete with its contents.
+ */
+const PICKED_COLOUR = new THREE.Color(1, 0.86, 0.62)
+const BOUNDARY_COLOUR = new THREE.Color(0.62, 0.66, 0.78)
+
 export default function Constellations({ radius = DOME_RADIUS }) {
+  const picked = useStore((s) => s.constellation)
+
   const geometry = useMemo(() => {
     let count = 0
     for (const figure of CONSTELLATIONS) count += figure.segments.length
@@ -85,15 +188,18 @@ export default function Constellations({ radius = DOME_RADIUS }) {
    * front of the faint ones it passes rather than being eaten by them.
    */
   return (
-    <lineSegments ref={lines} geometry={geometry} frustumCulled={false} renderOrder={-999}>
-      <lineBasicMaterial
-        color={LINE_COLOUR}
-        transparent
-        opacity={LINE_OPACITY}
-        depthTest={false}
-        depthWrite={false}
-        toneMapped={false}
-      />
-    </lineSegments>
+    <>
+      <lineSegments ref={lines} geometry={geometry} frustumCulled={false} renderOrder={-999}>
+        <lineBasicMaterial
+          color={LINE_COLOUR}
+          transparent
+          opacity={LINE_OPACITY}
+          depthTest={false}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </lineSegments>
+      {picked !== null && <Region index={picked} radius={radius} />}
+    </>
   )
 }

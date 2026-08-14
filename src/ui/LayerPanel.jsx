@@ -176,6 +176,16 @@ export default function LayerPanel() {
         checked={layers.constellations}
         onChange={() => toggleLayer('constellations')}
       />
+      {/* The one piece of chrome that says the sky can be clicked.
+          Nothing else could: the figures give no sign of being interactive, and
+          a click on empty space has meant "back out to the overview" since long
+          before they existed — so without a word here, the only way to discover
+          this is to click the sky *while the figures happen to be on* and
+          notice that something different happened. Shown only while the layer
+          is on, because that is exactly when the claim is true. */}
+      {layers.constellations && (
+        <p className="layer-panel__note">Click anywhere in the sky to name the constellation.</p>
+      )}
 
       {/* A separate heading because these are a different kind of switch. The
           four above decide what is *drawn over* the scene; these two decide

@@ -54,6 +54,8 @@
     "verify:goto": "node scripts/verify-goto.mjs",
     "verify:detail": "node scripts/verify-detail.mjs",
     "verify:ride": "node scripts/verify-ride.mjs",
+    "fetch:constellations": "node scripts/fetch-constellations.mjs",
+    "verify:constellations": "node scripts/verify-constellations.mjs",
     "verify:sky": "node scripts/verify-sky.mjs",
     "verify:markers": "node scripts/verify-markers.mjs",
     "verify:models": "node scripts/verify-models.mjs"

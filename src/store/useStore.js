@@ -369,6 +369,8 @@ export const useStore = create((set, get) => ({
         // And the ground: standing somewhere is a place, and this is a request
         // to go to a different one.
         surface: null,
+        // And the named patch of sky: the dossier is about to open on a body.
+        constellation: null,
         ...(s.selectedId === id ? null : { selectedId: id }),
         flightNonce: s.flightNonce + 1,
       }),
@@ -417,6 +419,7 @@ export const useStore = create((set, get) => ({
         systemId: null,
         rideAlong: false,
         surface: null,
+        constellation: null,
         flightNonce: s.flightNonce + 1,
       }
       // The bar follows the selection anyway; setting the host here keeps the
@@ -440,6 +443,7 @@ export const useStore = create((set, get) => ({
         systemId: id,
         rideAlong: false,
         surface: null,
+        constellation: null,
         flightNonce: s.flightNonce + 1,
       }),
     ),
@@ -453,10 +457,36 @@ export const useStore = create((set, get) => ({
           systemId: null,
           rideAlong: false,
           surface: null,
+          constellation: null,
           flightNonce: s.flightNonce + 1,
         }),
       ),
     ),
+
+  /**
+   * Which constellation is named on screen, as an index into
+   * `CONSTELLATION_REGIONS`, or null.
+   *
+   * Deliberately *not* part of the body selection, and it is worth being clear
+   * why, because it is the only thing in this app that can be selected
+   * alongside something else. A body is a place the camera goes to. A
+   * constellation is a direction, at an effectively infinite distance, in a
+   * frame that does not move with anything — there is nowhere to fly to and
+   * nothing to orbit, and selecting one says "name what I am looking at"
+   * rather than "take me there".
+   *
+   * So the two selections are orthogonal in the one direction that matters:
+   * naming a patch of sky leaves the camera and the dossier exactly as they
+   * were. Going to a *body*, on the other hand, does clear this — the dossier
+   * and the constellation panel would otherwise be open on top of each other,
+   * describing two unrelated things.
+   */
+  constellation: null,
+
+  selectConstellation: (index) =>
+    set((s) => (s.constellation === index ? { constellation: null } : { constellation: index })),
+
+  clearConstellation: () => set({ constellation: null }),
 
   setHovered: (id) => set((s) => (s.hoveredId === id ? s : { hoveredId: id })),
 
@@ -726,6 +756,18 @@ export const useStore = create((set, get) => ({
       }
 
       const next = { layers: { ...s.layers, [key]: value } }
+
+      /*
+       * Switching the figures off puts the named region away with them.
+       *
+       * The same rule the class layers follow below, and it matters more here
+       * than it looks: the panel is the *only* thing that would be left. The
+       * highlight is drawn by `Constellations`, which is unmounted with the
+       * layer, so a panel would sit open naming a patch of sky with nothing on
+       * screen to connect it to — and no way to dismiss it by clicking, because
+       * with the layer off a sky click means something else again.
+       */
+      if (key === 'constellations' && !value) next.constellation = null
 
       // Was this class showing, and is it about to stop showing *for the body
       // the camera is on*? For the booleans that is just "was it on".
