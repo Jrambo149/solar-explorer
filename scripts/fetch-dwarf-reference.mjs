@@ -32,6 +32,14 @@ const BODIES = [
   { id: 'haumea', command: '136108;' },
   { id: 'makemake', command: '136472;' },
   { id: 'eris', command: '136199;' },
+
+  /* And the five asteroids drawn as bodies, fitted the same way and therefore
+     needing the same ground truth. */
+  { id: 'vesta', command: '4;' },
+  { id: 'pallas', command: '2;' },
+  { id: 'hygiea', command: '10;' },
+  { id: 'juno', command: '3;' },
+  { id: 'psyche', command: '16;' },
 ]
 
 /** Spread across the element table's window, including both edges. */

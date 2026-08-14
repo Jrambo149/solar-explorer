@@ -81,6 +81,9 @@ export default function LayerPanel() {
       else if (key === 'm') state.toggleLayer('moons')
       else if (key === 'n') state.toggleLayer('minorMoons')
       else if (key === 'c') state.toggleLayer('comets')
+      // A for asteroids — the five drawn as worlds. The belt itself is not a
+      // layer: it is the scene, the way the stars are.
+      else if (key === 'a') state.toggleLayer('asteroids')
       // S, not the more obvious first letter of "spacecraft" being taken —
       // it is free, and the panel lists the shortcut anyway.
       else if (key === 's') state.toggleLayer('spacecraft')
@@ -211,6 +214,16 @@ export default function LayerPanel() {
       {/* Off by default and its own row rather than a sub-toggle of anything:
           a comet is not a variety of planet or of small moon, and switching
           them on changes the scale of the view as much as its contents. */}
+      {/* Between the dwarfs and the comets, which is where they belong: bodies
+          of the inner system that are neither planets nor ice. This switches
+          the five *named* asteroids, not the belt — three and a half thousand
+          rocks are drawn regardless, and are no more optional than the stars. */}
+      <Toggle
+        label="Asteroids"
+        hint="A"
+        checked={layers.asteroids}
+        onChange={() => toggleLayer('asteroids')}
+      />
       <Toggle
         label="Comets"
         hint="C"

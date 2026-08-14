@@ -32,16 +32,26 @@ const BODY_LAYERS = Object.fromEntries(
         ? 'dwarfPlanets'
         : b.kind === 'comet'
           ? 'comets'
-          : b.kind === 'moon'
-            ? b.tier === 'minor'
-              ? 'minorMoons'
-              : 'moons'
-            : null,
+          : b.kind === 'asteroid'
+            ? 'asteroids'
+            : b.kind === 'moon'
+              ? b.tier === 'minor'
+                ? 'minorMoons'
+                : 'moons'
+              : null,
   ]),
 )
 
 /** The layers that populate the scene rather than annotate it. */
-export const CLASS_LAYERS = ['planets', 'dwarfPlanets', 'moons', 'minorMoons', 'comets', 'spacecraft']
+export const CLASS_LAYERS = [
+  'planets',
+  'dwarfPlanets',
+  'asteroids',
+  'moons',
+  'minorMoons',
+  'comets',
+  'spacecraft',
+]
 
 /** id → parent id, for deciding whether a hidden host takes the selection with it. */
 const BODIES_BY_PARENT = Object.fromEntries(BODIES.map((b) => [b.id, b.parent ?? null]))
@@ -643,6 +653,17 @@ export const useStore = create((set, get) => ({
      * them to — they orbit the Sun.
      */
     comets: false,
+
+    /**
+     * The five asteroids drawn as worlds — Vesta, Pallas, Hygiea, Juno, Psyche.
+     *
+     * On, unlike the comets and the dwarfs, and the reason is that they are
+     * already there. The belt is drawn whatever this says; these five are the
+     * handful of rocks in it big enough to have a name, a size and a page, and
+     * hiding them would leave the belt with no way in. Five bodies in the inner
+     * system is not a crowd — it is fewer than the moons of Uranus.
+     */
+    asteroids: true,
 
     /**
      * The spacecraft. Off by default, like the comets and for one of the same

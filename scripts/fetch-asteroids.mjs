@@ -82,6 +82,18 @@ const MAX_MAGNITUDE = 12.2
 /** And the outer edge, in AU. Past Jupiter's Trojans is another population. */
 const MAX_SEMI_MAJOR_AU = 6
 
+/**
+ * The ones drawn as worlds instead, and therefore kept out of the population.
+ *
+ * These six have a globe, a size, a rotation, a page and elements fitted to a
+ * Horizons time series — see `asteroidBodyData.js`, and `dwarfPlanetData.js`
+ * for Ceres. Leaving them in here as well would draw each of them twice, a few
+ * degrees apart, since the two sets of elements disagree by exactly the amount
+ * a fit improves on a snapshot. The rock would be beside the world, and the
+ * rock would be the wrong one.
+ */
+const DRAWN_AS_BODIES = new Set(['1 Ceres', '2 Pallas', '3 Juno', '4 Vesta', '10 Hygiea', '16 Psyche'])
+
 const J2000 = 2451545.0
 const DAYS_PER_CENTURY = 36525
 
@@ -149,7 +161,7 @@ async function main() {
   const jupiterN = ORBITAL_ELEMENTS.jupiter.LDot / DAYS_PER_CENTURY
 
   const rows = []
-  const report = { mba: 0, trojan: 0, hilda: 0, other: 0, dropped: 0 }
+  const report = { mba: 0, trojan: 0, hilda: 0, other: 0, dropped: 0, promoted: 0 }
 
   for (const row of json.data) {
     const a = Number(row[index.a])
@@ -163,6 +175,11 @@ async function main() {
 
     if (![a, e, i, Omega, omega, M, epoch].every(Number.isFinite) || a <= 0 || e >= 1) {
       report.dropped++
+      continue
+    }
+
+    if (DRAWN_AS_BODIES.has(tidyName(row[index.full_name]))) {
+      report.promoted++
       continue
     }
 
@@ -295,7 +312,8 @@ export function asteroidElements(index, out = {}) {
   )
 
   console.log(
-    `[asteroids] ${rows.length} kept (${report.mba} belt, ${report.trojan} Trojan, ${report.hilda} Hilda), ${report.dropped} dropped`,
+    `[asteroids] ${rows.length} kept (${report.mba} belt, ${report.trojan} Trojan, ${report.hilda} Hilda), ` +
+      `${report.promoted} drawn as bodies instead, ${report.dropped} dropped`,
   )
   console.log(`[asteroids] wrote ${OUT}`)
 }

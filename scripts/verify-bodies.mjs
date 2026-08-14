@@ -28,6 +28,7 @@ import {
   BODIES,
   BODIES_BY_ID,
   COMETS,
+  ASTEROID_BODIES,
   DWARF_PLANETS,
   MOONS,
   SPACECRAFT,
@@ -134,11 +135,42 @@ const BUDGET_ARCMIN = {
   haumea: 25,
   makemake: 25,
   eris: 25,
+  /*
+   * The asteroids are looser, and the reason is Jupiter rather than the fit.
+   * These orbit close enough to be shoved about hard — Pallas on a 35° incline
+   * crossing the belt twice a circuit is the extreme — so a straight line
+   * through 250 years of perturbation leaves more residual than it does for a
+   * body out at 45 AU where Jupiter is a distant nudge. Still far under a pixel
+   * at any distance the belt is looked at from.
+   */
+  vesta: 60,
+  pallas: 60,
+  juno: 60,
+  psyche: 60,
+  /*
+   * Hygiea is the worst-fitted body in this app, at 3.6°, and it is worth being
+   * exact about what that means rather than quietly widening a number.
+   *
+   * A straight line is the model. Every other body's mean longitude drifts in
+   * something close to one; Hygiea's does not, and halving the sampling step to
+   * six months moved the residual by 0.3 arcminutes — so it is not aliasing, it
+   * is the *shape* of the drift. It sits just inside the 2:1 resonance and is
+   * the parent of one of the belt's largest families, which is the company you
+   * keep when Jupiter has been working on you.
+   *
+   * 3.6° of orbital phase is about twenty pixels at the opening shot: findable
+   * if you knew where to look, and nobody does — there is no second Hygiea to
+   * compare it against. It is emphatically not an ephemeris, which is what the
+   * file it comes from already says.
+   */
+  hygiea: 240,
 }
 
-const byId = Object.fromEntries(DWARF_PLANETS.map((b) => [b.id, b]))
+const byId = Object.fromEntries(
+  [...DWARF_PLANETS, ...ASTEROID_BODIES].map((b) => [b.id, b]),
+)
 
-console.log('\nDwarf planets vs JPL Horizons\n')
+console.log('\nDwarf planets and named asteroids vs JPL Horizons\n')
 
 let worst = { body: null, arcmin: 0 }
 
@@ -159,6 +191,20 @@ for (const ref of DWARF_REFERENCE) {
 }
 
 console.log(`\n     worst: ${worst.body} at ${worst.arcmin.toFixed(1)} arcmin\n`)
+
+/*
+ * And Hygiea is the *only* one allowed to be that bad. Without this, widening
+ * its budget would quietly widen the standard for every asteroid beside it.
+ */
+check(
+  'no body except Hygiea is more than a degree out',
+  Object.entries(BUDGET_ARCMIN)
+    .filter(([id]) => id !== 'hygiea')
+    .every(([, budget]) => budget <= 60),
+  Object.entries(BUDGET_ARCMIN)
+    .map(([id, budget]) => `${id} ${budget}'`)
+    .join(', '),
+)
 
 /* ------------------------------------------------------------------ *
  * Moons: periods and directions
@@ -2329,7 +2375,7 @@ console.log('\nSpin direction\n')
         `${body.name}: text ${saysRetrograde ? 'says' : 'does not say'} retrograde, rotationHours ${body.rotationHours}`,
       )
     }
-    if (!body.rotationHours) zero.push(body.name)
+    if (!body.rotationHours) zero.push(body)
   }
 
   check(
@@ -2359,15 +2405,21 @@ console.log('\nSpin direction\n')
    * by pointing an axis at Earth or along its velocity vector — so a rotation
    * period would be an invented number rather than a missing one.
    */
-  const missing = zero.filter((name) => {
-    const body = BODIES.find((b) => b.name === name)
-    return body?.kind !== 'comet' && body?.kind !== 'spacecraft'
-  })
+  /*
+   * Carried as bodies rather than as names, because names are not unique and
+   * quietly stopped being so. There is an asteroid called Juno and a spacecraft
+   * called Juno; the same goes for Psyche. Looking the exemption up by name
+   * found whichever came first in the roster — the asteroid — decided it was
+   * not a spacecraft, and reported the *craft's* missing rotation period
+   * against the *rock's* name. The rock has one; the craft is exempt; the check
+   * was wrong about both.
+   */
+  const missing = zero.filter((body) => body.kind !== 'comet' && body.kind !== 'spacecraft')
   check(
     'every body except an unmeasured comet has a rotation period',
     missing.length === 0,
     missing.length
-      ? missing.join(', ')
+      ? missing.map((b) => `${b.name} (${b.id})`).join(', ')
       : `${BODIES.length - zero.length} of ${BODIES.length}; ${zero.length} comets have no measured spin`,
   )
 }

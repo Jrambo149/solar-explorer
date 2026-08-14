@@ -32,6 +32,11 @@ export const SECTION_KEYNOTES = {
     'A dwarf planet passes the first two tests and fails the third. It is round and it orbits the Sun, but it still shares its lane — Pluto with the Kuiper Belt, Ceres with the asteroid belt. That one missing condition is the whole of the difference.',
   moons:
     'Ganymede and Titan are each larger than the planet Mercury. Nothing about being a moon is a matter of size: it is only a question of what you orbit.',
+  /* Kept to two short sentences: the nav card is a fixed height and a third
+     one lifts the whole dock off the bottom of the screen. */
+  asteroids:
+    'The rocks in the belt big enough to be places. With Ceres they hold half its mass; the three thousand specks drawn around them are the rest.',
+
   comets:
     'A comet is a few kilometres of ice and dust on an orbit that spends almost all of its time far from the Sun and almost none of it close. Four are not coming back: three were flung onto escape paths, and 3I/ATLAS was never bound to the Sun.',
   /*

@@ -49,13 +49,36 @@ const MEANT = [
   ['moon', 'luna'],
   ['voyager 1', 'sc_voyager_1'],
   ['cassini', 'sc_cassini'],
-  ['juno', 'sc_juno'],
+  /*
+   * Juno is now two things: asteroid 3, discovered 1804, and the spacecraft at
+   * Jupiter named for the same goddess. The asteroid comes first because the
+   * class ladder puts bodies above spacecraft, and applying that rule
+   * consistently is better than a special case for one famous mission — both
+   * are one keystroke apart in the list. The pair below is the real assertion:
+   * whichever leads, neither may vanish.
+   */
+  ['juno', 'juno'],
   ['halley', '1p_halley'],
+]
+
+/** Names that belong to more than one thing, and must return all of them. */
+const COLLISIONS = [
+  ['juno', ['juno', 'sc_juno']],
+  ['psyche', ['psyche', 'sc_psyche']],
 ]
 
 for (const [q, id] of MEANT) {
   const got = first(q)
   check(`"${q}" → ${id}`, got === id, got === id ? null : `got ${got}`)
+}
+
+for (const [q, ids] of COLLISIONS) {
+  const results = searchBodies(q, 8).map((r) => r.id)
+  check(
+    `"${q}" finds both things called that`,
+    ids.every((id) => results.includes(id)),
+    results.join(', '),
+  )
 }
 
 console.log('\nNames nobody can type as they are written\n')

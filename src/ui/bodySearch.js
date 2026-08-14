@@ -95,7 +95,7 @@ function scoreTerm(term, q) {
  * fifty craft are mostly known to the people who already know their names, and
  * those people type more than three letters.
  */
-const CLASS_RANK = { planet: 6, dwarf: 5, moon: 4, comet: 3, spacecraft: 2 }
+const CLASS_RANK = { planet: 6, dwarf: 5, asteroid: 4.5, moon: 4, comet: 3, spacecraft: 2 }
 const classBonus = (body) =>
   (body.kind === 'moon' && body.tier === 'minor' ? 1 : CLASS_RANK[body.kind]) ?? 0
 

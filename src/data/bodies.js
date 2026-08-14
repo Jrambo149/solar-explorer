@@ -31,6 +31,8 @@ import { COMETS_RAW } from './cometData.js'
 import { SPACECRAFT_RAW } from './spacecraftData.js'
 import { ORBITAL_ELEMENTS } from './orbitalElements.js'
 import { DWARF_ELEMENTS } from './dwarfElements.js'
+import { ASTEROID_BODIES_RAW } from './asteroidBodyData.js'
+import { ASTEROID_BODY_ELEMENTS } from './asteroidBodyElements.js'
 import { MOON_ELEMENTS } from './moonElements.js'
 import { MINOR_MOON_ELEMENTS } from './minorMoonElements.js'
 import { periodDays } from '../orbit/kepler.js'
@@ -149,7 +151,29 @@ const CHARON_PARTIAL = 'Real, but only part of it is sharp. New Horizons flew pa
  * missing moon — it is a cube-map atlas, and that is unused corner. See
  * `models.js`. The Uranian five and Charon are genuinely partial and say so.
  */
+/**
+ * What the five named asteroids are and are not, said in the panel.
+ *
+ * They are drawn as spheres, and four of the five are decidedly not spheres —
+ * Psyche is 278 by 238 by 171 kilometres. The globe carries no map either:
+ * Vesta and Psyche have been imaged well enough for one to exist, and nothing
+ * in this repo's texture set covers them.
+ *
+ * Saying so is the whole point. A smooth shaded ball at the right size, in the
+ * right place, turning at the right rate is an honest drawing of a body whose
+ * shape this app does not have; the same ball with nothing said about it is a
+ * claim that Psyche is round.
+ */
+const ASTEROID_SHAPE =
+  'Drawn as a sphere of the right mean size, and four of these five are not spheres — the measured axes are in the figures above. There is no surface map here either. What is real is the size, the rotation rate and the orbit.'
+
 const SURFACE_NOTES = {
+  vesta: ASTEROID_SHAPE,
+  pallas: ASTEROID_SHAPE,
+  hygiea: ASTEROID_SHAPE,
+  juno: ASTEROID_SHAPE,
+  psyche: ASTEROID_SHAPE,
+
   eris: ARTIST,
   haumea: ARTIST,
   makemake: ARTIST,
@@ -178,6 +202,33 @@ export const DWARF_PLANETS = DWARF_PLANETS_RAW.map((body) => ({
   elements: dwarfElements(body.id),
   rotationHours: body.dayHours * (body.retrograde ? -1 : 1),
   chipRadius: warpRadius(body.radiusKm, 0),
+  surfaceNote: SURFACE_NOTES[body.id] ?? null,
+}))
+
+/**
+ * The five asteroids drawn as worlds rather than as population.
+ *
+ * A separate class from the dwarf planets, and the difference is not a
+ * technicality: a dwarf planet has pulled itself round under its own gravity.
+ * Ceres has, which is why it is a dwarf; Vesta nearly did and lost the argument
+ * by being battered out of shape, and the other four are not close.
+ *
+ * `texture: null` because none of these has a map to draw. Vesta and Psyche
+ * have been photographed well enough for one to exist, but nothing in this
+ * repo's texture set covers them, so they take the same fallback the comets
+ * do — a shaded body of the right size, in the right place, turning at the
+ * right rate, with no invented surface on it.
+ */
+export const ASTEROID_BODIES = ASTEROID_BODIES_RAW.map((body) => ({
+  ...body,
+  kind: 'asteroid',
+  parent: null,
+  plane: 'heliocentric',
+  texture: null,
+  rings: null,
+  elements: ASTEROID_BODY_ELEMENTS[body.id],
+  rotationHours: body.dayHours * (body.retrograde ? -1 : 1),
+  chipRadius: warpMoonRadius(body.radiusKm, 0),
   surfaceNote: SURFACE_NOTES[body.id] ?? null,
 }))
 
@@ -612,7 +663,14 @@ export const SPACECRAFT = SPACECRAFT_RAW.filter((body) =>
   chipRadius: warpMoonRadius(body.radiusKm, 0),
 }))
 
-export const BODIES = [...PLANETS, ...DWARF_PLANETS, ...ALL_MOONS, ...COMETS, ...SPACECRAFT]
+export const BODIES = [
+  ...PLANETS,
+  ...DWARF_PLANETS,
+  ...ASTEROID_BODIES,
+  ...ALL_MOONS,
+  ...COMETS,
+  ...SPACECRAFT,
+]
 
 export const BODIES_BY_ID = Object.fromEntries(BODIES.map((b) => [b.id, b]))
 

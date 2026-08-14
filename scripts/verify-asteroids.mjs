@@ -73,9 +73,20 @@ check(
   }),
 )
 check(
-  'and the famous ones are in it',
-  ['1 Ceres', '2 Pallas', '4 Vesta', '10 Hygiea', '624 Hektor'].every((name) =>
-    ASTEROID_NAMES.includes(name),
+  'the famous Trojans are in it',
+  ['624 Hektor', '588 Achilles', '911 Agamemnon'].every((name) => ASTEROID_NAMES.includes(name)),
+)
+/*
+ * And the six drawn as worlds are *not*, which is the other half of the same
+ * claim. Each of them has a fitted ephemeris in `asteroidBodyElements.js` that
+ * disagrees with its osculating one by a few degrees; leaving it in both files
+ * would draw the body twice, and the copy that was wrong would be the one
+ * without a name on it.
+ */
+check(
+  'and the six drawn as worlds are not',
+  ['1 Ceres', '2 Pallas', '3 Juno', '4 Vesta', '10 Hygiea', '16 Psyche'].every(
+    (name) => !ASTEROID_NAMES.includes(name),
   ),
 )
 

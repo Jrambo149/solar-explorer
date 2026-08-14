@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import {
+  ASTEROID_BODIES,
   DWARF_PLANETS,
   MOONS,
   COMETS,
@@ -59,6 +60,22 @@ const SECTIONS = [
     span: 6,
   },
   { key: 'moons', label: 'Moons', bodies: MOONS, layers: ['moons', 'minorMoons'], base: 12, span: 7 },
+  /*
+   * The five asteroids that are places rather than population.
+   *
+   * A narrow spread — 222 to 525 km — so a small span, like the comets. The
+   * belt itself has no section and should not have one: three and a half
+   * thousand rocks is a population, and a bar of chips is a way of getting to a
+   * body.
+   */
+  {
+    key: 'asteroids',
+    label: 'Asteroids',
+    bodies: ASTEROID_BODIES,
+    layers: ['asteroids'],
+    base: 11,
+    span: 5,
+  },
   /*
    * Comets last, and on the smallest chip scale in the bar.
    *
@@ -256,6 +273,7 @@ const SIZERS = Object.fromEntries(
  */
 const SIZER_FOR_KIND = {
   dwarf: 'dwarfs',
+  asteroid: 'asteroids',
   comet: 'comets',
   spacecraft: 'spacecraft',
   planet: 'planets',
