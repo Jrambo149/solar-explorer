@@ -79,38 +79,63 @@ const sunAt = (body, lat, lon) => `(() => {
 })()`
 
 /**
- * Stand somewhere and run the clock until the Sun is at a given altitude.
- *
- * The clock rather than a chosen date, because this app does not claim to know
- * what time of day it is at a given longitude — `spinAt` turns every body from
- * a zero at J2000 rather than from a measured prime-meridian epoch. What it
- * does know is where the Sun is *now*, so the way to reach noon is to look for
- * it.
+ * How long a solar day is on each body, in Earth days. Sweeping one of these
+ * visits every hour there is.
  */
-async function standAt(body, lat, lon, name, wantAltitude) {
+const SOLAR_DAY = { earth: 1.0, mars: 1.0275, luna: 29.53 }
+
+/**
+ * Stand somewhere, then find the brightest or darkest hour of its day.
+ *
+ * **A search for an extreme, not for a chosen altitude**, and that is the whole
+ * point. The first version asked for the Sun 40° below the horizon at London
+ * and stepped the clock until it got there — which in August it never does. The
+ * lowest the Sun reaches at 51.5°N in high summer is about 15° below the
+ * horizon, so the loop ran out of steps and returned whatever it happened to be
+ * standing in, which was broad daylight. Every "Earth at midnight" measurement
+ * was a measurement of noon, and it passed anyway because the check downstream
+ * was comparing star counts in two different patches of sky.
+ *
+ * Sweeping the body's own solar day and taking the extreme always works: it
+ * needs no season, no latitude and no assumption about what is reachable, and it
+ * reports the altitude it actually found so a check can say so.
+ *
+ * `want` is 'high' for the middle of the day, 'low' for the middle of the night,
+ * and 'set' for the moment the Sun is nearest the horizon.
+ */
+async function standAt(body, lat, lon, name, want) {
   await page.evaluate(`(() => {
     const s = window.__solar.state()
     // Stop the clock first, and this is not housekeeping. It runs at a day a
     // second, so between setting a date and reading the Sun's altitude back
-    // three frames later the Earth has turned eighteen degrees. Every altitude
-    // aimed at below was landing somewhere else, and the star checks were
-    // measuring a sky at an hour nobody had asked for.
+    // three frames later the Earth has turned eighteen degrees.
     if (!s.paused) s.togglePaused()
     s.standOn('${body}', ${lat}, ${lon}, '${name}')
   })()`)
   await page.frames(220)
 
-  let sun = await page.evaluate(sunAt(body, lat, lon))
-  for (let i = 0; i < 120 && Math.abs(sun.alt - wantAltitude) > 2.5; i++) {
-    const step = sun.alt < wantAltitude ? 0.01 : -0.01
-    await page.evaluate(`window.__solar.setSimulationDate(window.__solar.simClock.jd + ${step})`)
+  const start = await page.evaluate('window.__solar.simClock.jd')
+  const day = SOLAR_DAY[body] ?? 1
+  const STEPS = 48
+
+  let best = null
+  for (let step = 0; step <= STEPS; step++) {
+    const jd = start + (day * step) / STEPS
+    await page.evaluate(`window.__solar.setSimulationDate(${jd})`)
     await page.frames(3)
-    sun = await page.evaluate(sunAt(body, lat, lon))
+    const sun = await page.evaluate(sunAt(body, lat, lon))
+    const score =
+      want === 'high' ? sun.alt : want === 'low' ? -sun.alt : -Math.abs(sun.alt)
+    const better = best === null || score > best.score
+    if (better) best = { jd, sun, score }
   }
+
+  await page.evaluate(`window.__solar.setSimulationDate(${best.jd})`)
+  await page.frames(20)
   // Face the Sun, looking a little above the horizon so the frame holds sky.
-  await page.evaluate(`window.__solar.state().lookAround(${sun.az.toFixed(2)}, 10)`)
+  await page.evaluate(`window.__solar.state().lookAround(${best.sun.az.toFixed(2)}, 10)`)
   await page.frames(40)
-  return sun
+  return best.sun
 }
 
 /** Everything the app draws over the canvas, out of the way of a measurement. */
@@ -172,7 +197,7 @@ try {
 
   console.log('\nEarth\n')
 
-  await standAt('earth', 51.5, 0, 'London', 40)
+  await standAt('earth', 51.5, 0, 'London', 'high')
   const earthNoon = await sample()
   check(
     'a midday sky over London is blue',
@@ -185,7 +210,7 @@ try {
     rgb(earthNoon.sunward),
   )
 
-  const earthSet = await standAt('earth', 51.5, 0, 'London', 1)
+  const earthSet = await standAt('earth', 51.5, 0, 'London', 'set')
   const earthSunset = await sample()
   check(
     'the setting Sun sits in a red sky',
@@ -195,7 +220,7 @@ try {
 
   console.log('\nMars\n')
 
-  await standAt('mars', -4.5895, 137.4417, 'Curiosity', 40)
+  await standAt('mars', -4.5895, 137.4417, 'Curiosity', 'high')
   const marsNoon = await sample()
   check(
     'a midday sky over Gale is butterscotch, not blue',
@@ -203,7 +228,7 @@ try {
     rgb(marsNoon.zenith),
   )
 
-  const marsSet = await standAt('mars', -4.5895, 137.4417, 'Curiosity', 1)
+  const marsSet = await standAt('mars', -4.5895, 137.4417, 'Curiosity', 'set')
   const marsSunset = await sample()
   /*
    * The one. Every rover that has watched the Sun go down on Mars has sent back
@@ -232,7 +257,7 @@ try {
    * wash over the stars, which is the failure mode of anything driven by a
    * constant rather than by the Sun.
    */
-  await standAt('mars', -4.5895, 137.4417, 'Curiosity', -40)
+  await standAt('mars', -4.5895, 137.4417, 'Curiosity', 'low')
   const marsNight = await sample()
   check(
     'a Martian midnight has no sky',
@@ -245,7 +270,7 @@ try {
    * the Sun blazing in it, and that is not a limitation of this app — it is
    * what the Apollo photographs show.
    */
-  await standAt('luna', 0.67409, 23.47298, 'Apollo 11', 40)
+  await standAt('luna', 0.67409, 23.47298, 'Apollo 11', 'high')
   const moonNoon = await sample()
   check(
     'lunar noon has a black sky, as the Apollo photographs do',
@@ -282,12 +307,31 @@ try {
     return [c.width * 0.08, c.height * 0.16, c.width * 0.5, c.height * 0.34]
   })()`
 
-  /** Turn away from the Sun and count what is left in the sky. */
-  const starsAt = async (body, lat, lon, name, altitude) => {
-    const sun = await standAt(body, lat, lon, name, altitude)
-    await page.evaluate(`window.__solar.state().lookAround(${((sun.az + 180) % 360).toFixed(2)}, 45)`)
-    await page.frames(30)
-    return patch(...(await page.evaluate(starCount)))
+  /**
+   * Turn away from the Sun and count what is left in the sky — four times,
+   * around the compass, and summed.
+   *
+   * One patch is not enough and the reason is the galaxy. Star density varies
+   * by an order of magnitude across the sky, and the search above lands on
+   * whatever date puts the Sun at the altitude asked for — so two runs an hour
+   * apart can face completely different constellations. This check went from
+   * 706 stars to 42 on a change that touched neither the stars nor the sky,
+   * purely because it had drifted onto an empty patch of Ophiuchus.
+   *
+   * Four headings, ninety degrees apart, starting away from the Sun. The
+   * average density of the whole sky is a property of the catalogue rather than
+   * of the hour.
+   */
+  const starsAt = async (body, lat, lon, name, want) => {
+    const sun = await standAt(body, lat, lon, name, want)
+    let bright = 0
+    for (let turn = 0; turn < 4; turn++) {
+      const azimuth = (sun.az + 180 + turn * 90) % 360
+      await page.evaluate(`window.__solar.state().lookAround(${azimuth.toFixed(2)}, 45)`)
+      await page.frames(24)
+      bright += (await patch(...(await page.evaluate(starCount)))).bright
+    }
+    return { bright }
   }
 
   /*
@@ -297,19 +341,19 @@ try {
    * not a bug. Only a count separates "two planets" from "two planets and four
    * hundred stars".
    */
-  const moonNight = await starsAt('luna', 0.67409, 23.47298, 'Apollo 11', -40)
-  const moonDay = await starsAt('luna', 0.67409, 23.47298, 'Apollo 11', 40)
+  const moonNight = await starsAt('luna', 0.67409, 23.47298, 'Apollo 11', 'low')
+  const moonDay = await starsAt('luna', 0.67409, 23.47298, 'Apollo 11', 'high')
   check(
     'the Moon keeps its stars in broad daylight, having no air to lose them in',
     moonDay.bright > moonNight.bright * 0.6,
     `${moonDay.bright} by day against ${moonNight.bright} at night`,
   )
 
-  const earthNight = await starsAt('earth', 51.5, 0, 'London', -40)
-  const earthDay = await starsAt('earth', 51.5, 0, 'London', 40)
+  const earthNight = await starsAt('earth', 51.5, 0, 'London', 'low')
+  const earthDay = await starsAt('earth', 51.5, 0, 'London', 'high')
   check(
     'Earth has stars at midnight',
-    earthNight.bright > 200,
+    earthNight.bright > 600,
     `${earthNight.bright} bright pixels`,
   )
   check(
@@ -319,11 +363,11 @@ try {
   )
 
   /* Mars too, whose thin air hides them just as thoroughly. */
-  const marsDark = await starsAt('mars', -4.5895, 137.4417, 'Curiosity', -40)
-  const marsLit = await starsAt('mars', -4.5895, 137.4417, 'Curiosity', 40)
+  const marsDark = await starsAt('mars', -4.5895, 137.4417, 'Curiosity', 'low')
+  const marsLit = await starsAt('mars', -4.5895, 137.4417, 'Curiosity', 'high')
   check(
     'and so does Mars, thin air notwithstanding',
-    marsDark.bright > 200 && marsLit.bright < marsDark.bright * 0.1,
+    marsDark.bright > 600 && marsLit.bright < marsDark.bright * 0.1,
     `${marsLit.bright} by day against ${marsDark.bright} at night`,
   )
 
