@@ -30,6 +30,7 @@
     "fetch:asteroids": "node scripts/fetch-asteroids.mjs",
     "verify:landing-sites": "node scripts/verify-landing-sites.mjs",
     "verify:asteroids": "node scripts/verify-asteroids.mjs",
+    "verify:approaches": "node scripts/verify-approaches.mjs",
     "verify:horizon": "node scripts/verify-horizon.mjs",
     "verify:daylight": "node scripts/verify-daylight.mjs",
     "verify:framing": "node scripts/verify-framing.mjs",

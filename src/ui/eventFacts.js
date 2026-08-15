@@ -401,6 +401,37 @@ function missionFacts(event) {
  * Returns an empty array rather than throwing for a kind with nothing extra to
  * add — the panel simply shows the line it already had.
  */
+/** The calendar year of a julian date, for keying published figures. */
+const year = (jd) => new Date((jd - 2440587.5) * 86400000).getUTCFullYear()
+
+/**
+ * What is actually known about a particular approach, from a published source.
+ *
+ * Curated, small, and deliberately so — this is the only place in the app that
+ * states a distance it did not compute, and it names where it came from. JPL's
+ * Center for Near-Earth Object Studies measures from the Earth's centre; the
+ * height above the ground is that figure minus 6,371 km, and the height is the
+ * one worth printing because it is what makes the number mean something.
+ */
+const APPROACH_FACTS = {
+  'apophis:2029': [
+    {
+      label: 'Distance',
+      value: '31,600 km above the surface — nearer than the geostationary satellites (JPL/CNEOS)',
+    },
+    {
+      label: 'Visible',
+      value:
+        'To the naked eye, at third magnitude, moving against the stars — over Europe, Africa and western Asia',
+    },
+    {
+      label: 'Afterwards',
+      value:
+        'Earth’s gravity bends its orbit: an Aten arrives, an Apollo leaves, with a year 100 days longer',
+    },
+  ],
+}
+
 export function factsFor(event) {
   switch (event.kind) {
     case 'solar-eclipse':
@@ -427,6 +458,34 @@ export function factsFor(event) {
           value: `${event.degrees.toFixed(2)}° — about ${(event.degrees / 0.5).toFixed(1)} Moon widths`,
         },
       ])
+    case 'close-approach': {
+      /*
+       * The one event kind whose headline number the app does not supply.
+       *
+       * The date is the app's own, found by the same search every other event
+       * here comes from, and it lands within three hours of JPL. The
+       * *separation* is a different matter: the elements behind it are
+       * piecewise-linear fits good to a few arcminutes, which at the Earth's
+       * distance is hundreds of thousands of kilometres — larger than the
+       * approach itself. Quoting it would be inventing precision the model does
+       * not have, so the published figure is used where one exists, named as
+       * such, and the app's own is not shown anywhere.
+       */
+      const approach = APPROACH_FACTS[`${event.body}:${year(event.jd)}`]
+      return [
+        {
+          label: 'Passing',
+          value: `${BODIES_BY_ID[event.with]?.name ?? event.with}, at its closest`,
+        },
+        ...(approach ?? [
+          {
+            label: 'Distance',
+            value: 'Found from the orbits; no published figure is quoted here',
+          },
+        ]),
+        ...bodyFacts(event.body, event.jd),
+      ]
+    }
     case 'ring-plane-crossing':
       return bodyFacts('saturn', event.jd, [
         {

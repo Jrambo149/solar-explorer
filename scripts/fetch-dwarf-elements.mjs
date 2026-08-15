@@ -79,6 +79,69 @@ const BODIES = [
   { id: 'hygiea', command: '10;', name: 'Hygiea', group: 'asteroid' },
   { id: 'juno', command: '3;', name: 'Juno', group: 'asteroid' },
   { id: 'psyche', command: '16;', name: 'Psyche', group: 'asteroid' },
+
+  /*
+   * And the one whose orbit does not survive the window.
+   *
+   * Apophis passes 31,000 km above the Earth's surface on 13 April 2029 —
+   * inside the ring of geostationary satellites — and comes out on a different
+   * orbit. Not slightly different: its semi-major axis goes from 0.922 AU to
+   * 1.103, its inclination is bent from 3.34° to 2.22°, and its year runs from
+   * 324 days to 423. It stops being an Aten, an asteroid whose orbit lies
+   * mostly inside Earth's, and becomes an Apollo, which crosses from outside.
+   * The encounter changes what kind of object it is.
+   *
+   * So it is fitted **twice**, either side of the encounter, and carries both
+   * sets. A single straight line through that step would be wrong before 2029,
+   * wrong after it, and plausible-looking throughout — which is the worst of
+   * the three outcomes.
+   */
+  {
+    id: 'apophis',
+    command: '99942;',
+    name: 'Apophis',
+    group: 'asteroid',
+    /*
+     * Sampled monthly rather than yearly, and fitted over 2000–2050 rather
+     * than 1800–2050.
+     *
+     * Both for the same reason: this is a near-Earth asteroid with a 324-day
+     * year, so a yearly sample walks its mean longitude by 405° a step — more
+     * than a full turn — and the unwrapping that keeps the fit honest needs
+     * consecutive samples less than half a turn apart. At yearly spacing the
+     * fitted mean motion is not merely inaccurate, it is aliased: the fit sees
+     * the 45° remainder and misses the whole revolution.
+     *
+     * The short window is a matter of what can be claimed. Apophis was found in
+     * 2004 and its orbit is chaotic — it passes close to the Earth repeatedly —
+     * so an integration back to 1800 is a far weaker statement than the same
+     * integration back to 2000, and nothing in this app looks at a near-Earth
+     * asteroid in the nineteenth century.
+     */
+    step: '30d',
+    from: '2000-01-01',
+    to: '2050-01-01',
+    /*
+     * Split at the encounter, and again every five years.
+     *
+     * The encounter is the split that *must* exist — it is a discontinuity, and
+     * no continuous function can cross it. The others are there because a
+     * straight line is a poor model of this orbit even within an era: fitted as
+     * two eras only, the position came out 58 arcminutes from Horizons in 2015,
+     * which for a body that laps its orbit in 324 days is nearly a day of
+     * timing error — and the whole point of having Apophis in the app is a date
+     * in April 2029.
+     *
+     * Five-year pieces cost nine extra element sets, about a kilobyte, and are
+     * the difference between an approach found to the day and one found to the
+     * week. `scripts/verify-events.mjs` measures what it actually buys.
+     */
+    split: [
+      '2005-01-01', '2010-01-01', '2015-01-01', '2020-01-01', '2025-01-01',
+      '2029-04-13',
+      '2035-01-01', '2040-01-01', '2045-01-01',
+    ],
+  },
 ]
 
 /**
@@ -93,7 +156,7 @@ const START = '1800-01-01'
 const STOP = '2050-01-01'
 const STEP = '1 y'
 
-async function fetchSeries({ command, name }) {
+async function fetchSeries({ command, name, from = START, to = STOP, step = STEP }) {
   const params = new URLSearchParams({
     format: 'text',
     COMMAND: command,
@@ -103,9 +166,9 @@ async function fetchSeries({ command, name }) {
     CENTER: '500@10',
     REF_PLANE: 'ECLIPTIC',
     OUT_UNITS: 'AU-D',
-    START_TIME: `'${START}'`,
-    STOP_TIME: `'${STOP}'`,
-    STEP_SIZE: `'${STEP}'`,
+    START_TIME: `'${from}'`,
+    STOP_TIME: `'${to}'`,
+    STEP_SIZE: `'${step}'`,
   })
 
   const res = await fetch(`https://ssd.jpl.nasa.gov/api/horizons.api?${params}`)
@@ -130,6 +193,7 @@ async function fetchSeries({ command, name }) {
     }
 
     const row = {
+      jd,
       T: (jd - J2000) / DAYS_PER_CENTURY,
       a: read('A'),
       e: read('EC'),
@@ -142,6 +206,7 @@ async function fetchSeries({ command, name }) {
   }
 
   if (rows.length < 50) throw new Error(`only ${rows.length} samples for ${name}`)
+  // The julian date is kept alongside `T` so a series can be split at a date.
   return rows
 }
 
@@ -210,17 +275,69 @@ function fitElements(rows) {
 
 const fmt = (n, digits = 8) => n.toFixed(digits)
 
+/** The six numbers and their rates, indented to `pad`. */
+const renderElements = (e, pad) =>
+  [
+    `${pad}a: ${fmt(e.a)}, aDot: ${fmt(e.aDot)},`,
+    `${pad}e: ${fmt(e.e)}, eDot: ${fmt(e.eDot)},`,
+    `${pad}i: ${fmt(e.i)}, iDot: ${fmt(e.iDot)},`,
+    `${pad}L: ${fmt(e.L)}, LDot: ${fmt(e.LDot)},`,
+    `${pad}varpi: ${fmt(e.varpi)}, varpiDot: ${fmt(e.varpiDot)},`,
+    `${pad}Omega: ${fmt(e.Omega)}, OmegaDot: ${fmt(e.OmegaDot)},`,
+  ].join('\n')
+
 function renderRows(results) {
   return results
-    .map(({ id, name, samples, elements: e }) => `  ${id}: {
-    // ${name} — least-squares fit to ${samples} yearly Horizons samples, ${START} to ${STOP}
-    a: ${fmt(e.a)}, aDot: ${fmt(e.aDot)},
-    e: ${fmt(e.e)}, eDot: ${fmt(e.eDot)},
-    i: ${fmt(e.i)}, iDot: ${fmt(e.iDot)},
-    L: ${fmt(e.L)}, LDot: ${fmt(e.LDot)},
-    varpi: ${fmt(e.varpi)}, varpiDot: ${fmt(e.varpiDot)},
-    Omega: ${fmt(e.Omega)}, OmegaDot: ${fmt(e.OmegaDot)},
-  },`)
+    .map((result) => {
+      const { id, name, samples, elements, segments, split, from = START, to = STOP } = result
+
+      if (!segments) {
+        return `  ${id}: {
+    // ${name} — least-squares fit to ${samples} yearly Horizons samples, ${from} to ${to}
+${renderElements(elements, '    ')}
+  },`
+      }
+
+      /*
+       * A body whose orbit is rewritten mid-window carries one element set per
+       * era *and* the first era's values at the top level.
+       *
+       * The duplication is deliberate. `elementsFor` in `kepler.js` picks the
+       * segment, and everything that goes through it is correct — but a dozen
+       * places across the app and the checks read `body.elements.i` or
+       * `.a` directly for questions where an era makes no difference
+       * ("is this orbit retrograde?", "how wide is this system?"). Leaving the
+       * top level empty would hand every one of them `undefined`, which is a
+       * silent NaN rather than an error.
+       */
+      return `  ${id}: {
+    // ${name} — ${segments.length} element sets, one per era, ${from} to ${to}.
+    // The eras are cut at ${[].concat(split).join(', ')}.
+    //
+    // The top-level values are the *first* era's, for code that reads an
+    // element directly rather than through \`elementsFor\`. Anything that cares
+    // about the date gets the right set from \`segments\`.
+    //
+    // \`validFrom\`/\`validTo\` are the julian dates the fit was made over, and
+    // they are not decoration: outside them these numbers are an extrapolation
+    // of a chaotic orbit, and a search that ran past them invented five close
+    // approaches in the nineteenth century that never happened.
+    validFrom: ${julian(from).toFixed(1)}, validTo: ${julian(to).toFixed(1)},
+${renderElements(elements, '    ')}
+
+    segments: [
+${segments
+  .map(
+    (segment, index) => `      {
+        // ${segment.label} — ${segment.samples} samples
+        until: ${segment.until === null ? 'null' : fmt(segment.until)},
+${renderElements(segment.elements, '        ')}
+      },`,
+  )
+  .join('\n')}
+    ],
+  },`
+    })
     .join('\n\n')
 }
 
@@ -285,16 +402,66 @@ ${rows}
 `
 }
 
+/** A calendar date to a julian day, for splitting a series. */
+const julian = (iso) => Date.parse(`${iso}T00:00:00Z`) / 86400000 + 2440587.5
+
 async function main() {
   const results = []
   for (const body of BODIES) {
     process.stdout.write(`[dwarfs] fitting ${body.name}… `)
     const rows = await fetchSeries(body)
-    const elements = fitElements(rows)
-    results.push({ ...body, samples: rows.length, elements })
+
+    if (!body.split) {
+      const elements = fitElements(rows)
+      results.push({ ...body, samples: rows.length, elements })
+      console.log(
+        `${rows.length} samples, a=${elements.a.toFixed(3)} AU, ` +
+          `e=${elements.e.toFixed(4)}, i=${elements.i.toFixed(3)}°`,
+      )
+      continue
+    }
+
+    /*
+     * One era per split, each fitted only to its own samples.
+     *
+     * A sample within a day of a split is dropped, which matters at the
+     * encounter and is harmless at the others: during the flyby the osculating
+     * elements are meaningless — they describe the instantaneous two-body orbit
+     * *about the Sun* of an object that is at that moment being flung about by
+     * the Earth — and including them would drag two fits toward a state that
+     * lasted a few hours.
+     *
+     * The eras overlap by nothing and cover everything: each is valid `until`
+     * the next begins, and the last has no end.
+     */
+    const cuts = (Array.isArray(body.split) ? body.split : [body.split]).map(julian)
+    const bounds = [-Infinity, ...cuts, Infinity]
+
+    const segments = []
+    for (let n = 0; n + 1 < bounds.length; n++) {
+      const from = bounds[n]
+      const to = bounds[n + 1]
+      const era = rows.filter(
+        (r) => r.jd >= from + (n === 0 ? 0 : 1) && r.jd < to - (to === Infinity ? 0 : 1),
+      )
+      if (era.length < 12) {
+        throw new Error(`${body.name}: only ${era.length} samples in era ${n + 1}`)
+      }
+      const day = (jd) => new Date((jd - 2440587.5) * 86400000).toISOString().slice(0, 10)
+      segments.push({
+        until: to === Infinity ? null : (to - J2000) / DAYS_PER_CENTURY,
+        elements: fitElements(era),
+        samples: era.length,
+        label: `${n === 0 ? body.from ?? START : day(from)} to ${to === Infinity ? (body.to ?? STOP) : day(to)}`,
+      })
+    }
+
+    results.push({ ...body, samples: rows.length, elements: segments[0].elements, segments })
+    const encounter = cuts.indexOf(julian(Array.isArray(body.split) ? body.split.find((d) => d === '2029-04-13') ?? body.split[0] : body.split))
     console.log(
-      `${rows.length} samples, a=${elements.a.toFixed(3)} AU, ` +
-        `e=${elements.e.toFixed(4)}, i=${elements.i.toFixed(3)}°`,
+      `${rows.length} samples in ${segments.length} eras; across the encounter ` +
+        `a ${segments[encounter].elements.a.toFixed(4)} → ${segments[encounter + 1].elements.a.toFixed(4)} AU, ` +
+        `i ${segments[encounter].elements.i.toFixed(3)}° → ${segments[encounter + 1].elements.i.toFixed(3)}°`,
     )
   }
 

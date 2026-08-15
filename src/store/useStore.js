@@ -711,7 +711,9 @@ export const useStore = create((set, get) => ({
     comets: false,
 
     /**
-     * The five asteroids drawn as worlds — Vesta, Pallas, Hygiea, Juno, Psyche.
+     * The asteroids drawn as worlds — Vesta, Pallas, Hygiea, Juno, Psyche and
+     * Apophis, which is a different sort of object entirely and is here because
+     * of what it does in April 2029.
      *
      * On, unlike the comets and the dwarfs, and the reason is that they are
      * already there. The belt is drawn whatever this says; these five are the

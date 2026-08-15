@@ -40,6 +40,9 @@ const SUBJECT = {
   opposition: (e) => e.body,
   'greatest-elongation': (e) => e.body,
   conjunction: (e) => e.body,
+  // The small body, not the planet it passes: the approach is the thing that
+  // happens to Apophis, and Earth is where it happens.
+  'close-approach': (e) => e.body,
 }
 
 /**
@@ -63,7 +66,22 @@ const FILTERS = [
     kinds: ['mission-begins', 'flyby', 'arrival', 'landing', 'mission-ends'],
   },
   { id: 'rings', label: 'Rings', kinds: ['ring-plane-crossing'] },
+  { id: 'approaches', label: 'Near misses', kinds: ['close-approach'] },
 ]
+
+/**
+ * Published approach distances, by body and year.
+ *
+ * The one place in this file that states a number the app did not compute, and
+ * it is deliberate: see the note in the `close-approach` case. JPL's Center for
+ * Near-Earth Object Studies is the source, and its figure is measured from the
+ * Earth's *centre* — the more quotable number, the height above the ground, is
+ * that minus the planet's radius.
+ */
+const APPROACH_DISTANCE = {
+  'apophis:2029':
+    '31,600 km above the surface — inside the ring of geostationary satellites (JPL/CNEOS)',
+}
 
 const name = (id) => BODIES_BY_ID[id]?.name ?? id
 const capitalise = (s) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -160,6 +178,25 @@ function describe(event) {
         title: 'Saturn’s rings edge-on',
         detail: 'Earth crosses the ring plane and the rings all but vanish',
       }
+    case 'close-approach': {
+      /*
+       * The distance is *not* the app's own.
+       *
+       * Every other line in this switch reports a number the app computed, and
+       * this one cannot: the elements behind the search are piecewise-linear
+       * fits good to a few arcminutes, which at the Earth's distance is
+       * hundreds of thousands of kilometres — larger than the approach itself.
+       * The app finds the date to within three hours and has no business
+       * quoting the separation, so where a published figure exists it is
+       * printed with the source named, and where none does the line says only
+       * what was searched for.
+       */
+      const published = APPROACH_DISTANCE[`${event.body}:${new Date((event.jd - 2440587.5) * 86400000).getUTCFullYear()}`]
+      return {
+        title: `${name(event.body)} passes close to ${name(event.with)}`,
+        detail: published ?? 'A close approach, found from the orbits',
+      }
+    }
     case 'shadow-transit':
       return {
         title: `${name(event.body)}’s shadow crosses Jupiter`,

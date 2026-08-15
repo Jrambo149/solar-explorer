@@ -393,3 +393,99 @@ export function ringPlaneCrossings(elements, earthElements, pole, from, to) {
 
   return findZeros(opening, from, to, 1).map((jd) => ({ kind: 'ring-plane-crossing', jd }))
 }
+
+/**
+ * The AU-to-kilometre conversion, for reporting an approach in units a person
+ * uses. An astronomical unit is a defined constant, not a measurement.
+ */
+const KM_PER_AU = 149597870.7
+
+/**
+ * Close approaches: when a small body passes near a planet.
+ *
+ * The only event kind here whose subject is a *pair of moving things* rather
+ * than an alignment seen from the Earth. An opposition is a matter of angle and
+ * happens on a schedule; an approach is a matter of distance and happens when
+ * two independent orbits happen to bring their occupants near each other.
+ *
+ * ## The search is two-pass, and has to be
+ *
+ * A close approach is a very narrow minimum. Apophis crosses the Earth's
+ * neighbourhood at about 7 km/s relative, so it covers half a million
+ * kilometres in a day — a single-pass search at any step coarse enough to run
+ * over two and a half centuries would step straight over the bottom of the
+ * well, or worse, find a spurious one on the shoulder.
+ *
+ * So: a coarse sweep finds every local minimum of the distance, which at a
+ * two-day step reliably brackets each *encounter* even when it badly misplaces
+ * the moment within it; then each candidate under a generous cut is refined by
+ * golden section over that bracket, which converges on the true minimum. Only
+ * then is the distance tested against the real threshold.
+ *
+ * ## What this can and cannot claim
+ *
+ * The **date** is the app's own geometry, found the same way every other event
+ * here is found, and is worth stating. The **distance** is not: the elements
+ * behind it are piecewise-linear fits good to a few arcminutes, which at the
+ * Earth's distance is hundreds of thousands of kilometres — larger than the
+ * approach distance itself for the close ones. So the distance is returned for
+ * ranking and for the checks to measure, and a caller that wants to *print* a
+ * separation should print a published one.
+ */
+export function closeApproaches(elements, planetElements, from, to, options = {}) {
+  const { coarse = 2, bracket = 0.25, within = 0.05 } = options
+
+  const separation = (jd) => {
+    const T = centuriesSinceJ2000(jd)
+    const a = positionAt(elements, T)
+    const b = positionAt(planetElements, T)
+    return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+  }
+
+  const found = []
+  for (const candidate of findMinima(separation, from, to, coarse)) {
+    /*
+     * Refined again over a tighter bracket around the coarse answer.
+     *
+     * `findMinima` already golden-sections its two-day window, and for a slow
+     * approach that is the end of it. For a fast one the coarse sampling can
+     * leave the true minimum outside the bracket it chose, so the second pass
+     * re-brackets around the result and looks again with a quarter-day step.
+     * Cheap — it runs only for the handful that pass the coarse cut.
+     */
+    if (separation(candidate) > within * 4) continue
+
+    let best = candidate
+    let bestDistance = separation(candidate)
+    for (let jd = candidate - coarse; jd <= candidate + coarse; jd += bracket) {
+      const d = separation(jd)
+      if (d < bestDistance) {
+        bestDistance = d
+        best = jd
+      }
+    }
+
+    const refined = findMinima(separation, best - bracket, best + bracket, bracket / 8)
+    for (const jd of refined.length ? refined : [best]) {
+      const distance = separation(jd)
+      if (distance <= within) found.push({ kind: 'close-approach', jd, au: distance })
+    }
+  }
+
+  /*
+   * One entry per encounter. The two passes can each land on the same minimum
+   * from different sides, and a refinement that converges to within minutes of
+   * an earlier one is the same event twice, not two passes a few minutes apart.
+   */
+  const unique = []
+  for (const event of found.sort((a, b) => a.jd - b.jd)) {
+    const last = unique[unique.length - 1]
+    if (last && event.jd - last.jd < 1) {
+      if (event.au < last.au) unique[unique.length - 1] = event
+      continue
+    }
+    unique.push(event)
+  }
+
+  return unique.map((e) => ({ ...e, km: e.au * KM_PER_AU }))
+}

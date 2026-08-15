@@ -1,7 +1,7 @@
 /**
  * The asteroids big enough to be places.
  *
- * Five of them, and the line between these and the three and a half thousand in
+ * Six of them, and the line between these and the three and a half thousand in
  * `asteroids.js` is worth stating: that file is a *population*, drawn as an
  * instanced field of markers whose value is the shape they make together. These
  * are **bodies** — they have a globe, a size, a rotation, a page, and a fitted
@@ -11,7 +11,7 @@
  * a world in `dwarfPlanetData.js`, because both are true and each file is
  * answering a different question.
  *
- * ## Why these five
+ * ## Why these six
  *
  * **Vesta, Pallas and Hygiea** are the three largest after Ceres, and together
  * with it they are about half the mass of the entire belt. **Juno** is here for
@@ -40,6 +40,39 @@
  */
 
 export const ASTEROID_BODIES_RAW = [
+  {
+    id: 'apophis',
+    name: 'Apophis',
+    color: '#9a8b7a',
+    glow: null,
+    radiusKm: 0.185,
+    au: 0.922,
+    dayHours: 30.6,
+    retrograde: false,
+    axialTilt: 0,
+    moons: 0,
+    diameter: '370 m (elongated: about 450 × 170 m)',
+    mass: '2.7 × 10¹⁰ kg',
+    distance: '138 million km (0.92 AU), inside Earth’s orbit',
+    dayLength: '30 hours 36 minutes, tumbling',
+    yearLength: '324 Earth days — 423 after 2029',
+    temperature: '−10 to 70 °C',
+    atmosphere: 'None',
+    description:
+      'A peanut-shaped rock about the length of three football pitches, and the only object in this app whose orbit changes while you watch. On 13 April 2029 it passes 31,000 km above the Earth’s surface — closer than the geostationary satellites — and Earth’s gravity will bend its path enough to turn it into a different kind of asteroid.',
+    facts: [
+      'Two billion people will be able to see it with the naked eye, moving visibly against the stars: a third-magnitude point crossing the sky over Europe and Africa in a couple of hours. Nothing this large has ever been watched passing this close.',
+      'For a few days after its discovery in 2004 it held the highest impact rating any asteroid has ever been given. Older photographs were then found, the orbit was tightened, and it dropped to zero. It is now ruled out for at least a century.',
+      'The encounter changes what it is. It arrives an Aten — an asteroid whose orbit lies mostly inside Earth’s — and leaves an Apollo, crossing from outside. Its year goes from 324 days to 423.',
+      'It tumbles rather than spins: it turns once about one axis every 27.4 hours while that axis itself swings round every 263 hours, so it has no fixed day at all.',
+      'OSIRIS-APEX, the extended mission of the spacecraft that sampled Bennu, arrives a month after the flyby to see what the encounter did to it.',
+    ],
+    nasaLinks: [
+      { label: 'NASA — Apophis', url: 'https://science.nasa.gov/solar-system/asteroids/apophis/' },
+      { label: 'CNEOS — Apophis 2029 approach', url: 'https://cneos.jpl.nasa.gov/apophis/' },
+    ],
+  },
+
   {
     id: 'vesta',
     name: 'Vesta',

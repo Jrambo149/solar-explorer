@@ -81,7 +81,7 @@ export default function LayerPanel() {
       else if (key === 'm') state.toggleLayer('moons')
       else if (key === 'n') state.toggleLayer('minorMoons')
       else if (key === 'c') state.toggleLayer('comets')
-      // A for asteroids — the five drawn as worlds. The belt itself is not a
+      // A for asteroids — the ones drawn as worlds. The belt itself is not a
       // layer: it is the scene, the way the stars are.
       else if (key === 'a') state.toggleLayer('asteroids')
       // S, not the more obvious first letter of "spacecraft" being taken —
@@ -226,7 +226,7 @@ export default function LayerPanel() {
           them on changes the scale of the view as much as its contents. */}
       {/* Between the dwarfs and the comets, which is where they belong: bodies
           of the inner system that are neither planets nor ice. This switches
-          the five *named* asteroids, not the belt — three and a half thousand
+          the *named* asteroids, not the belt — three and a half thousand
           rocks are drawn regardless, and are no more optional than the stars. */}
       <Toggle
         label="Asteroids"

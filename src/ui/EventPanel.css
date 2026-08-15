@@ -85,10 +85,23 @@
 
 /* ---- filters ---- */
 
+/* Wraps, because the row grew past the panel.
+
+   Five filters fitted on one line and the sixth — "Near misses" — hung over the
+   right edge and was clipped, which reads as a rendering fault rather than as a
+   control. Wrapping is the right answer over shrinking the type: these are the
+   panel's only navigation and there will be a seventh one day. */
 .events__filters {
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
   margin: 0 6px 9px 0;
+}
+
+/* A chip never breaks its own label across two lines: "Near
+   misses" split in half is worse than a second row. */
+.events__filter {
+  white-space: nowrap;
 }
 
 .events__filter {

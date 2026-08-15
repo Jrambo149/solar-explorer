@@ -61,7 +61,7 @@ const SECTIONS = [
   },
   { key: 'moons', label: 'Moons', bodies: MOONS, layers: ['moons', 'minorMoons'], base: 12, span: 7 },
   /*
-   * The five asteroids that are places rather than population.
+   * The asteroids that are places rather than population.
    *
    * A narrow spread — 222 to 525 km — so a small span, like the comets. The
    * belt itself has no section and should not have one: three and a half

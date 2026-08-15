@@ -250,13 +250,46 @@ export function solveKepler(M, e) {
 }
 
 /**
+ * The element set in force at time `T`.
+ *
+ * Almost every body has exactly one, and this returns it untouched. The
+ * exception is a body whose orbit is *rewritten* part-way through the app's
+ * window, and there is currently one: **Apophis**, which passes 31,000 km above
+ * the Earth in April 2029 and comes out on a different orbit.
+ *
+ * Not a slightly different orbit. Its semi-major axis goes from 0.922 AU to
+ * 1.103 AU, its inclination is bent from 3.34° to 2.22°, and its year length
+ * changes from 324 days to 423. It stops being an Aten — an asteroid whose
+ * orbit is mostly inside Earth's — and becomes an Apollo, one that crosses from
+ * outside. The encounter changes what kind of object it is.
+ *
+ * A linear fit *cannot* express that, and the failure would not look like a
+ * failure: least-squares would run a straight line through the step and produce
+ * an orbit that is wrong before 2029, wrong after it, and plausible throughout.
+ * So such a body carries `segments` instead — one full element set per era,
+ * each fitted only to the samples from its own era, and each valid `until` a
+ * given time.
+ *
+ * The seam is real and is meant to be seen: the drawn ellipse changes shape on
+ * the day of the encounter, which is exactly what happened.
+ */
+export function elementsFor(el, T) {
+  if (!el.segments) return el
+  for (const segment of el.segments) {
+    if (segment.until === null || T < segment.until) return segment
+  }
+  return el.segments[el.segments.length - 1]
+}
+
+/**
  * The six elements evaluated at time `T`, converted to radians.
  *
  * The JPL table gives each element at J2000 plus a linear rate per century,
  * which is what lets a six-number table stand in for an ephemeris across
  * 1800–2050: it is a straight-line fit to the slow precession of each orbit.
  */
-export function elementsAt(el, T) {
+export function elementsAt(source, T) {
+  const el = elementsFor(source, T)
   return {
     a: el.a + el.aDot * T,
     e: el.e + el.eDot * T,

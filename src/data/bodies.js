@@ -152,9 +152,9 @@ const CHARON_PARTIAL = 'Real, but only part of it is sharp. New Horizons flew pa
  * `models.js`. The Uranian five and Charon are genuinely partial and say so.
  */
 /**
- * What the five named asteroids are and are not, said in the panel.
+ * What the named asteroids are and are not, said in the panel.
  *
- * They are drawn as spheres, and four of the five are decidedly not spheres —
+ * They are drawn as spheres, and most of them are decidedly not spheres —
  * Psyche is 278 by 238 by 171 kilometres. The globe carries no map either:
  * Vesta and Psyche have been imaged well enough for one to exist, and nothing
  * in this repo's texture set covers them.
@@ -165,7 +165,7 @@ const CHARON_PARTIAL = 'Real, but only part of it is sharp. New Horizons flew pa
  * claim that Psyche is round.
  */
 const ASTEROID_SHAPE =
-  'Drawn as a sphere of the right mean size, and four of these five are not spheres — the measured axes are in the figures above. There is no surface map here either. What is real is the size, the rotation rate and the orbit.'
+  'Drawn as a sphere of the right mean size, and most of these are not spheres — the measured axes are in the figures above. There is no surface map here either. What is real is the size, the rotation rate and the orbit.'
 
 const SURFACE_NOTES = {
   vesta: ASTEROID_SHAPE,
@@ -206,7 +206,7 @@ export const DWARF_PLANETS = DWARF_PLANETS_RAW.map((body) => ({
 }))
 
 /**
- * The five asteroids drawn as worlds rather than as population.
+ * The asteroids drawn as worlds rather than as population.
  *
  * A separate class from the dwarf planets, and the difference is not a
  * technicality: a dwarf planet has pulled itself round under its own gravity.
