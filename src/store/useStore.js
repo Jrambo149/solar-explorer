@@ -483,6 +483,23 @@ export const useStore = create((set, get) => ({
    */
   constellation: null,
 
+  /**
+   * Bumped every time a constellation is *asked for*, so the camera can turn to
+   * face it.
+   *
+   * A nonce rather than the index alone, for the reason `flightNonce` exists:
+   * picking the one already selected has to do something. Searching for Lyra,
+   * looking away, and searching for Lyra again is a request to see Lyra both
+   * times, and an effect keyed on the index would fire once and never again.
+   *
+   * Not bumped by a click on the sky, and that is the whole distinction. A
+   * click already tells the camera where to look — you were pointing at it —
+   * and swinging the view in response to a click would move the very thing
+   * under the cursor. A name chosen from a list carries no direction with it,
+   * so the camera has to supply one.
+   */
+  lookNonce: 0,
+
   selectConstellation: (index) =>
     set((s) => (s.constellation === index ? { constellation: null } : { constellation: index })),
 
@@ -503,7 +520,11 @@ export const useStore = create((set, get) => ({
    * whatever happened to be selected before.
    */
   revealConstellation: (index) =>
-    set((s) => ({ layers: { ...s.layers, constellations: true }, constellation: index })),
+    set((s) => ({
+      layers: { ...s.layers, constellations: true },
+      constellation: index,
+      lookNonce: s.lookNonce + 1,
+    })),
 
   setHovered: (id) => set((s) => (s.hoveredId === id ? s : { hoveredId: id })),
 

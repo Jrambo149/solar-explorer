@@ -814,6 +814,125 @@ try {
     'the publisher retracts on unmount',
   )
 
+  /* ---- turning to face one ---- */
+
+  console.log('\nThe view swings round\n')
+
+  /**
+   * How far the camera is looking from the middle of a region, in degrees.
+   *
+   * The measurement that matters, and the only one that does: not where the
+   * camera *is*, which is meaningless for a direction at infinity, but the
+   * angle between where it points and where the constellation lies. Zero means
+   * the region is dead centre.
+   */
+  const OFF_BY = (index) => `(async () => {
+    const { CONSTELLATION_REGIONS } = await import('/src/data/constellations.js')
+    const { starDirection } = await import('/src/scene/sky.js')
+    const THREE = window.__solar.three
+    const region = CONSTELLATION_REGIONS[${index}]
+    const d = starDirection(region.centre[0], region.centre[1])
+    const want = new THREE.Vector3(d.x, d.y, d.z)
+    const look = new THREE.Vector3()
+    window.__solar.camera.getWorldDirection(look)
+    return THREE.MathUtils.radToDeg(look.angleTo(want))
+  })()`
+
+  const indexOf = (name) => CONSTELLATION_REGIONS.findIndex((c) => c.name === name)
+
+  await page.evaluate(`window.__solar.state().clearSelection()`)
+  // Well past the flight that backing out to the overview arms: a swing waits
+  // for a flight rather than fighting it, so measuring too early measures the
+  // wait rather than the turn.
+  await page.frames(200)
+
+  for (const name of ['Crux', 'Ursa Minor', 'Orion']) {
+    const index = indexOf(name)
+    const before = await page.evaluate(OFF_BY(index))
+    await page.evaluate(`window.__solar.state().revealConstellation(${index})`)
+    await page.frames(140)
+    const after = await page.evaluate(OFF_BY(index))
+    check(
+      `searching for ${name} turns the view to face it`,
+      before > 20 && after < 1,
+      `${before.toFixed(1)}° off → ${after.toFixed(1)}° off`,
+    )
+  }
+
+  /*
+   * And a *click* on the sky does not turn anything.
+   *
+   * The distinction the whole mechanism rests on. A click already carries a
+   * direction — you were pointing at it — so swinging the view in response
+   * would drag the thing out from under the cursor. Only the search, which
+   * carries no direction at all, may move the camera.
+   */
+  {
+    const before = await page.evaluate(`window.__solar.camera.position.toArray().join(',')`)
+    await page.evaluate(`window.__solar.state().selectConstellation(${indexOf('Lyra')})`)
+    await page.frames(120)
+    const after = await page.evaluate(`window.__solar.camera.position.toArray().join(',')`)
+    check(
+      'but clicking one leaves the camera exactly where it was',
+      before === after,
+      before === after ? 'no swing on a click' : 'the click moved the camera',
+    )
+  }
+
+  /*
+   * From the ground, which is a different manoeuvre entirely.
+   *
+   * Standing there is no pivot and no orbit — only a heading and an altitude —
+   * so facing something means turning your head, and the angles have to come
+   * from the local horizon frame at this instant of the body's rotation.
+   * Checked from the Moon, which has no air to hide the sky in.
+   */
+  await page.evaluate(`window.__solar.state().standOn('luna', 0.67409, 23.47298, 'Tranquility Base')`)
+  await page.frames(140)
+  check(
+    'standing on the Moon to look from',
+    await page.evaluate(`!!window.__solar.state().surface`),
+    'at Tranquility Base',
+  )
+
+  for (const name of ['Orion', 'Scorpius']) {
+    const index = indexOf(name)
+    const before = await page.evaluate(OFF_BY(index))
+    await page.evaluate(`window.__solar.state().revealConstellation(${index})`)
+    await page.frames(140)
+    const after = await page.evaluate(OFF_BY(index))
+    const facing = await page.evaluate(`(() => {
+      const s = window.__solar.state()
+      return { standing: !!s.surface, azimuth: s.surface?.azimuth ?? null, altitude: s.surface?.altitude ?? null }
+    })()`)
+    check(
+      `from the ground, ${name} is found by turning the head`,
+      before > 20 && after < 1 && facing.standing,
+      `${before.toFixed(1)}° → ${after.toFixed(1)}°, facing ${(((facing.azimuth % 360) + 360) % 360).toFixed(0)}° at ${facing.altitude.toFixed(0)}° altitude`,
+    )
+  }
+
+  /*
+   * The heading is left unwrapped on purpose — a turn works in *change* from
+   * where you were looking, which is what sends 350°→10° twenty degrees east
+   * rather than three hundred and forty west. The bar has no such excuse, and
+   * printed "−99°" until it wrapped the number for display.
+   */
+  {
+    const shown = await page.evaluate(
+      `document.querySelector('.surface-bar__heading em')?.textContent ?? ''`,
+    )
+    const degrees = Number(shown.replace('°', ''))
+    check(
+      'and the bar shows a bearing, not a signed angle',
+      shown !== '' && degrees >= 0 && degrees < 360,
+      `reads ${shown}`,
+    )
+  }
+
+  await page.evaluate(`window.__solar.state().leaveSurface()`)
+  await page.frames(30)
+
   const errors = page.errors.filter((e) => !e.startsWith('warning:'))
   check('no console errors', errors.length === 0, errors.slice(0, 3).join(' | '))
 } finally {

@@ -33,7 +33,9 @@ import {
 } from './splitFraming'
 import { stepFlightHomeEased, stepFlightToPlanetEased, stepFollow } from './followMath'
 import { getAttitude } from './attitude'
-import { horizonFrame, lookDirection } from './horizon'
+import { horizonFrame, lookAngles, lookDirection } from './horizon'
+import { CONSTELLATION_REGIONS } from '../data/constellations'
+import { starDirection } from './sky'
 import { bodyBasis } from './pole'
 import { surfaceOffset, surfaceSpin } from './surface'
 
@@ -352,6 +354,185 @@ const SNAP_CONE_COS = Math.cos(11 * (Math.PI / 180))
 /** Wait this long between automatic snaps so zooming can't chatter. */
 const SNAP_COOLDOWN_MS = 700
 
+/* ------------------------------------------------------------------ *
+ * Turning to face a constellation.
+ * ------------------------------------------------------------------ */
+
+/**
+ * How long the view takes to swing round, in seconds.
+ *
+ * Long enough to be followed — the whole value of turning rather than cutting
+ * is that you see *where* it was, and a cut to a different patch of an
+ * otherwise identical starfield is indistinguishable from a bug. Short enough
+ * not to be a wait: this is the response to picking a name off a list, not an
+ * arrival at a planet, and the flights are deliberately slower.
+ */
+const SWING_SECONDS = 0.9
+
+/** Smoothstep, the same ease the flights use. */
+const ease = (t) => t * t * (3 - 2 * t)
+
+const swing = {
+  active: false,
+  /** Armed but not yet begun — a flight is in the air and this is waiting. */
+  started: false,
+  index: 0,
+  elapsed: 0,
+  /** Orbiting: the unit offset from the pivot, before and after. */
+  from: new THREE.Vector3(),
+  to: new THREE.Vector3(),
+  /** Standing: heading and altitude, before and after, in degrees. */
+  fromAzimuth: 0,
+  toAzimuth: 0,
+  fromAltitude: 0,
+  toAltitude: 0,
+  standing: false,
+}
+
+const _sky = new THREE.Vector3()
+const _swingOffset = new THREE.Vector3()
+const _swingTurn = new THREE.Quaternion()
+const _swingStep = new THREE.Quaternion()
+
+/** The middle of a constellation, as a direction in the world frame. */
+function constellationDirection(index, out) {
+  const region = CONSTELLATION_REGIONS[index]
+  starDirection(region.centre[0], region.centre[1], out)
+  return out
+}
+
+/**
+ * Arm a swing toward the constellation, from wherever the view is now.
+ *
+ * Two completely different manoeuvres share this name, because from the user's
+ * side they are one thing — "face that" — and from the camera's they have
+ * nothing in common:
+ *
+ * **Standing on a surface** there is no orbit and no pivot. You have a heading
+ * and an altitude, and facing something means turning your head: the target
+ * angles come from `lookAngles`, which is the only thing that can convert a
+ * direction in the sky into a compass bearing *here*, on this body, at this
+ * instant of its rotation.
+ *
+ * **In orbit** the camera hangs off a pivot at a distance the user chose, and
+ * the view direction is the line from the camera to that pivot. So facing a
+ * patch of sky means moving the camera to the opposite side of the pivot —
+ * same target, same distance, reversed direction. Nothing about the framing
+ * changes except which way you are looking, which is what keeps this from
+ * fighting the follow: the offset it rotates is the same offset the follow
+ * carries along with the body.
+ */
+function armSkySwing(index) {
+  swing.index = index
+  swing.active = true
+  swing.started = false
+  swing.elapsed = 0
+  return true
+}
+
+/**
+ * Capture where the view is *now*, as the start of the turn.
+ *
+ * Separate from arming, and the gap between them is a real interval: a swing
+ * armed while a flight is in the air waits for it, and the camera can travel a
+ * long way in the meantime. Reading the starting angles at arm time and using
+ * them a second later would swing from a position the camera had already left,
+ * which shows up as a jump at the moment the turn begins.
+ */
+function beginSwing(camera, controls) {
+  const standing = useStore.getState().surface
+  swing.standing = !!standing
+  swing.elapsed = 0
+
+  if (standing) {
+    // Rebuilds `_frame` for this instant, which is what `lookAngles` needs:
+    // the body has rotated since the swing was armed.
+    if (!standAt(standing, useStore.getState().scaleMode)) return false
+    constellationDirection(swing.index, _sky)
+    const { azimuth, altitude } = lookAngles(_frame, _sky)
+    swing.fromAzimuth = standing.azimuth
+    swing.fromAltitude = standing.altitude
+    /*
+     * The short way round. Azimuth is a circle, so a turn from 350° to 10° is
+     * twenty degrees east and not three hundred and forty west — and the
+     * difference is the whole feel of the thing: one is a glance, the other is
+     * a full spin past everything else in the sky.
+     */
+    const delta = ((azimuth - standing.azimuth + 540) % 360) - 180
+    swing.toAzimuth = standing.azimuth + delta
+    swing.toAltitude = altitude
+    swing.started = true
+    return true
+  }
+
+  _swingOffset.subVectors(camera.position, controls.target)
+  const distance = _swingOffset.length()
+  if (!(distance > 0)) return false
+  swing.from.copy(_swingOffset).divideScalar(distance)
+  // Behind the pivot: the camera looks *from* here *at* the target, so the
+  // offset that points the view at `d` is `-d`.
+  swing.to.copy(constellationDirection(swing.index, _sky)).negate()
+  swing.started = true
+  return true
+}
+
+/**
+ * Advance a swing, if one is running.
+ *
+ * Placed at the end of the frame, after the flight, the follow and the split
+ * framing have each had their say, because it has to overrule the *direction*
+ * they left behind while keeping the distance and pivot they chose.
+ *
+ * ## Why a flight postpones this rather than cancelling it
+ *
+ * The two genuinely conflict: a flight rewrites `camera.position` from its own
+ * direction every frame, so a turn running underneath one would be undone as
+ * fast as it was applied.
+ *
+ * Cancelling was the first answer and it was wrong in a way that took a
+ * measurement to see. Clearing the selection arms a flight back out to the
+ * overview, so for the two seconds after backing out of a body — and on the
+ * very first search of a session, because the app opens with a flight — a
+ * constellation picked from the search silently did nothing at all. Two of
+ * three swings worked and the first never did.
+ *
+ * Waiting is also the more honest reading of what was asked. The search is the
+ * *later* request; the flight is one already in progress. Doing both in the
+ * order they were made — arrive, then turn — is what someone asking for both
+ * would expect, and nothing is thrown away.
+ */
+function stepSkySwing(camera, controls, delta, flying) {
+  if (!swing.active) return
+  if (flying) return
+
+  if (!swing.started && !beginSwing(camera, controls)) return
+
+  swing.elapsed += Math.min(delta, 0.1)
+  const t = Math.min(1, swing.elapsed / SWING_SECONDS)
+  const p = ease(t)
+
+  if (swing.standing) {
+    // Written back to the store rather than to the camera: standing, the store
+    // *is* the camera's orientation — the surface branch reads these two
+    // numbers at the top of every frame — and writing the camera directly
+    // would be overwritten before it was ever drawn.
+    useStore
+      .getState()
+      .lookAround(
+        THREE.MathUtils.lerp(swing.fromAzimuth, swing.toAzimuth, p),
+        THREE.MathUtils.lerp(swing.fromAltitude, swing.toAltitude, p),
+      )
+  } else {
+    const distance = camera.position.distanceTo(controls.target)
+    _swingTurn.setFromUnitVectors(swing.from, swing.to)
+    _swingStep.identity().slerp(_swingTurn, p)
+    _swingOffset.copy(swing.from).applyQuaternion(_swingStep)
+    camera.position.copy(controls.target).addScaledVector(_swingOffset, distance)
+  }
+
+  if (t >= 1) swing.active = false
+}
+
 /**
  * Drives the camera.
  *
@@ -374,6 +555,7 @@ export default function CameraController() {
   const selectedId = useStore((s) => s.selectedId)
   const systemId = useStore((s) => s.systemId)
   const flightNonce = useStore((s) => s.flightNonce)
+  const lookNonce = useStore((s) => s.lookNonce)
   const scaleMode = useStore((s) => s.scaleMode)
 
   const limits = cameraLimits(scaleMode)
@@ -496,6 +678,8 @@ export default function CameraController() {
    * would swallow.
    */
   const armed = useRef(null)
+  /* Matches `lookNonce`'s initial value, so nothing swings on the first frame. */
+  const armedLook = useRef(0)
   const lastSnapAt = useRef(0)
 
   /* The camera the user left behind, held while the page is at the top, and the
@@ -1098,7 +1282,32 @@ export default function CameraController() {
      */
     const standing = useStore.getState().surface
     if (standing) {
-      const stood = standAt(standing, useStore.getState().scaleMode)
+      /*
+       * Turning the head, before the eye is placed — and the order is the whole
+       * of it.
+       *
+       * `standAt` reads the heading and altitude out of the store and builds
+       * the look direction from them. A swing that ran after this branch would
+       * be writing next frame's angles every frame, one frame late forever, and
+       * the very last write — the one that lands exactly on the constellation —
+       * would never be read at all, because the swing ends and the branch has
+       * already run. So it advances first and `standAt` sees this frame's
+       * angles.
+       *
+       * Arming has to happen here too. The branch returns, so the arming block
+       * further down is unreachable while standing, and searching for a
+       * constellation from the ground would set a nonce that nothing ever
+       * looked at.
+       */
+      const look = useStore.getState()
+      if (armedLook.current !== look.lookNonce) {
+        if (look.constellation === null || armSkySwing(look.constellation)) {
+          armedLook.current = look.lookNonce
+        }
+      }
+      stepSkySwing(camera, controls, delta, false)
+
+      const stood = standAt(useStore.getState().surface, useStore.getState().scaleMode)
       if (stood) {
         controls.enabled = false
         camera.up.copy(_frame.up)
@@ -1150,6 +1359,28 @@ export default function CameraController() {
       // its window — and that has to be retried, not remembered as done.
       if (armFlight(store.selectedId, store.systemId, controls) !== false) {
         armed.current = key
+      }
+    }
+
+    /*
+     * And the same for turning to face a constellation.
+     *
+     * Keyed on the nonce *alone*, never on which constellation is selected, and
+     * that is the whole of the rule about when the view should move. The nonce
+     * is bumped only by `revealConstellation` — the search — because a name
+     * picked off a list carries no direction with it. Clicking the sky changes
+     * the selection without touching the nonce, and must: you were already
+     * pointing at it, and swinging the view would drag the thing out from under
+     * the cursor.
+     *
+     * Armed here rather than in an effect, for the same reason the flight is:
+     * standing on a surface needs the body's position and this frame's rotation
+     * to know which way "toward Orion" is, and neither exists until `useFrame`
+     * has run at least once. A failed arm is left unlatched and retried.
+     */
+    if (armedLook.current !== store.lookNonce) {
+      if (store.constellation === null || armSkySwing(store.constellation)) {
+        armedLook.current = store.lookNonce
       }
     }
 
@@ -1425,6 +1656,8 @@ export default function CameraController() {
           .addScaledVector(dirScratch.current, THREE.MathUtils.lerp(from, framed, p))
       }
     }
+
+    stepSkySwing(camera, controls, delta, flight.current.active)
 
     /*
      * The near plane, resized to where the camera now is.

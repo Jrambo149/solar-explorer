@@ -117,6 +117,32 @@ export function lookDirection(frame, azimuthDeg, altitudeDeg, out) {
  * the checks are made of — "the Sun is 43° above the south-west horizon" is a
  * statement anyone can look up, where "the camera quaternion is (…)" is not.
  */
+/**
+ * The inverse: a direction in the world, as a heading and an altitude here.
+ *
+ * What it is for is turning to look at something whose position is known in the
+ * sky but not in the local frame — a constellation picked from the search, a
+ * planet, the Sun. "Face Orion" is a well-posed request from anywhere on any
+ * body, and this is the only thing that can answer it, because the answer
+ * depends entirely on where you are standing and which way the ground is
+ * pointing at that instant.
+ *
+ * Azimuth comes back in `[0, 360)` measured from north through east, matching
+ * `lookDirection` and `compassPoint`, so the two round-trip.
+ */
+export function lookAngles(frame, direction) {
+  const n = direction.x * frame.north.x + direction.y * frame.north.y + direction.z * frame.north.z
+  const e = direction.x * frame.east.x + direction.y * frame.east.y + direction.z * frame.east.z
+  const u = direction.x * frame.up.x + direction.y * frame.up.y + direction.z * frame.up.z
+
+  let azimuth = Math.atan2(e, n) / DEG
+  if (azimuth < 0) azimuth += 360
+  // Clamped before the arcsine: `direction` is normalised by its caller and a
+  // dot product of unit vectors can still land at 1.0000000000000002, which
+  // returns NaN and freezes the camera at whatever it was last looking at.
+  return { azimuth, altitude: Math.asin(Math.max(-1, Math.min(1, u))) / DEG }
+}
+
 export function skyPosition(frame, direction) {
   const length = norm(direction) || 1
   const x = direction.x / length

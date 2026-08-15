@@ -70,7 +70,17 @@ export default function SurfaceBar() {
             <span className="surface-bar__label">Facing</span>
             <span className="surface-bar__heading">
               {compassPoint(surface.azimuth)}
-              <em>{Math.round(surface.azimuth)}°</em>
+              {/* Wrapped into 0–359, because the stored heading is not.
+
+                  Nothing keeps it in range: a drag westward from north takes it
+                  negative and a few turns eastward take it past 720, since both
+                  the drag and the swing toward a constellation work in *change*
+                  from where you were looking — which is what makes them
+                  continuous, and what stops a turn from 350° to 10° going the
+                  long way round. A bearing on screen has no such excuse.
+                  `compassPoint` has always wrapped; the number beside it did
+                  not, and would read "−99° SE". */}
+              <em>{Math.round(((surface.azimuth % 360) + 360) % 360)}°</em>
             </span>
           </div>
 
