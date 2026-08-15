@@ -13,6 +13,7 @@
  */
 
 import { BODIES, BODIES_BY_ID } from '../data/bodies.js'
+import { CONSTELLATION_REGIONS } from '../data/constellations.js'
 import { LANDED_CRAFT } from '../data/landedCraft.js'
 
 /**
@@ -95,9 +96,38 @@ function scoreTerm(term, q) {
  * fifty craft are mostly known to the people who already know their names, and
  * those people type more than three letters.
  */
-const CLASS_RANK = { planet: 6, dwarf: 5, asteroid: 4.5, moon: 4, comet: 3, spacecraft: 2 }
-const classBonus = (body) =>
-  (body.kind === 'moon' && body.tier === 'minor' ? 1 : CLASS_RANK[body.kind]) ?? 0
+/**
+ * Constellations rank below every body, and the collisions are why.
+ *
+ * Two names belong to both a body and a region of sky: **Hydra** is one of
+ * Pluto's moons as well as the largest constellation, and **Phoenix** landed on
+ * Mars in 2008. Both are exact matches on both readings, so the tie is decided
+ * here and nowhere else.
+ *
+ * This first placed them above spacecraft, on the reasoning that a
+ * constellation is one of 88 while a craft is one of fifty known mainly to
+ * people who already know them. Phoenix says otherwise: the lander has a
+ * dossier, a trajectory and a landing site in this app, and the constellation
+ * is a faint southern figure with no bright star. Ranking the sky above it
+ * meant a solar-system app answering a solar-system question with a patch of
+ * sky.
+ *
+ * So the rule is the simple one, and it can be stated in a sentence: on an
+ * equally good match, **the solar system comes first**. The constellation is
+ * always in the list — `verify-search` asserts that for every collision — it
+ * just is not the first answer when a body answers to the same name.
+ */
+const CLASS_RANK = {
+  planet: 6,
+  dwarf: 5,
+  asteroid: 4.5,
+  moon: 4,
+  comet: 3,
+  spacecraft: 2,
+  constellation: 1.5,
+}
+const classBonus = (entry) =>
+  (entry.kind === 'moon' && entry.tier === 'minor' ? 1 : CLASS_RANK[entry.kind]) ?? 0
 
 /** Below this a match is a guess rather than a reading of the letters typed. */
 const LITERAL = 30
@@ -129,8 +159,57 @@ function termsFor(body) {
   return { primary, secondary }
 }
 
-/** Built once. 515 bodies, and none of them arrive later. */
-const INDEX = BODIES.map((body) => ({ body, ...termsFor(body) }))
+/**
+ * Every string a constellation answers to, and the three tiers are the point.
+ *
+ * The **name** is what someone types. The **English name and the genitive** are
+ * worth matching — "great bear" should find Ursa Major, and "Orionis" is what a
+ * star chart actually prints — but must not outrank a body's own name.
+ *
+ * The **abbreviation** is the awkward one and gets its own, much weaker tier.
+ * Three letters collide with the front of real names: `cha` is Chamaeleon's
+ * abbreviation and the first three letters of Charon, `ari` is Aries and the
+ * start of Ariel. Scored as a secondary term, an exact abbreviation hit (90)
+ * would beat a body's name prefix (80) and put a faint southern constellation
+ * above one of Pluto's moons. At −30 it lands at 70, below every name prefix
+ * and above a word-start — which is where "the three-letter code, if you happen
+ * to know it" belongs.
+ */
+function constellationTerms(region) {
+  return {
+    primary: [region.name],
+    secondary: [region.english, region.genitive],
+    tertiary: [region.abbr],
+  }
+}
+
+/**
+ * Built once: 515 bodies and 88 regions of sky, and none of them arrive later.
+ *
+ * One index rather than two, because the two have to be *ranked together*. A
+ * separate constellation search would produce a second list with its own scores
+ * and no principled way to interleave them — and interleaving is the whole
+ * question, since `phoenix` is a lander and a constellation and `hydra` is a
+ * moon and a constellation.
+ */
+const INDEX = [
+  ...BODIES.map((body) => ({
+    kind: body.kind,
+    tier: body.tier,
+    id: body.id,
+    name: body.name,
+    body,
+    ...termsFor(body),
+  })),
+  ...CONSTELLATION_REGIONS.map((region, index) => ({
+    kind: 'constellation',
+    id: `constellation:${region.abbr}`,
+    name: region.name,
+    region,
+    constellation: index,
+    ...constellationTerms(region),
+  })),
+]
 
 /**
  * Where a body sits, as a person would say it — the second line of a result.
@@ -145,7 +224,21 @@ export function bodyContext(body) {
   if (body.kind === 'spacecraft') return 'Spacecraft'
   if (body.kind === 'comet') return body.open ? 'Interstellar object' : 'Comet'
   if (body.kind === 'dwarf') return 'Dwarf planet'
+  if (body.kind === 'asteroid') return 'Asteroid'
   return 'Planet'
+}
+
+/**
+ * The second line of any result, body or region.
+ *
+ * A constellation says what it depicts rather than that it is a constellation —
+ * the mark beside it already says that, and "Constellation" under Ursa Major is
+ * the same wasted line "Moon" under Ganymede was. "Great Bear · 1280 sq°" is
+ * two things you did not know.
+ */
+export function resultContext(entry) {
+  if (entry.kind !== 'constellation') return bodyContext(entry.body)
+  return `${entry.region.english} · ${Math.round(entry.region.area)} sq°`
 }
 
 /**
@@ -155,7 +248,7 @@ export function bodyContext(body) {
  * twelve of five hundred bodies in array order is not an answer to a question
  * nobody has asked yet, and the palette shows a hint instead.
  */
-export function searchBodies(query, limit = 12) {
+export function searchAll(query, limit = 12) {
   const q = squash(query ?? '')
   if (!q) return []
 
@@ -166,18 +259,21 @@ export function searchBodies(query, limit = 12) {
     // Ten below the same rung on a name, which is less than the gap between
     // rungs — so a designation prefix still beats a name substring.
     for (const term of entry.secondary) score = Math.max(score, scoreTerm(term, q) - 10)
-    if (score > 0) hits.push({ body: entry.body, score })
+    // And thirty below, which *is* more than the gap between rungs: this tier
+    // is deliberately demoted by a whole rung. See `constellationTerms`.
+    for (const term of entry.tertiary ?? []) score = Math.max(score, scoreTerm(term, q) - 30)
+    if (score > 0) hits.push({ entry, score })
   }
 
   const ranked = (rows) =>
     rows.sort(
       (a, b) =>
         b.score - a.score ||
-        classBonus(b.body) - classBonus(a.body) ||
+        classBonus(b.entry) - classBonus(a.entry) ||
         // A shorter name containing the query is more likely to be the thing
         // meant: `Io` over `Iocaste` for `io`.
-        a.body.name.length - b.body.name.length ||
-        a.body.name.localeCompare(b.body.name),
+        a.entry.name.length - b.entry.name.length ||
+        a.entry.name.localeCompare(b.entry.name),
     )
 
   /*
@@ -192,7 +288,7 @@ export function searchBodies(query, limit = 12) {
    * room.
    */
   const literal = ranked(hits.filter((h) => h.score >= LITERAL))
-  if (literal.length >= limit) return literal.slice(0, limit).map((h) => h.body)
+  if (literal.length >= limit) return literal.slice(0, limit).map((h) => h.entry)
 
   /*
    * And a short tail at that, once anything has matched properly. Filling all
@@ -204,5 +300,25 @@ export function searchBodies(query, limit = 12) {
    */
   const room = literal.length ? Math.min(3, limit - literal.length) : limit
   const guesses = ranked(hits.filter((h) => h.score < LITERAL))
-  return [...literal, ...guesses.slice(0, room)].map((h) => h.body)
+  return [...literal, ...guesses.slice(0, room)].map((h) => h.entry)
+}
+
+/**
+ * The bodies alone, in the same order they would appear in the full list.
+ *
+ * Kept because the ranking of *bodies against each other* is the part with two
+ * hundred lines of hard-won ordering behind it — `pho` for Phobos over Phoenix,
+ * `mar` for Mars over Mars 2020 — and `verify-search` exercises that directly.
+ * Asking those questions through a list that also contains constellations would
+ * mean every one of them silently became a question about two things at once.
+ *
+ * Not `filter` on the result: that would ask for twelve, throw the
+ * constellations away and return nine. It searches the same index and skips
+ * them, so a caller that wants twelve bodies gets twelve.
+ */
+export function searchBodies(query, limit = 12) {
+  return searchAll(query, limit + CONSTELLATION_REGIONS.length)
+    .filter((entry) => entry.kind !== 'constellation')
+    .slice(0, limit)
+    .map((entry) => entry.body)
 }

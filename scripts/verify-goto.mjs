@@ -21,6 +21,7 @@
  */
 
 import { openApp } from './lib/browser.mjs'
+import { CONSTELLATION_REGIONS } from '../src/data/constellations.js'
 import { BODIES_BY_ID, bodyRadius } from '../src/data/bodies.js'
 
 let failures = 0
@@ -47,10 +48,32 @@ const type = (text) => `(() => {
   return true
 })()`
 
+/**
+ * A synthetic keydown aimed at the input, kept for the cases that only need the
+ * handler to run.
+ *
+ * It cannot check the thing the arrow keys actually depend on, which is *where
+ * focus is*: dispatching at the input passes whether or not the input has
+ * focus, and whether or not something else in the app swallowed the key first.
+ * The arrow checks below use `page.key`, which is a real press delivered to
+ * whatever the browser decides should receive it.
+ */
 const press = (key) => `(() => {
   const el = document.querySelector('.search__input')
   el.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, bubbles: true }))
   return true
+})()`
+
+/** Which row the arrows have landed on, and what it says. */
+const ACTIVE = `(() => {
+  const rows = [...document.querySelectorAll('.search__row')]
+  const at = rows.findIndex((r) => r.classList.contains('is-active'))
+  return {
+    count: rows.length,
+    at,
+    name: at === -1 ? null : rows[at].querySelector('.search__name')?.textContent,
+    focused: document.activeElement === document.querySelector('.search__input'),
+  }
 })()`
 
 const OPEN_WITH_SLASH = `(() => {
@@ -180,6 +203,123 @@ try {
     after.jd < 2451545,
     `JD ${after.jd.toFixed(1)} (was ${before.toFixed(1)})`,
   )
+
+  /* ---- walking the list with the arrows ---- */
+
+  console.log('\nThe arrow keys\n')
+
+  await page.evaluate(`(() => {
+    const s = window.__solar.state()
+    s.clearSelection()
+    s.setSearchOpen(true)
+  })()`)
+  await page.frames(20)
+  /*
+   * Typed one character at a time through the browser, not written into the
+   * input's value. The arrows are only reachable if the field genuinely has
+   * focus, and setting `.value` from a script proves nothing about that — this
+   * is the one check in the suite where how the text got there is the point.
+   */
+  await page.type('mar')
+  await page.frames(25)
+
+  const start = await page.evaluate(ACTIVE)
+  check(
+    'typing puts the text in the field and arms the first row',
+    start.focused && start.at === 0 && start.count > 3,
+    `${start.count} rows, active ${start.at}, first is ${start.name}`,
+  )
+
+  await page.key('ArrowDown')
+  await page.frames(15)
+  const down1 = await page.evaluate(ACTIVE)
+  await page.key('ArrowDown')
+  await page.frames(15)
+  const down2 = await page.evaluate(ACTIVE)
+  check(
+    'down walks the list',
+    down1.at === 1 && down2.at === 2,
+    `${start.name} → ${down1.name} → ${down2.name}`,
+  )
+
+  await page.key('ArrowUp')
+  await page.frames(15)
+  const up = await page.evaluate(ACTIVE)
+  check('and up walks back', up.at === 1, `back to ${up.name}`)
+
+  /*
+   * Off the top and round to the bottom.
+   *
+   * Wrapping rather than stopping, because the list is short and the row
+   * someone wants after overshooting the top is usually the last one. Checked
+   * because an off-by-one here reads as the arrows going dead at the edge.
+   */
+  await page.key('ArrowUp')
+  await page.frames(15)
+  await page.key('ArrowUp')
+  await page.frames(15)
+  const wrapped = await page.evaluate(ACTIVE)
+  check(
+    'up from the first row wraps to the last',
+    wrapped.at === wrapped.count - 1,
+    `row ${wrapped.at} of ${wrapped.count}: ${wrapped.name}`,
+  )
+
+  /* And Enter takes the row the arrows left armed, not the first one. */
+  await page.key('ArrowDown')
+  await page.frames(15)
+  const armed = await page.evaluate(ACTIVE)
+  await page.key('Enter')
+  await page.frames(30)
+  const landed = await page.evaluate(`(() => {
+    const s = window.__solar.state()
+    return { selectedId: s.selectedId, constellation: s.constellation, open: s.searchOpen }
+  })()`)
+  check(
+    'enter takes the row the arrows are on',
+    !landed.open && (landed.selectedId !== null || landed.constellation !== null),
+    `${armed.name} → ${landed.selectedId ?? `constellation ${landed.constellation}`}`,
+  )
+
+  /* ---- constellations, which are not bodies ---- */
+
+  console.log('\nFinding a constellation\n')
+
+  for (const [query, name] of [
+    ['Lyra', 'Lyra'],
+    ['great bear', 'Ursa Major'],
+    ['cma', 'Canis Major'],
+  ]) {
+    await page.evaluate(`(() => {
+      const s = window.__solar.state()
+      s.clearConstellation()
+      if (s.layers.constellations) s.toggleLayer('constellations')
+      s.setSearchOpen(true)
+    })()`)
+    await page.frames(20)
+    await page.evaluate(type(query))
+    await page.frames(20)
+    await page.evaluate(press('Enter'))
+    await page.frames(25)
+
+    const got = await page.evaluate(`(() => {
+      const s = window.__solar.state()
+      return { index: s.constellation, lit: s.layers.constellations, open: s.searchOpen }
+    })()`)
+    /*
+     * The layer matters as much as the selection. The figures are off by
+     * default, and `toggleLayer` clears the selection when they go off — so
+     * selecting without lighting them would leave the app holding a choice it
+     * has already decided to discard, and the sky would not change at all.
+     */
+    check(
+      `"${query}" finds ${name}, and switches the figures on`,
+      got.index !== null && CONSTELLATION_REGIONS[got.index].name === name && got.lit && !got.open,
+      got.index === null
+        ? 'nothing selected'
+        : `${CONSTELLATION_REGIONS[got.index].name}, figures ${got.lit ? 'on' : 'OFF'}`,
+    )
+  }
 
   /* ---- escape ---- */
 

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BODIES } from '../data/bodies'
+import { CONSTELLATION_REGIONS } from '../data/constellations'
 import { isFlying } from '../orbit/trajectory'
 import { landedCraft } from '../data/landedCraft'
 import { useStore } from '../store/useStore'
 import { useNamer } from './useBodyName'
-import { bodyContext, searchBodies } from './bodySearch'
+import { resultContext, searchAll } from './bodySearch'
 import './SearchPalette.css'
 
 /**
@@ -35,16 +36,20 @@ const LIMIT = 12
 const ROSTER = (() => {
   const n = {}
   for (const b of BODIES) n[b.kind] = (n[b.kind] ?? 0) + 1
-  return `${BODIES.length} bodies: ${n.planet} planets, ${n.dwarf} dwarf planets, ${n.moon} moons, ${n.comet} comets and ${n.spacecraft} spacecraft.`
+  return `${BODIES.length} bodies: ${n.planet} planets, ${n.dwarf} dwarf planets, ${n.moon} moons, ${n.comet} comets and ${n.spacecraft} spacecraft. And the ${CONSTELLATION_REGIONS.length} constellations.`
 })()
 
 /** A dot per class, so the eye can sort the list before reading it. */
 const CLASS_MARK = {
   planet: '●',
   dwarf: '◐',
+  asteroid: '◇',
   moon: '○',
   comet: '✦',
   spacecraft: '▲',
+  // Not a disc, because a constellation is not an object — it is a patch of
+  // sky. The one mark in the list that is not round.
+  constellation: '✧',
 }
 
 export default function SearchPalette() {
@@ -52,6 +57,7 @@ export default function SearchPalette() {
   const setSearchOpen = useStore((s) => s.setSearchOpen)
   const toggleSearch = useStore((s) => s.toggleSearch)
   const revealAndSelect = useStore((s) => s.revealAndSelect)
+  const revealConstellation = useStore((s) => s.revealConstellation)
   const displayJD = useStore((s) => s.displayJD)
   const namer = useNamer()
 
@@ -60,7 +66,7 @@ export default function SearchPalette() {
   const inputRef = useRef(null)
   const listRef = useRef(null)
 
-  const results = useMemo(() => searchBodies(query, LIMIT), [query])
+  const results = useMemo(() => searchAll(query, LIMIT), [query])
 
   /*
    * `/` to open, `⌘K`/`Ctrl-K` because that is what a palette is, and both are
@@ -104,9 +110,18 @@ export default function SearchPalette() {
     listRef.current?.querySelector('.search__row.is-active')?.scrollIntoView({ block: 'nearest' })
   }, [active])
 
-  const go = (body) => {
-    if (!body) return
-    revealAndSelect(body.id)
+  /*
+   * Two kinds of result, two destinations.
+   *
+   * A body is somewhere to fly to; a constellation is a direction to be named.
+   * Both go through a *reveal* rather than a bare select, because four of the
+   * body classes and the constellation figures are all switched off by default,
+   * and a search that lands on something switched off moves nothing at all.
+   */
+  const go = (entry) => {
+    if (!entry) return
+    if (entry.kind === 'constellation') revealConstellation(entry.constellation)
+    else revealAndSelect(entry.id)
     setSearchOpen(false)
   }
 
@@ -155,7 +170,7 @@ export default function SearchPalette() {
             type="text"
             className="search__input"
             value={query}
-            placeholder="Find a planet, moon, comet or spacecraft"
+            placeholder="Find a planet, moon, spacecraft or constellation"
             aria-label="Find a body"
             autoComplete="off"
             spellCheck="false"
@@ -169,7 +184,31 @@ export default function SearchPalette() {
         </div>
 
         <ul className="search__list" ref={listRef}>
-          {results.map((body, i) => {
+          {results.map((entry, i) => {
+            /*
+             * A region of sky, which has no clock, no mission and no parent —
+             * every line below this is about a body and none of it applies.
+             */
+            if (entry.kind === 'constellation') {
+              return (
+                <li key={entry.id}>
+                  <button
+                    type="button"
+                    className={`search__row${i === active ? ' is-active' : ''}`}
+                    onMouseMove={() => setActive(i)}
+                    onClick={() => go(entry)}
+                  >
+                    <span className="search__mark" aria-hidden="true">
+                      {CLASS_MARK.constellation}
+                    </span>
+                    <span className="search__name">{entry.name}</span>
+                    <span className="search__where">{resultContext(entry)}</span>
+                  </button>
+                </li>
+              )
+            }
+
+            const body = entry.body
             /*
              * A mission that is over, or has not launched, at the date on the
              * clock. Said rather than hidden: the roster is the roster whatever
@@ -188,14 +227,14 @@ export default function SearchPalette() {
                   type="button"
                   className={`search__row${i === active ? ' is-active' : ''}`}
                   onMouseMove={() => setActive(i)}
-                  onClick={() => go(body)}
+                  onClick={() => go(entry)}
                 >
                   <span className="search__mark" aria-hidden="true">
                     {CLASS_MARK[body.kind]}
                   </span>
                   <span className="search__name">{namer(body)}</span>
                   <span className="search__where">
-                    {bodyContext(body)}
+                    {resultContext(entry)}
                     {away ? ' · not there yet' : ''}
                   </span>
                 </button>
@@ -208,6 +247,23 @@ export default function SearchPalette() {
           )}
           {!query && <li className="search__empty">{ROSTER}</li>}
         </ul>
+
+        {/* The keys, said out loud.
+
+            The arrows have always worked and nothing on screen admitted it, so
+            for anyone who did not try them the list was a set of twelve things
+            to reach for with the mouse — having just been invited to use the
+            keyboard. A palette is a keyboard instrument and this is the label
+            on it. */}
+        {results.length > 0 && (
+          <div className="search__hint" aria-hidden="true">
+            <kbd className="search__kbd">↑</kbd>
+            <kbd className="search__kbd">↓</kbd>
+            <span>to move</span>
+            <kbd className="search__kbd">↵</kbd>
+            <span>to go</span>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -182,3 +182,32 @@
     animation: none;
   }
 }
+
+/* The keyboard hint under the results.
+
+   Only drawn when there are results to walk, so the empty state keeps its one
+   quiet line about what is in the roster rather than growing a second. */
+.search__hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px 9px;
+  border-top: 1px solid var(--hairline);
+  color: var(--text-faint);
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* The arrows sit a shade tighter than the word keys beside them: "esc" is three
+   characters and these are one, and matching their padding made them look like
+   buttons with a glyph lost in the middle. */
+.search__hint .search__kbd {
+  min-width: 15px;
+  padding: 1px 4px;
+  text-align: center;
+}
+
+.search__hint span + kbd {
+  margin-left: 5px;
+}

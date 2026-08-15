@@ -488,6 +488,23 @@ export const useStore = create((set, get) => ({
 
   clearConstellation: () => set({ constellation: null }),
 
+  /**
+   * Select one and make sure it can be seen — the search's way in.
+   *
+   * `revealAndSelect` for the sky, and it exists for exactly the same reason:
+   * the figures are switched **off** by default, and `selectConstellation` on
+   * its own would set a field that nothing is currently drawing. The panel
+   * would open, the sky would not change, and `toggleLayer` clears the
+   * selection when the layer goes off — so the app would be holding a selection
+   * it has already decided to discard.
+   *
+   * Selects rather than toggles, unlike the click on the sky: picking Lyra from
+   * a list of search results means "show me Lyra", never "put Lyra away",
+   * whatever happened to be selected before.
+   */
+  revealConstellation: (index) =>
+    set((s) => ({ layers: { ...s.layers, constellations: true }, constellation: index })),
+
   setHovered: (id) => set((s) => (s.hoveredId === id ? s : { hoveredId: id })),
 
   /* ---- simulation clock ----

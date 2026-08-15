@@ -13,9 +13,10 @@
  *   node scripts/verify-search.mjs
  */
 
-import { searchBodies } from '../src/ui/bodySearch.js'
+import { searchAll, searchBodies } from '../src/ui/bodySearch.js'
 import { BODIES, BODIES_BY_ID } from '../src/data/bodies.js'
 import { LANDED_CRAFT } from '../src/data/landedCraft.js'
+import { CONSTELLATION_REGIONS } from '../src/data/constellations.js'
 
 let failures = 0
 const check = (label, ok, detail) => {
@@ -209,6 +210,91 @@ check(
   unreachable.length === 0,
   unreachable.length ? `missed ${unreachable.slice(0, 6).join(', ')}` : null,
 )
+
+console.log('\nThe constellations\n')
+
+/*
+ * Every one of the 88 findable by its own name.
+ *
+ * The same check the bodies get, and it matters more here than it looks: the
+ * regions were added to an index that already held 515 bodies, and a name like
+ * Ara, Leo or Lupus is three or four letters that a great many spacecraft
+ * designations contain somewhere. If the constellations rank too low they are
+ * simply never seen, and nothing else in the app would notice.
+ */
+{
+  const unreachable = CONSTELLATION_REGIONS.filter(
+    (region) => !searchAll(region.name, 12).some((e) => e.region === region),
+  )
+  check(
+    'every constellation is findable by name',
+    unreachable.length === 0,
+    unreachable.length ? unreachable.map((r) => r.name).join(', ') : `all ${CONSTELLATION_REGIONS.length}`,
+  )
+}
+
+{
+  const named = (q) => searchAll(q, 12)[0]?.name ?? null
+  check('"orion" leads with a result named Orion', named('orion') === 'Orion', named('orion'))
+  check('"ursa major" finds the Great Bear', named('ursa major') === 'Ursa Major', named('ursa major'))
+  check('the English name works too — "great bear"', named('great bear') === 'Ursa Major', named('great bear'))
+  check('the genitive works — "orionis"', named('orionis') === 'Orion', named('orionis'))
+  check('the abbreviation works — "cma"', named('cma') === 'Canis Major', named('cma'))
+}
+
+/*
+ * The three names that belong to a body *and* a patch of sky.
+ *
+ * Hydra is one of Pluto's moons, Phoenix landed on Mars in 2008, and Orion is
+ * the capsule flying to the Moon. Both answers have to be offered — this is the
+ * check that would have caught the constellation quietly displacing the body,
+ * or never appearing at all — and the body is expected first, since a solar
+ * system is what this app is about.
+ */
+{
+  for (const [query, bodyId] of [
+    ['hydra', 'hydra'],
+    ['phoenix', 'sc_phoenix'],
+    ['orion', 'sc_orion'],
+  ]) {
+    const results = searchAll(query, 12)
+    const body = results.findIndex((e) => e.kind !== 'constellation' && e.id === bodyId)
+    const sky = results.findIndex((e) => e.kind === 'constellation')
+    if (body === -1) {
+      // The roster is allowed to not contain a given craft; say so rather than
+      // failing a ranking check for a body that is not there.
+      check(`"${query}" offers the constellation`, sky !== -1, `no body ${bodyId} in the roster`)
+    } else {
+      check(
+        `"${query}" offers both the body and the constellation, body first`,
+        sky !== -1 && body < sky,
+        `body at ${body}, sky at ${sky}`,
+      )
+    }
+  }
+}
+
+/*
+ * And the abbreviations do not shoulder real bodies aside.
+ *
+ * `cha` is Chamaeleon's three-letter code and the start of Charon; `ari` is
+ * Aries and the start of Ariel. Scored as ordinary secondary terms the exact
+ * abbreviation would beat the body's name prefix, which is why abbreviations
+ * have a tier of their own — this is what that tier is for.
+ */
+{
+  check('"cha" still leads with Charon', first('cha') === 'charon', first('cha'))
+  check('"ari" still leads with Ariel', first('ari') === 'ariel', first('ari'))
+}
+
+/* The body-only view keeps its promises. */
+{
+  check(
+    'searchBodies returns bodies only, and a full list of them',
+    searchBodies('a', 12).length === 12 && searchBodies('a', 12).every((b) => b?.id),
+    `${searchBodies('a', 12).length} bodies`,
+  )
+}
 
 console.log('\nThe empty query\n')
 

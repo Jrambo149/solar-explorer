@@ -298,6 +298,62 @@ export async function openPage({ url, width = 1600, height = 1000 } = {}) {
   }
 
   /**
+   * Real key presses, for the same reason the drag is real.
+   *
+   * A palette is a keyboard instrument: it opens on a keystroke, filters on
+   * keystrokes, is walked with the arrows and committed with Enter, and every
+   * one of those is decided by *where focus is* — which no synthetic
+   * `dispatchEvent` on a chosen element can test, because choosing the element
+   * is the question. Firing `keydown` at the input directly would pass whether
+   * or not the input had focus, and whether or not something else in the app
+   * had already swallowed the key.
+   *
+   * The named keys carry the `windowsVirtualKeyCode` that browsers still want
+   * for arrows and Enter; without it React sees the event but the browser does
+   * not move a caret.
+   */
+  const KEYS = {
+    ArrowDown: { code: 'ArrowDown', keyCode: 40 },
+    ArrowUp: { code: 'ArrowUp', keyCode: 38 },
+    Enter: { code: 'Enter', keyCode: 13, text: '\r' },
+    Escape: { code: 'Escape', keyCode: 27 },
+    Backspace: { code: 'Backspace', keyCode: 8 },
+    Tab: { code: 'Tab', keyCode: 9 },
+  }
+
+  const key = async (name) => {
+    const spec = KEYS[name]
+    if (!spec) throw new Error(`no key spec for ${name}`)
+    const base = {
+      key: name,
+      code: spec.code,
+      windowsVirtualKeyCode: spec.keyCode,
+      nativeVirtualKeyCode: spec.keyCode,
+    }
+    await browser.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...base }, sessionId)
+    if (spec.text) {
+      await browser.send('Input.dispatchKeyEvent', { type: 'char', ...base, text: spec.text }, sessionId)
+    }
+    await browser.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base }, sessionId)
+  }
+
+  /** Types into whatever currently has focus, one character at a time. */
+  const type = async (text) => {
+    for (const character of text) {
+      await browser.send(
+        'Input.dispatchKeyEvent',
+        { type: 'keyDown', text: character, key: character, unmodifiedText: character },
+        sessionId,
+      )
+      await browser.send(
+        'Input.dispatchKeyEvent',
+        { type: 'keyUp', key: character },
+        sessionId,
+      )
+    }
+  }
+
+  /**
    * Resize the viewport, so a check can ask what a laptop sees.
    *
    * More than cosmetic. Anything the app gates on a pixel count is really
@@ -399,7 +455,7 @@ export async function openPage({ url, width = 1600, height = 1000 } = {}) {
     await rm(profile, { recursive: true, force: true }).catch(() => {})
   }
 
-  return { evaluate, waitFor, frames, wheel, drag, resize, pixels, screenshot, errors, close }
+  return { evaluate, waitFor, frames, wheel, drag, key, type, resize, pixels, screenshot, errors, close }
 }
 
 /**
