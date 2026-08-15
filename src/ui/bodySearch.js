@@ -231,14 +231,20 @@ export function bodyContext(body) {
 /**
  * The second line of any result, body or region.
  *
- * A constellation says what it depicts rather than that it is a constellation —
- * the mark beside it already says that, and "Constellation" under Ursa Major is
- * the same wasted line "Moon" under Ganymede was. "Great Bear · 1280 sq°" is
- * two things you did not know.
+ * A constellation says plainly what it is. This first said what it *depicts*
+ * and how large it is — "Hunter · 594 sq°" — on the reasoning that the class is
+ * already carried by the mark beside it, so the line should spend itself on
+ * something new. That is the right argument for a *body*, where the classes are
+ * six and the marks are learnable, and the wrong one here: a reader scanning a
+ * list of Mars, Monoceros and Mars Odyssey needs to know which of them is a
+ * constellation before they need to know that Monoceros is a unicorn.
+ *
+ * The English name and the area are both a click away in the panel, which is
+ * where a thing you have to read belongs. A result row is scanned, not read.
  */
 export function resultContext(entry) {
   if (entry.kind !== 'constellation') return bodyContext(entry.body)
-  return `${entry.region.english} · ${Math.round(entry.region.area)} sq°`
+  return 'Constellation'
 }
 
 /**
