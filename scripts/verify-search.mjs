@@ -13,7 +13,7 @@
  *   node scripts/verify-search.mjs
  */
 
-import { searchAll, searchBodies } from '../src/ui/bodySearch.js'
+import { groupResults, searchAll, searchBodies } from '../src/ui/bodySearch.js'
 import { BODIES, BODIES_BY_ID } from '../src/data/bodies.js'
 import { LANDED_CRAFT } from '../src/data/landedCraft.js'
 import { CONSTELLATION_REGIONS } from '../src/data/constellations.js'
@@ -294,6 +294,58 @@ console.log('\nThe constellations\n')
     searchBodies('a', 12).length === 12 && searchBodies('a', 12).every((b) => b?.id),
     `${searchBodies('a', 12).length} bodies`,
   )
+}
+
+console.log('\nGrouping under headings\n')
+
+/*
+ * Grouping decides arrangement, never membership.
+ *
+ * The ranking is two hundred lines of hard-won ordering, and a presentation
+ * layer that quietly dropped or duplicated a result would look exactly like a
+ * ranking bug. Checked across a spread of queries rather than one, because a
+ * set comparison only catches what it is given.
+ */
+{
+  let mismatch = null
+  for (const q of ['mar', 'pho', 'a', 'orion', 'io', 'lyra', 'voyager', 'ur']) {
+    const flat = searchAll(q, 12)
+    const grouped = groupResults(flat).flatMap((g) => g.entries)
+    if (grouped.length !== flat.length || !flat.every((e) => grouped.includes(e))) {
+      mismatch = `${q}: ${flat.length} in, ${grouped.length} out`
+    }
+  }
+  check('grouping keeps every result and adds none', mismatch === null, mismatch ?? '8 queries')
+}
+
+/*
+ * And the first result stays first.
+ *
+ * The one property that ties the groups back to the ranking: groups come out
+ * in order of their best member, so whatever `searchAll` put at the top is
+ * still at the top after grouping — which is what the Enter key takes the
+ * moment the palette opens. A fixed class order would break this, heading
+ * "voyager" with a planet.
+ */
+{
+  let wrong = null
+  for (const q of ['mar', 'voyager', 'lyra', 'orion', 'phoeb', 'halley', 'io']) {
+    const flat = searchAll(q, 12)
+    if (!flat.length) continue
+    const first = groupResults(flat)[0].entries[0]
+    if (first !== flat[0]) wrong = `${q}: ${flat[0].name} became ${first.name}`
+  }
+  check('the top result survives grouping', wrong === null, wrong ?? 'first is first')
+}
+
+/* No group appears twice — the whole point is that a heading gathers its kind. */
+{
+  let split = null
+  for (const q of ['mar', 'a', 'e', 's']) {
+    const keys = groupResults(searchAll(q, 12)).map((g) => g.key)
+    if (new Set(keys).size !== keys.length) split = `${q}: ${keys.join(', ')}`
+  }
+  check('each heading appears once', split === null, split ?? 'no group is split in two')
 }
 
 console.log('\nThe empty query\n')

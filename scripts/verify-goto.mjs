@@ -281,6 +281,86 @@ try {
     `${armed.name} → ${landed.selectedId ?? `constellation ${landed.constellation}`}`,
   )
 
+  /* ---- the arrows walk the list as it is drawn ---- */
+
+  /*
+   * The failure this exists for.
+   *
+   * Grouping *reorders* the results — that is what a heading does, gathering a
+   * class that the ranking had interleaved — so the array the ranking produced
+   * is no longer the order on screen. If the arrows kept indexing the old one,
+   * every keystroke would still highlight exactly one row and the list would
+   * still look right; the highlight would simply jump around it, backwards up
+   * the screen and down again. Nothing would throw.
+   *
+   * So this reads the highlight's actual position in the DOM, and requires it
+   * to move down by exactly one row each time, past the headings rather than
+   * stopping on them.
+   */
+  console.log('\nThe arrows against the drawn order\n')
+
+  await page.evaluate(`(() => {
+    const s = window.__solar.state()
+    s.clearSelection()
+    s.setSearchOpen(true)
+  })()`)
+  await page.frames(20)
+  await page.evaluate(type('mar'))
+  await page.frames(25)
+
+  const GROUPS = `[...document.querySelectorAll('.search__group')].map((g) => g.textContent)`
+  const headings = await page.evaluate(GROUPS)
+  check(
+    '"mar" gathers its results under headings',
+    headings.length >= 2,
+    headings.join(' · '),
+  )
+
+  /** Where the highlight sits among the rows, counted down the screen. */
+  const ROW_AT = `(() => {
+    const rows = [...document.querySelectorAll('.search__row')]
+    return rows.findIndex((r) => r.classList.contains('is-active'))
+  })()`
+
+  /**
+   * Walk the entire list, one press per row.
+   *
+   * Better than sampling the first few, and better than testing a heading
+   * boundary by itself: a full walk crosses every heading there is, and the
+   * only way to pass it is for each press to advance exactly one drawn row
+   * whatever lies between them. A highlight that stalled on a heading, skipped
+   * a result, or jumped back up into an earlier group all fail here.
+   */
+  const rowCount = await page.evaluate(`document.querySelectorAll('.search__row').length`)
+  const walk = []
+  for (let i = 0; i < rowCount; i++) {
+    walk.push(await page.evaluate(ROW_AT))
+    await page.key('ArrowDown')
+    await page.frames(10)
+  }
+  const straight = walk.every((at, i) => at === i)
+  check(
+    'each press moves the highlight down exactly one drawn row',
+    straight && walk.length === rowCount,
+    straight
+      ? `${rowCount} rows across ${headings.length} headings, in order`
+      : `visited ${walk.join(', ')}`,
+  )
+
+  /*
+   * And off the bottom, round to the top.
+   *
+   * The wrap has to land on the first row of the *first* group, which is the
+   * one the ranking put first — the same row Enter would have taken before a
+   * single key was pressed.
+   */
+  const wrappedRow = await page.evaluate(ROW_AT)
+  check(
+    'and off the bottom it wraps to the first row',
+    wrappedRow === 0,
+    `landed on row ${wrappedRow}`,
+  )
+
   /* ---- constellations, which are not bodies ---- */
 
   console.log('\nFinding a constellation\n')

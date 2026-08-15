@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { BODIES } from '../data/bodies'
 import { CONSTELLATION_REGIONS } from '../data/constellations'
 import { isFlying } from '../orbit/trajectory'
 import { landedCraft } from '../data/landedCraft'
 import { useStore } from '../store/useStore'
 import { useNamer } from './useBodyName'
-import { resultContext, searchAll } from './bodySearch'
+import { groupResults, resultContext, searchAll } from './bodySearch'
 import './SearchPalette.css'
 
 /**
@@ -69,6 +69,17 @@ export default function SearchPalette() {
   const results = useMemo(() => searchAll(query, LIMIT), [query])
 
   /*
+   * The results under headings, and the same results flattened back out.
+   *
+   * `order` is the list as *drawn*, which is what the arrow keys walk and what
+   * `active` indexes. Grouping reorders — that is what a heading does — so the
+   * flat array the ranking produced is no longer the order on screen, and
+   * indexing the old one would send the arrows jumping backwards up the list.
+   */
+  const groups = useMemo(() => groupResults(results), [results])
+  const order = useMemo(() => groups.flatMap((g) => g.entries), [groups])
+
+  /*
    * `/` to open, `⌘K`/`Ctrl-K` because that is what a palette is, and both are
    * free: the letter shortcuts in `LayerPanel` are single letters without
    * modifiers, and it already stands down while a text field has focus.
@@ -128,13 +139,13 @@ export default function SearchPalette() {
   const onKeyDown = (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActive((i) => (results.length ? (i + 1) % results.length : 0))
+      setActive((i) => (order.length ? (i + 1) % order.length : 0))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setActive((i) => (results.length ? (i - 1 + results.length) % results.length : 0))
+      setActive((i) => (order.length ? (i - 1 + order.length) % order.length : 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      go(results[active])
+      go(order[active])
     } else if (e.key === 'Escape') {
       e.preventDefault()
       // Before the nav bar's own Escape listener, which would otherwise close
@@ -184,63 +195,90 @@ export default function SearchPalette() {
         </div>
 
         <ul className="search__list" ref={listRef}>
-          {results.map((entry, i) => {
-            /*
-             * A region of sky, which has no clock, no mission and no parent —
-             * every line below this is about a body and none of it applies.
-             */
-            if (entry.kind === 'constellation') {
-              return (
-                <li key={entry.id}>
-                  <button
-                    type="button"
-                    className={`search__row${i === active ? ' is-active' : ''}`}
-                    onMouseMove={() => setActive(i)}
-                    onClick={() => go(entry)}
-                  >
-                    <span className="search__mark" aria-hidden="true">
-                      {CLASS_MARK.constellation}
-                    </span>
-                    <span className="search__name">{entry.name}</span>
-                    <span className="search__where">{resultContext(entry)}</span>
-                  </button>
-                </li>
-              )
-            }
-
-            const body = entry.body
-            /*
-             * A mission that is over, or has not launched, at the date on the
-             * clock. Said rather than hidden: the roster is the roster whatever
-             * the date, and selecting it carries the clock to the mission —
-             * this is the line that explains why the date is about to change.
-             */
-            const site = landedCraft(body.id)
-            const away =
-              body.kind === 'spacecraft' &&
-              !isFlying(body, displayJD) &&
-              !(site && displayJD >= site.landed && (site.ended === null || displayJD <= site.ended))
-
-            return (
-              <li key={body.id}>
-                <button
-                  type="button"
-                  className={`search__row${i === active ? ' is-active' : ''}`}
-                  onMouseMove={() => setActive(i)}
-                  onClick={() => go(entry)}
-                >
-                  <span className="search__mark" aria-hidden="true">
-                    {CLASS_MARK[body.kind]}
-                  </span>
-                  <span className="search__name">{namer(body)}</span>
-                  <span className="search__where">
-                    {resultContext(entry)}
-                    {away ? ' · not there yet' : ''}
-                  </span>
-                </button>
+          {groups.map((group) => (
+            <Fragment key={group.key}>
+              {/* `aria-hidden` because the heading is a visual grouping of rows
+                  that already say what they are. A screen reader walking this
+                  list wants twelve results, not twelve results and eight
+                  interruptions that are not focusable. */}
+              <li className="search__group" aria-hidden="true">
+                {group.label}
               </li>
-            )
-          })}
+
+              {group.entries.map((entry) => {
+                /* Its place in the *drawn* order, which is what the arrows walk
+                   and what `active` counts. See `groupResults`. */
+                const i = order.indexOf(entry)
+
+                /*
+                 * A region of sky, which has no clock, no mission and no parent
+                 * — every line below this is about a body and none of it
+                 * applies.
+                 */
+                if (entry.kind === 'constellation') {
+                  return (
+                    <li key={entry.id}>
+                      <button
+                        type="button"
+                        className={`search__row${i === active ? ' is-active' : ''}`}
+                        onMouseMove={() => setActive(i)}
+                        onClick={() => go(entry)}
+                      >
+                        <span className="search__mark" aria-hidden="true">
+                          {CLASS_MARK.constellation}
+                        </span>
+                        <span className="search__name">{entry.name}</span>
+                      </button>
+                    </li>
+                  )
+                }
+
+                const body = entry.body
+                /*
+                 * A mission that is over, or has not launched, at the date on
+                 * the clock. Said rather than hidden: the roster is the roster
+                 * whatever the date, and selecting it carries the clock to the
+                 * mission — this is the line that explains why the date is
+                 * about to change.
+                 */
+                const site = landedCraft(body.id)
+                const away =
+                  body.kind === 'spacecraft' &&
+                  !isFlying(body, displayJD) &&
+                  !(site && displayJD >= site.landed && (site.ended === null || displayJD <= site.ended))
+
+                /*
+                 * What the heading does not already say.
+                 *
+                 * With the rows gathered under "Spacecraft" and "Planets", a
+                 * right-hand column repeating "Spacecraft" and "Planet" is the
+                 * same word twice within an inch. A moon's is kept, because
+                 * "Moon of Jupiter" names the *parent* and the heading cannot.
+                 */
+                const context = body.parent ? resultContext(entry) : ''
+
+                return (
+                  <li key={body.id}>
+                    <button
+                      type="button"
+                      className={`search__row${i === active ? ' is-active' : ''}`}
+                      onMouseMove={() => setActive(i)}
+                      onClick={() => go(entry)}
+                    >
+                      <span className="search__mark" aria-hidden="true">
+                        {CLASS_MARK[body.kind]}
+                      </span>
+                      <span className="search__name">{namer(body)}</span>
+                      <span className="search__where">
+                        {context}
+                        {away ? `${context ? ' · ' : ''}not there yet` : ''}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </Fragment>
+          ))}
 
           {query && results.length === 0 && (
             <li className="search__empty">Nothing here answers to “{query}”.</li>

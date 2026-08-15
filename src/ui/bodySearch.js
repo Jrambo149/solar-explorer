@@ -248,6 +248,78 @@ export function resultContext(entry) {
 }
 
 /**
+ * Which heading a result belongs under.
+ *
+ * Minor moons are their own category rather than being folded in with the
+ * major ones, because that is how the app already thinks about them everywhere
+ * else — they are a separate layer, scoped to one host at a time, and there are
+ * 413 of them against 25. A list that put Phoebe and Europa under one word
+ * would be claiming a similarity the rest of the app spends real effort
+ * denying.
+ */
+export function resultCategory(entry) {
+  if (entry.kind === 'constellation') return { key: 'constellation', label: 'Constellations' }
+  if (entry.kind === 'moon' && entry.tier === 'minor') {
+    return { key: 'minorMoon', label: 'Minor moons' }
+  }
+  return {
+    key: entry.kind,
+    label: {
+      planet: 'Planets',
+      dwarf: 'Dwarf planets',
+      asteroid: 'Asteroids',
+      moon: 'Moons',
+      comet: 'Comets',
+      spacecraft: 'Spacecraft',
+    }[entry.kind] ?? 'Other',
+  }
+}
+
+/**
+ * The same results, gathered under headings.
+ *
+ * ## It reorders, and that is the point
+ *
+ * The list has to be *read* in the order it is walked. Leaving the array flat
+ * and only drawing headings around it would produce a list whose groups
+ * interleave — a spacecraft matched at rank 1 and another at rank 4 belong
+ * under one heading, and pulling the second one up is what a heading means. If
+ * the array kept its old order while the screen showed the new one, the arrow
+ * keys would walk the list invisibly, jumping backwards up the screen.
+ *
+ * So this returns the entries in the order they are drawn, and the palette
+ * indexes that. The *set* is untouched — grouping decides arrangement, never
+ * membership, and the twelve results are the same twelve `searchAll` chose.
+ *
+ * ## Groups are ordered by their best member, not by class
+ *
+ * A fixed order — planets, then moons, then the rest — would throw away the
+ * ranking this module exists for: searching "voyager" would head the list with
+ * whatever planet happened to contain those letters, because Planets is
+ * always first. Ordering the groups by the best rank inside each keeps the
+ * overall first result first, which is the one the Enter key takes.
+ */
+export function groupResults(entries) {
+  const groups = []
+  const byKey = new Map()
+
+  for (const entry of entries) {
+    const { key, label } = resultCategory(entry)
+    let group = byKey.get(key)
+    if (!group) {
+      group = { key, label, entries: [] }
+      byKey.set(key, group)
+      groups.push(group)
+    }
+    group.entries.push(entry)
+  }
+
+  // `groups` is already in order of first appearance, which is order of best
+  // rank: a group is created the first time one of its members is reached.
+  return groups
+}
+
+/**
  * The best `limit` bodies for `query`, best first.
  *
  * An empty query returns nothing rather than everything: a list of the first

@@ -211,3 +211,25 @@
 .search__hint span + kbd {
   margin-left: 5px;
 }
+
+/* A category heading between runs of results.
+
+   Deliberately quiet — smaller, dimmer and letterspaced, the same treatment the
+   layer panel gives its headings. It is a signpost for the eye scanning down,
+   not a row, and anything heavier would read as the most important thing in a
+   list of things it is merely labelling. */
+.search__group {
+  padding: 10px 12px 3px 34px;
+  color: var(--text-faint);
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* No gap above the first one: the field's own border is already a divider, and
+   a heading floating below it looked detached from the list it heads. */
+.search__group:first-child {
+  padding-top: 4px;
+}
