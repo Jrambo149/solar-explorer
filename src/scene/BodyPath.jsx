@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import {
   centuriesSinceJ2000,
   elementsAt,
+  elementsFor,
   isOpenOrbit,
   openOrbitRange,
   sampleOrbit,
@@ -96,11 +97,36 @@ function BodyPath({ planet }) {
   /** Hyperbolic: a path with two ends, which is drawn and stationed differently. */
   const isOpen = isOpenOrbit(planet.elements)
 
+  /*
+   * Which element set is in force, for the bodies that have more than one.
+   *
+   * A selector rather than a `useFrame` check, and it costs almost nothing:
+   * `elementsFor` returns the *same object* every time within an era, so React
+   * bails out of the re-render by identity and this component wakes only when
+   * the clock crosses a seam. Bodies with a single element set return that one
+   * object and never wake at all.
+   */
+  const era = useStore((s) => elementsFor(planet.elements, centuriesSinceJ2000(s.displayJD)))
+
   const { geometry, pathRadius } = useMemo(() => {
     // Elements at the current date. They precess slowly enough that resampling
     // as the clock runs would be invisible and wasteful — a century shifts
     // Mercury's perihelion by 0.16°. Sampling once, at whatever instant the
     // component happens to mount, is well inside the width of the line.
+    //
+    // That reasoning holds for every body whose orbit *drifts*, and fails for
+    // one whose orbit is **replaced**. Apophis is thrown onto a different
+    // ellipse by the Earth on 13 April 2029 — a from 0.92 to 1.10 AU — and a
+    // path sampled before that date and never resampled goes on drawing the old
+    // orbit forever. The body itself is drawn from the elements in force, so it
+    // leaves its own path behind; and the trail's head, which is placed each
+    // frame from the *current* eccentric anomaly, lands at that phase on the
+    // stale ellipse. What that looks like is a trail that suddenly doubles back
+    // toward the Earth, which is exactly what was reported.
+    //
+    // `era` in the dependencies below is the element set in force, and it is a
+    // stable object within an era — so this recomputes on the day the orbit
+    // changes and on no other day.
     //
     // The Moon is the one body where that reasoning does not hold: its node
     // regresses a full turn every 18.6 years, so its ellipse genuinely does
@@ -142,7 +168,7 @@ function BodyPath({ planet }) {
       geometry: buildRibbonGeometry(warped, !isOpen),
       pathRadius: total / warped.length,
     }
-  }, [planet.elements, planet.plane, parent, scaleMode, isOpen])
+  }, [planet.elements, era, planet.plane, parent, scaleMode, isOpen])
 
   // Dragging the scale slider rebuilds this on every step, so the old buffers
   // have to go back rather than waiting on the GC to notice a few hundred
@@ -312,7 +338,9 @@ function BodyPath({ planet }) {
           whole, rather than declared as JSX children. The frame callback writes
           uniforms on the same objects directly, so there is nothing for a ref to
           add — and it keeps their disposal next to their construction. */}
-      <mesh geometry={geometry} material={material} renderOrder={-2} />
+      {/* Named so a check can find one body's path among five hundred. Nothing
+          in the app reads it; `verify-approaches` does. */}
+      <mesh name={`path-${planet.id}`} geometry={geometry} material={material} renderOrder={-2} />
     </group>
   )
 }

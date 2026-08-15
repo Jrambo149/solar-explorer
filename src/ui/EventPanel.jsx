@@ -261,6 +261,7 @@ export default function EventPanel() {
    * spacecraft events are most of the list.
    */
   const revealAndSelect = useStore((s) => s.revealAndSelect)
+  const setScaleMode = useStore((s) => s.setScaleMode)
 
   /*
    * The date drives the list, so it has to come from the *display* clock rather
@@ -323,6 +324,25 @@ export default function EventPanel() {
     }
     setOpenKey(key)
     setSimulationDate(event.jd)
+
+    /*
+     * A close approach is only visible at true scale, and this is the one kind
+     * where that is worth forcing.
+     *
+     * The scale dial exists because the solar system is mostly empty: at the
+     * diorama end the planets are inflated enormously so that there is anything
+     * to look at. Apophis passes 31,600 km above the Earth's surface, which at
+     * that end of the dial is *inside the drawn Earth* — measured at 0.03 Earth
+     * radii from its centre, buried thirty-six deep in the model. The event
+     * would open, the camera would arrive, and there would be nothing there.
+     *
+     * Measured across the dial: 0.03 Earth radii at diorama, 0.11 at the
+     * middle, 0.74 at nine tenths, and 12 at true scale. There is exactly one
+     * setting that shows this event, so going to it goes there — the same
+     * reasoning, and the same conclusion, as standing on a surface.
+     */
+    if (event.kind === 'close-approach') setScaleMode(1)
+
     const subject = SUBJECT[event.kind]?.(event)
     if (subject) revealAndSelect(subject)
   }

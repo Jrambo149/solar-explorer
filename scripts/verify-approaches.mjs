@@ -28,6 +28,8 @@
  *
  * Needs the network.
  *
+ * The browser half needs the dev server: `npm run dev`.
+ *
  *   node scripts/verify-approaches.mjs
  */
 
@@ -222,6 +224,150 @@ console.log('\nThe orbit that changes\n')
     elementsFor(el, T(encounter - 1)) !== elementsFor(el, T(encounter + 1)),
     `${el.segments.length} eras in all`,
   )
+}
+
+console.log('\nThe orbit that is drawn\n')
+
+/*
+ * Two failures that looked like nothing, both reported from a screenshot.
+ *
+ * A body's path is sampled **once**, when its component mounts, because
+ * elements precess far too slowly for resampling to be visible — a century
+ * moves Mercury's perihelion by 0.16°. Apophis breaks that assumption
+ * outright: its ellipse is *replaced* on 13 April 2029. The path went on
+ * drawing the old orbit while the body flew along the new one, and the trail's
+ * bright head — placed each frame from the current eccentric anomaly — landed
+ * at that phase on the stale ellipse. It read as a trail doubling back toward
+ * the Earth.
+ *
+ * And at the diorama end of the scale dial the planets are inflated so hugely
+ * that a 31,600 km flyby happens *inside the drawn Earth*: 0.03 Earth radii
+ * from its centre, thirty-six deep in the model. The event opened onto nothing
+ * visible at all.
+ */
+{
+  const { openApp } = await import('./lib/browser.mjs')
+  const page = await openApp()
+
+  try {
+    await page.evaluate(`(() => {
+      const s = window.__solar.state()
+      if (!s.paused) s.togglePaused()
+      s.clearSelection()
+      if (!s.layers.asteroids) s.toggleLayer('asteroids')
+      if (!s.layers.trails) s.toggleLayer('trails')
+    })()`)
+
+    /** The drawn path of one body: which geometry it is, and where the body sits on it. */
+    const PATH = `(() => {
+      let mesh = null
+      window.__solar.scene.traverse((o) => { if (o.name === 'path-apophis') mesh = o })
+      if (!mesh) return null
+      const p = mesh.geometry.attributes.position
+      const box = new window.__solar.three.Box3().setFromBufferAttribute(p)
+      const body = window.__solar.positions.get('apophis')
+      let nearest = Infinity
+      for (let i = 0; i < p.count; i++) {
+        const d = Math.hypot(p.getX(i) - body.x, p.getY(i) - body.y, p.getZ(i) - body.z)
+        if (d < nearest) nearest = d
+      }
+      return {
+        uuid: mesh.geometry.uuid,
+        extent: box.getSize(new window.__solar.three.Vector3()).length(),
+        nearest,
+      }
+    })()`
+
+    const at = async (iso) => {
+      await page.evaluate(`window.__solar.setSimulationDate(${julian(iso)})`)
+      await page.frames(50)
+      return page.evaluate(PATH)
+    }
+
+    const before = await at('2029-04-12T00:00:00Z')
+    const after = await at('2029-04-16T00:00:00Z')
+    const later = await at('2029-10-01T00:00:00Z')
+
+    check(
+      'the drawn path is rebuilt when the orbit is replaced',
+      before && after && before.uuid !== after.uuid,
+      before && after ? `extent ${before.extent.toFixed(1)} → ${after.extent.toFixed(1)} world units` : 'no path found',
+    )
+    check(
+      'and only then',
+      after && later && after.uuid === later.uuid,
+      'unchanged for the six months after',
+    )
+
+    /*
+     * And the body sits on the path that is drawn for it.
+     *
+     * The check that fails when the two disagree, whatever the cause. A 512-
+     * sample ellipse ninety world units around has segments about half a unit
+     * long, so anything under a segment is the sampling and anything much over
+     * it is a body flying beside its own orbit.
+     */
+    for (const [when, path] of [['before', before], ['after', after], ['months later', later]]) {
+      check(
+        `${when}: the body is on its own drawn path`,
+        path && path.nearest < 0.6,
+        path ? `${path.nearest.toFixed(3)} world units from the nearest vertex` : 'no path',
+      )
+    }
+
+    /*
+     * Opening the approach shows something.
+     *
+     * The whole event, driven the way a person drives it: open the panel, take
+     * the "Near misses" filter, click the row. What is asserted at the end is
+     * the thing that was wrong — that Apophis is outside the Earth it is
+     * passing, and therefore on screen.
+     */
+    await page.evaluate(`window.__solar.setSimulationDate(${julian('2029-04-01T00:00:00Z')})`)
+    await page.frames(40)
+    await page.evaluate(`[...document.querySelectorAll('button')].find((b) => /events/i.test(b.textContent))?.click()`)
+    await page.frames(30)
+    await page.evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Near misses')?.click()`)
+    await page.frames(30)
+    const clicked = await page.evaluate(`(() => {
+      const row = [...document.querySelectorAll('button')].find((b) => /Apophis passes close/.test(b.textContent))
+      if (row) row.click()
+      return !!row
+    })()`)
+    await page.frames(240)
+
+    check('the approach is offered under "Near misses"', clicked)
+
+    const arrived = await page.evaluate(`(async () => {
+      const { BODIES_BY_ID, bodyRadius } = await import('/src/data/bodies.js')
+      const s = window.__solar.state()
+      const a = window.__solar.positions.get('apophis')
+      const e = window.__solar.positions.get('earth')
+      const separation = Math.hypot(a.x - e.x, a.y - e.y, a.z - e.z)
+      return {
+        scale: s.scaleMode,
+        selected: s.selectedId,
+        earthRadii: separation / bodyRadius(BODIES_BY_ID.earth, s.scaleMode),
+      }
+    })()`)
+
+    check(
+      'opening it goes to true scale',
+      arrived.scale === 1,
+      `scale ${arrived.scale} — the only setting where the flyby is outside the Earth`,
+    )
+    check(
+      'and Apophis is outside the Earth it is passing',
+      arrived.earthRadii > 2,
+      `${arrived.earthRadii.toFixed(1)} Earth radii from centre (0.03 at diorama scale, which is inside the model)`,
+    )
+    check('with the camera on it', arrived.selected === 'apophis', `selected ${arrived.selected}`)
+
+    const errors = page.errors.filter((e) => !e.startsWith('warning:'))
+    check('no console errors', errors.length === 0, errors.slice(0, 2).join(' | '))
+  } finally {
+    await page.close()
+  }
 }
 
 console.log(failures ? `\n${failures} failed\n` : '\nAll checks passed\n')
