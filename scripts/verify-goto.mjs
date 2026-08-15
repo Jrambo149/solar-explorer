@@ -22,6 +22,7 @@
 
 import { openApp } from './lib/browser.mjs'
 import { CONSTELLATION_REGIONS } from '../src/data/constellations.js'
+import { CATEGORIES } from '../src/ui/bodySearch.js'
 import { BODIES_BY_ID, bodyRadius } from '../src/data/bodies.js'
 
 let failures = 0
@@ -359,6 +360,147 @@ try {
     'and off the bottom it wraps to the first row',
     wrappedRow === 0,
     `landed on row ${wrappedRow}`,
+  )
+
+  /* ---- browsing a category ---- */
+
+  console.log('\nThe categories\n')
+
+  const ROWS = `[...document.querySelectorAll('.search__row')].map((r) => r.querySelector('.search__name')?.textContent)`
+
+  /*
+   * Closed and opened as two separate acts, with frames in between.
+   *
+   * Doing both in one call is not a state change at all — React batches them,
+   * `open` never transitions, and the effect that empties the field never runs,
+   * so the palette comes back holding the previous query. Which is correct
+   * behaviour and not something a user can do; only a script can.
+   */
+  await page.evaluate(`window.__solar.state().setSearchOpen(false)`)
+  await page.frames(15)
+  await page.evaluate(`(() => {
+    const s = window.__solar.state()
+    s.clearSelection()
+    s.setSearchOpen(true)
+  })()`)
+  await page.frames(25)
+
+  const menu = await page.evaluate(ROWS)
+  check(
+    'an empty field offers the categories',
+    menu.length === CATEGORIES.length && menu[0] === 'Planets',
+    menu.join(', '),
+  )
+
+  /*
+   * The counts are the roster's, not the query's.
+   *
+   * A category row promising 88 and opening onto 12 would be the sort of wrong
+   * that nobody checks, so the number on screen is compared against the module
+   * that produced the list.
+   */
+  {
+    const shown = await page.evaluate(
+      `[...document.querySelectorAll('.search__row--category .search__where')].map((e) => Number(e.textContent))`,
+    )
+    const want = CATEGORIES.map((c) => c.count)
+    check(
+      'and each says how many are in it',
+      shown.length === want.length && shown.every((n, i) => n === want[i]),
+      shown.map((n, i) => `${CATEGORIES[i].label} ${n}`).join(' · '),
+    )
+  }
+
+  /* Clicking one opens the whole category, not a page of it. */
+  await page.evaluate(
+    `[...document.querySelectorAll('.search__row')].find((r) => r.textContent.includes('Constellations')).click()`,
+  )
+  await page.frames(30)
+  {
+    const inside = await page.evaluate(ROWS)
+    const scope = await page.evaluate(`document.querySelector('.search__scope')?.textContent ?? ''`)
+    check(
+      'clicking a category lists all of it',
+      inside.length === 88 && inside[0] === 'Andromeda',
+      `${inside.length} rows, first ${inside[0]}, scope "${scope}"`,
+    )
+    check(
+      'and the field says what it is scoped to',
+      scope.startsWith('Constellations'),
+      `chip reads "${scope}"`,
+    )
+    check(
+      'with no headings inside — they would all say the same thing',
+      (await page.evaluate(`document.querySelectorAll('.search__group').length`)) === 0,
+      'one category, no groups',
+    )
+  }
+
+  /* Typing inside a category searches only that category. */
+  await page.type('mar')
+  await page.frames(25)
+  {
+    const inside = await page.evaluate(ROWS)
+    check(
+      'typing inside a category searches only it',
+      inside.length > 0 && inside.every((name) => CONSTELLATION_REGIONS.some((c) => c.name === name)),
+      inside.join(', '),
+    )
+  }
+
+  /*
+   * Escape steps back out rather than closing.
+   *
+   * Two steps for one press would throw away the browse and the palette
+   * together, and the way back in is four keystrokes.
+   */
+  await page.key('Escape')
+  await page.frames(25)
+  {
+    const state = await page.evaluate(`(() => {
+      const s = window.__solar.state()
+      return { open: s.searchOpen, rows: document.querySelectorAll('.search__row').length, scope: !!document.querySelector('.search__scope') }
+    })()`)
+    check(
+      'escape leaves the category and keeps the palette open',
+      state.open && !state.scope && state.rows === CATEGORIES.length,
+      `open ${state.open}, ${state.rows} rows, scoped ${state.scope}`,
+    )
+  }
+
+  await page.key('Escape')
+  await page.frames(25)
+  check(
+    'and a second escape closes it',
+    (await page.evaluate(`window.__solar.state().searchOpen`)) === false,
+  )
+
+  /* A heading in the results is the same door. */
+  await page.evaluate(`window.__solar.state().setSearchOpen(true)`)
+  await page.frames(25)
+  await page.evaluate(type('mar'))
+  await page.frames(25)
+  await page.evaluate(
+    `[...document.querySelectorAll('.search__group--button')].find((g) => g.textContent.includes('Spacecraft')).click()`,
+  )
+  await page.frames(30)
+  {
+    const inside = await page.evaluate(ROWS)
+    const field = await page.evaluate(`document.querySelector('.search__input').value`)
+    check(
+      'clicking a heading opens its whole category and drops the query',
+      inside.length === CATEGORIES.find((c) => c.key === 'spacecraft').count && field === '',
+      `${inside.length} craft, field "${field}"`,
+    )
+  }
+
+  /* Backspace on an empty field steps back out, as it does in any palette. */
+  await page.key('Backspace')
+  await page.frames(25)
+  check(
+    'backspace on an empty field leaves the category',
+    (await page.evaluate(`!document.querySelector('.search__scope')`)),
+    'back at the categories',
   )
 
   /* ---- constellations, which are not bodies ---- */

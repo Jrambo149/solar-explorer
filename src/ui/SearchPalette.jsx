@@ -5,7 +5,7 @@ import { isFlying } from '../orbit/trajectory'
 import { landedCraft } from '../data/landedCraft'
 import { useStore } from '../store/useStore'
 import { useNamer } from './useBodyName'
-import { groupResults, resultContext, searchAll } from './bodySearch'
+import { CATEGORIES, categoryEntries, groupResults, resultContext, searchAll } from './bodySearch'
 import './SearchPalette.css'
 
 /**
@@ -52,6 +52,114 @@ const CLASS_MARK = {
   constellation: '✧',
 }
 
+/**
+ * One result: a mark, a name, and whatever the heading above it does not say.
+ *
+ * Shared by the two lists that draw results — grouped under headings, and the
+ * flat list inside a browsed category — because they differ in exactly one
+ * thing, which is whether a heading is carrying the class for them. Written
+ * twice, they would drift, and the drift would be silent: two lists of the same
+ * bodies, formatted slightly differently, is not something anyone would notice
+ * from a screenshot.
+ */
+function Row({ entry, index, active, setActive, go, namer, displayJD, showEnglish = false }) {
+  const isActive = index === active
+  const className = `search__row${isActive ? ' is-active' : ''}`
+
+  /*
+   * A region of sky, which has no clock, no mission and no parent — every line
+   * below this is about a body and none of it applies.
+   */
+  if (entry.kind === 'constellation') {
+    return (
+      <li>
+        <button
+          type="button"
+          className={className}
+          onMouseMove={() => setActive(index)}
+          onClick={() => go(entry)}
+        >
+          <span className="search__mark" aria-hidden="true">
+            {CLASS_MARK.constellation}
+          </span>
+          <span className="search__name">{entry.name}</span>
+          {/* What it depicts, but only while browsing the category — there the
+              column is otherwise empty and "Water Bearer" beside Aquarius is
+              worth having. In a mixed result list the heading has already said
+              "Constellations", and a second word saying the same thing in
+              different clothes is the noise this column was cleared of. */}
+          <span className="search__where">{showEnglish ? entry.region.english : ''}</span>
+        </button>
+      </li>
+    )
+  }
+
+  const body = entry.body
+  /*
+   * A mission that is over, or has not launched, at the date on the clock.
+   * Said rather than hidden: the roster is the roster whatever the date, and
+   * selecting it carries the clock to the mission — this is the line that
+   * explains why the date is about to change.
+   */
+  const site = landedCraft(body.id)
+  const away =
+    body.kind === 'spacecraft' &&
+    !isFlying(body, displayJD) &&
+    !(site && displayJD >= site.landed && (site.ended === null || displayJD <= site.ended))
+
+  /*
+   * What the heading does not already say.
+   *
+   * With the rows gathered under "Spacecraft" and "Planets", a right-hand
+   * column repeating "Spacecraft" and "Planet" is the same word twice within an
+   * inch. A moon's is kept either way, because "Moon of Jupiter" names the
+   * *parent* and no heading can.
+   */
+  const context = body.parent ? resultContext(entry) : ''
+
+  return (
+    <li>
+      <button
+        type="button"
+        className={className}
+        onMouseMove={() => setActive(index)}
+        onClick={() => go(entry)}
+      >
+        <span className="search__mark" aria-hidden="true">
+          {CLASS_MARK[body.kind]}
+        </span>
+        <span className="search__name">{namer(body)}</span>
+        <span className="search__where">
+          {context}
+          {away ? `${context ? ' · ' : ''}not there yet` : ''}
+        </span>
+      </button>
+    </li>
+  )
+}
+
+/** Count and label per category, for the headings and the menu. */
+const CATEGORY_COUNT = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.count]))
+const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.label]))
+
+/**
+ * The mark beside a category, which is the mark its members carry.
+ *
+ * Minor moons take the same ring as the major ones on purpose: they are the
+ * same kind of object seen at a different size, and inventing a ninth glyph to
+ * separate them would be drawing a distinction the sky does not make.
+ */
+const CATEGORY_MARK = {
+  planet: CLASS_MARK.planet,
+  dwarf: CLASS_MARK.dwarf,
+  moon: CLASS_MARK.moon,
+  minorMoon: CLASS_MARK.moon,
+  asteroid: CLASS_MARK.asteroid,
+  comet: CLASS_MARK.comet,
+  spacecraft: CLASS_MARK.spacecraft,
+  constellation: CLASS_MARK.constellation,
+}
+
 export default function SearchPalette() {
   const open = useStore((s) => s.searchOpen)
   const setSearchOpen = useStore((s) => s.setSearchOpen)
@@ -62,11 +170,32 @@ export default function SearchPalette() {
   const namer = useNamer()
 
   const [query, setQuery] = useState('')
+  /**
+   * Which category is being browsed, or null for the whole roster.
+   *
+   * A mode rather than a filter chip, and the difference shows in what the
+   * empty field means. With no category, an empty query is a question nobody
+   * has asked yet and the palette offers the categories. Inside one, an empty
+   * query means "all of these", which is a perfectly good answer — it is the
+   * list you asked for by clicking the heading.
+   */
+  const [category, setCategory] = useState(null)
   const [active, setActive] = useState(0)
   const inputRef = useRef(null)
   const listRef = useRef(null)
 
-  const results = useMemo(() => searchAll(query, LIMIT), [query])
+  /*
+   * Three states, and the list is a different thing in each.
+   *
+   * Browsing a category with nothing typed is the only one that is not a
+   * search at all: it is the whole category, in the order its roster holds it,
+   * and it is not capped — the point of clicking "Minor moons" is to see all
+   * 413 of them, and the list scrolls.
+   */
+  const results = useMemo(() => {
+    if (category && !query) return categoryEntries(category)
+    return searchAll(query, category ? 200 : LIMIT, category)
+  }, [query, category])
 
   /*
    * The results under headings, and the same results flattened back out.
@@ -76,8 +205,17 @@ export default function SearchPalette() {
    * flat array the ranking produced is no longer the order on screen, and
    * indexing the old one would send the arrows jumping backwards up the list.
    */
-  const groups = useMemo(() => groupResults(results), [results])
-  const order = useMemo(() => groups.flatMap((g) => g.entries), [groups])
+  /* Inside a category every result shares one heading, so there is nothing to
+     gather and the heading would only repeat the chip in the field. */
+  const groups = useMemo(() => (category ? null : groupResults(results)), [results, category])
+  const order = useMemo(
+    () => (groups ? groups.flatMap((g) => g.entries) : results),
+    [groups, results],
+  )
+
+  /* What the arrows walk: the categories when they are what is on screen. */
+  const browsing = !category && !query
+  const rowCount = browsing ? CATEGORIES.length : order.length
 
   /*
    * `/` to open, `⌘K`/`Ctrl-K` because that is what a palette is, and both are
@@ -112,6 +250,7 @@ export default function SearchPalette() {
   useEffect(() => {
     if (!open) return
     setQuery('')
+    setCategory(null)
     setActive(0)
     inputRef.current?.focus()
   }, [open])
@@ -136,22 +275,62 @@ export default function SearchPalette() {
     setSearchOpen(false)
   }
 
+  /*
+   * Into a category, from its heading or from the menu.
+   *
+   * The query is dropped on the way in, and that is the whole point of the
+   * gesture: while a query is showing, the group under a heading already *is*
+   * every match of that class, so scoping to it would change nothing on screen.
+   * Clicking a heading means "never mind the search — show me all of these".
+   */
+  const enter = (key) => {
+    setCategory(key)
+    setQuery('')
+    setActive(0)
+    inputRef.current?.focus()
+  }
+
+  /* Back out one step: out of the category, then out of the palette. */
+  const back = () => {
+    setCategory(null)
+    setQuery('')
+    setActive(0)
+  }
+
   const onKeyDown = (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActive((i) => (order.length ? (i + 1) % order.length : 0))
+      setActive((i) => (rowCount ? (i + 1) % rowCount : 0))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setActive((i) => (order.length ? (i - 1 + order.length) % order.length : 0))
+      setActive((i) => (rowCount ? (i - 1 + rowCount) % rowCount : 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      go(order[active])
+      // On the menu, Enter opens the category rather than going anywhere: the
+      // categories are the rows, so they are what the arrows are pointing at.
+      if (browsing) enter(CATEGORIES[active]?.key)
+      else go(order[active])
+    } else if (e.key === 'Backspace' && category && query === '') {
+      /*
+       * Backspace with nothing left to delete steps back out of the category.
+       *
+       * The gesture every palette with a scope has, and it costs nothing here
+       * because the guard is exact: there must be a category open *and* an
+       * empty field, so it can never eat a keystroke someone meant for the
+       * text.
+       */
+      e.preventDefault()
+      back()
     } else if (e.key === 'Escape') {
       e.preventDefault()
       // Before the nav bar's own Escape listener, which would otherwise close
       // the bar underneath at the same time.
       e.stopPropagation()
-      setSearchOpen(false)
+      // Out of the category first. Escape closing the whole palette from
+      // inside a category would throw away two steps for one press, and the
+      // way back in is four keystrokes.
+      if (category) back()
+      else setSearchOpen(false)
     }
   }
 
@@ -176,12 +355,28 @@ export default function SearchPalette() {
             <circle cx="7" cy="7" r="4.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
             <path d="M10.4 10.4L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           </svg>
+
+          {/* The scope, sitting inside the field where a mail client puts a
+              recipient — because that is what it is: something the typing is
+              addressed to. Clicking it steps back out, as does backspace on an
+              empty field and escape. */}
+          {category && (
+            <button type="button" className="search__scope" onClick={back}>
+              {CATEGORY_LABEL[category]}
+              <span aria-hidden="true">×</span>
+            </button>
+          )}
+
           <input
             ref={inputRef}
             type="text"
             className="search__input"
             value={query}
-            placeholder="Find a planet, moon, spacecraft or constellation"
+            placeholder={
+              category
+                ? `Search ${CATEGORY_LABEL[category].toLowerCase()}`
+                : 'Find a planet, moon, spacecraft or constellation'
+            }
             aria-label="Find a body"
             autoComplete="off"
             spellCheck="false"
@@ -195,95 +390,86 @@ export default function SearchPalette() {
         </div>
 
         <ul className="search__list" ref={listRef}>
-          {groups.map((group) => (
+          {/* Nothing typed and no category: the way in for someone who does not
+              have a name in mind. The roster, as eight doors. */}
+          {browsing &&
+            CATEGORIES.map((entry, i) => (
+              <li key={entry.key}>
+                <button
+                  type="button"
+                  className={`search__row search__row--category${i === active ? ' is-active' : ''}`}
+                  onMouseMove={() => setActive(i)}
+                  onClick={() => enter(entry.key)}
+                >
+                  <span className="search__mark" aria-hidden="true">
+                    {CATEGORY_MARK[entry.key]}
+                  </span>
+                  <span className="search__name">{entry.label}</span>
+                  <span className="search__where">{entry.count}</span>
+                </button>
+              </li>
+            ))}
+
+          {(groups ?? []).map((group) => (
             <Fragment key={group.key}>
-              {/* `aria-hidden` because the heading is a visual grouping of rows
-                  that already say what they are. A screen reader walking this
-                  list wants twelve results, not twelve results and eight
-                  interruptions that are not focusable. */}
-              <li className="search__group" aria-hidden="true">
-                {group.label}
+              {/* The heading is also the way into the whole category, so it is
+                  a button — and being a button it is announced, which is why
+                  this one is not `aria-hidden` the way a bare label would be.
+                  The count is what makes it obviously more than a label: three
+                  matching spacecraft under a heading that says 50. */}
+              <li>
+                <button
+                  type="button"
+                  className="search__group search__group--button"
+                  onClick={() => enter(group.key)}
+                >
+                  {group.label}
+                  <span className="search__group-count">
+                    {CATEGORY_COUNT[group.key]}
+                    <span className="search__group-go" aria-hidden="true">→</span>
+                  </span>
+                </button>
               </li>
 
-              {group.entries.map((entry) => {
-                /* Its place in the *drawn* order, which is what the arrows walk
-                   and what `active` counts. See `groupResults`. */
-                const i = order.indexOf(entry)
-
-                /*
-                 * A region of sky, which has no clock, no mission and no parent
-                 * — every line below this is about a body and none of it
-                 * applies.
-                 */
-                if (entry.kind === 'constellation') {
-                  return (
-                    <li key={entry.id}>
-                      <button
-                        type="button"
-                        className={`search__row${i === active ? ' is-active' : ''}`}
-                        onMouseMove={() => setActive(i)}
-                        onClick={() => go(entry)}
-                      >
-                        <span className="search__mark" aria-hidden="true">
-                          {CLASS_MARK.constellation}
-                        </span>
-                        <span className="search__name">{entry.name}</span>
-                      </button>
-                    </li>
-                  )
-                }
-
-                const body = entry.body
-                /*
-                 * A mission that is over, or has not launched, at the date on
-                 * the clock. Said rather than hidden: the roster is the roster
-                 * whatever the date, and selecting it carries the clock to the
-                 * mission — this is the line that explains why the date is
-                 * about to change.
-                 */
-                const site = landedCraft(body.id)
-                const away =
-                  body.kind === 'spacecraft' &&
-                  !isFlying(body, displayJD) &&
-                  !(site && displayJD >= site.landed && (site.ended === null || displayJD <= site.ended))
-
-                /*
-                 * What the heading does not already say.
-                 *
-                 * With the rows gathered under "Spacecraft" and "Planets", a
-                 * right-hand column repeating "Spacecraft" and "Planet" is the
-                 * same word twice within an inch. A moon's is kept, because
-                 * "Moon of Jupiter" names the *parent* and the heading cannot.
-                 */
-                const context = body.parent ? resultContext(entry) : ''
-
-                return (
-                  <li key={body.id}>
-                    <button
-                      type="button"
-                      className={`search__row${i === active ? ' is-active' : ''}`}
-                      onMouseMove={() => setActive(i)}
-                      onClick={() => go(entry)}
-                    >
-                      <span className="search__mark" aria-hidden="true">
-                        {CLASS_MARK[body.kind]}
-                      </span>
-                      <span className="search__name">{namer(body)}</span>
-                      <span className="search__where">
-                        {context}
-                        {away ? `${context ? ' · ' : ''}not there yet` : ''}
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
+              {group.entries.map((entry) => (
+                <Row
+                  key={entry.id}
+                  entry={entry}
+                  /* Its place in the *drawn* order, which is what the arrows
+                     walk and what `active` counts. See `groupResults`. */
+                  index={order.indexOf(entry)}
+                  active={active}
+                  setActive={setActive}
+                  go={go}
+                  namer={namer}
+                  displayJD={displayJD}
+                />
+              ))}
             </Fragment>
           ))}
 
+          {/* Inside a category the rows are drawn without headings — they all
+              share one, and the chip in the field already carries it. */}
+          {category &&
+            order.map((entry, i) => (
+              <Row
+                key={entry.id}
+                entry={entry}
+                index={i}
+                active={active}
+                setActive={setActive}
+                go={go}
+                namer={namer}
+                displayJD={displayJD}
+                showEnglish
+              />
+            ))}
+
           {query && results.length === 0 && (
-            <li className="search__empty">Nothing here answers to “{query}”.</li>
+            <li className="search__empty">
+              Nothing {category ? `in ${CATEGORY_LABEL[category]} ` : ''}answers to “{query}”.
+            </li>
           )}
-          {!query && <li className="search__empty">{ROSTER}</li>}
         </ul>
 
         {/* The keys, said out loud.
@@ -293,13 +479,19 @@ export default function SearchPalette() {
             to reach for with the mouse — having just been invited to use the
             keyboard. A palette is a keyboard instrument and this is the label
             on it. */}
-        {results.length > 0 && (
+        {rowCount > 0 && (
           <div className="search__hint" aria-hidden="true">
             <kbd className="search__kbd">↑</kbd>
             <kbd className="search__kbd">↓</kbd>
             <span>to move</span>
             <kbd className="search__kbd">↵</kbd>
-            <span>to go</span>
+            <span>{browsing ? 'to open' : 'to go'}</span>
+            {category && (
+              <>
+                <kbd className="search__kbd">esc</kbd>
+                <span>to go back</span>
+              </>
+            )}
           </div>
         )}
       </div>

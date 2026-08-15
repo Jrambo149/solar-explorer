@@ -233,3 +233,73 @@
 .search__group:first-child {
   padding-top: 4px;
 }
+
+/* A heading that is also a door into its category. */
+.search__group--button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s var(--ease-out);
+}
+
+.search__group--button:hover {
+  color: var(--text);
+}
+
+/* The total in the category, against the handful matching the query above it.
+   Letterspacing reset: the heading's 0.18em is right for a word in small caps
+   and wrong for a number, which it pushes away from its own arrow. */
+.search__group-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--text-faint);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+}
+
+/* The arrow appears on hover — a permanent one on every heading would be eight
+   arrows down a list where the eye is looking for names. */
+.search__group-go {
+  opacity: 0;
+  transition: opacity 0.15s var(--ease-out);
+}
+
+.search__group--button:hover .search__group-go {
+  opacity: 1;
+}
+
+/* A category row in the menu. The count sits where a moon's parent would. */
+.search__row--category .search__where {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The open category, shown inside the field. */
+.search__scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 3px 7px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  transition: color 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
+}
+
+.search__scope:hover {
+  border-color: var(--hairline-strong, var(--hairline));
+  color: var(--text);
+}

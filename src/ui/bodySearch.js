@@ -299,6 +299,46 @@ export function resultCategory(entry) {
  * always first. Ordering the groups by the best rank inside each keeps the
  * overall first result first, which is the one the Enter key takes.
  */
+/**
+ * The categories, in the order they are offered when nothing has been typed.
+ *
+ * Roughly outward and then away from the natural: the planets, the things that
+ * orbit with them, the small bodies, what we sent, and finally the sky the lot
+ * of it sits against. Not the ranking order — that decides which of two
+ * *matches* wins, which is a different question from how to lay out a menu.
+ *
+ * Counted from the index rather than written down, so a class that grows
+ * cannot leave a stale number on screen.
+ */
+export const CATEGORIES = [
+  'planet',
+  'dwarf',
+  'moon',
+  'minorMoon',
+  'asteroid',
+  'comet',
+  'spacecraft',
+  'constellation',
+].map((key) => {
+  const entries = INDEX.filter((entry) => resultCategory(entry).key === key)
+  return { key, label: resultCategory(entries[0]).label, count: entries.length, entries }
+})
+
+const CATEGORY_BY_KEY = Object.fromEntries(CATEGORIES.map((c) => [c.key, c]))
+
+/**
+ * Everything in one category, in the order its source list holds them.
+ *
+ * Deliberately not alphabetical. The rosters are already in orders that mean
+ * something — the planets run outward from the Sun, the moons are grouped by
+ * the planet they belong to and ordered by distance from it — and sorting that
+ * into an alphabet would destroy information to gain nothing, since anyone who
+ * knows the name they want is typing it rather than reading down a list of 413.
+ * The constellations arrive alphabetical already, which is the right order for
+ * 88 names with no other structure between them.
+ */
+export const categoryEntries = (key) => CATEGORY_BY_KEY[key]?.entries ?? []
+
 export function groupResults(entries) {
   const groups = []
   const byKey = new Map()
@@ -326,12 +366,20 @@ export function groupResults(entries) {
  * twelve of five hundred bodies in array order is not an answer to a question
  * nobody has asked yet, and the palette shows a hint instead.
  */
-export function searchAll(query, limit = 12) {
+export function searchAll(query, limit = 12, category = null) {
   const q = squash(query ?? '')
   if (!q) return []
 
+  /*
+   * Scoped to one category, when browsing inside one. The ranking is unchanged
+   * — the same ladder over a smaller index — so a search within Spacecraft
+   * orders its answers exactly as the full search would, minus everything that
+   * is not a spacecraft.
+   */
+  const index = category ? categoryEntries(category) : INDEX
+
   const hits = []
-  for (const entry of INDEX) {
+  for (const entry of index) {
     let score = 0
     for (const term of entry.primary) score = Math.max(score, scoreTerm(term, q))
     // Ten below the same rung on a name, which is less than the gap between
