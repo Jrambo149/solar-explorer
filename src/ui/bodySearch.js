@@ -129,6 +129,9 @@ const CLASS_RANK = {
 const classBonus = (entry) =>
   (entry.kind === 'moon' && entry.tier === 'minor' ? 1 : CLASS_RANK[entry.kind]) ?? 0
 
+/** id → where the body sits in the roster, which runs outward from the Sun. */
+const BODY_ORDER = Object.fromEntries(BODIES.map((body, index) => [body.id, index]))
+
 /** Below this a match is a guess rather than a reading of the letters typed. */
 const LITERAL = 30
 
@@ -338,6 +341,54 @@ const CATEGORY_BY_KEY = Object.fromEntries(CATEGORIES.map((c) => [c.key, c]))
  * 88 names with no other structure between them.
  */
 export const categoryEntries = (key) => CATEGORY_BY_KEY[key]?.entries ?? []
+
+/**
+ * Moons, gathered under the planet they orbit.
+ *
+ * The one category whose members are not a flat set. A list of 413 minor moons
+ * is unreadable in a way that a list of 88 constellations is not, and the
+ * reason is that the moons already *have* a structure — every one of them
+ * belongs to one of four planets — which a single column throws away. Saturn
+ * alone has 146.
+ *
+ * The parent is the heading rather than a column on each row, so the rows can
+ * stop repeating "Minor moon of Saturn" a hundred and forty-six times.
+ *
+ * The hosts are sorted outward from the Sun — by the planet's own place in the
+ * roster — rather than left in order of first appearance the way the class
+ * headings are. Two reasons. The rosters disagree: the major moons happen to be
+ * listed Earth-first and the minor ones Neptune-first, so following the data
+ * gave the same category two different orders depending on which half you were
+ * looking at. And a host list is a *table of contents* rather than a ranking —
+ * with Jupiter always above Saturn you can find Saturn without reading, which
+ * is worth more here than putting the best match at the top of a list you
+ * opened precisely because you did not have a name in mind.
+ *
+ * Within a host the entries keep their own order: by distance from the planet.
+ */
+export function groupByParent(entries) {
+  const groups = []
+  const byParent = new Map()
+
+  for (const entry of entries) {
+    const parent = entry.body?.parent ?? null
+    let group = byParent.get(parent)
+    if (!group) {
+      group = {
+        key: parent ?? 'none',
+        label: parent ? (BODIES_BY_ID[parent]?.name ?? parent) : 'Elsewhere',
+        entries: [],
+      }
+      byParent.set(parent, group)
+      groups.push(group)
+    }
+    group.entries.push(entry)
+  }
+
+  // Outward from the Sun. `BODY_ORDER` is each body's index in the roster,
+  // which for the planets is exactly that.
+  return groups.sort((a, b) => (BODY_ORDER[a.key] ?? 1e6) - (BODY_ORDER[b.key] ?? 1e6))
+}
 
 export function groupResults(entries) {
   const groups = []

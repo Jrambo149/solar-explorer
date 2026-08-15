@@ -219,6 +219,13 @@
    not a row, and anything heavier would read as the most important thing in a
    list of things it is merely labelling. */
 .search__group {
+  /* Flex on the heading itself rather than only on the button variant, which
+     is what "EARTH1" was: a plain label and its count with nothing between
+     them, because the spacing lived on a class only half the headings carry. */
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   padding: 10px 12px 3px 34px;
   color: var(--text-faint);
   font-family: var(--font);
@@ -236,10 +243,6 @@
 
 /* A heading that is also a door into its category. */
 .search__group--button {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
   width: 100%;
   border: 0;
   background: none;

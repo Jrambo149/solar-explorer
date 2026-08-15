@@ -13,7 +13,7 @@
  *   node scripts/verify-search.mjs
  */
 
-import { groupResults, searchAll, searchBodies } from '../src/ui/bodySearch.js'
+import { categoryEntries, groupByParent, groupResults, searchAll, searchBodies } from '../src/ui/bodySearch.js'
 import { BODIES, BODIES_BY_ID } from '../src/data/bodies.js'
 import { LANDED_CRAFT } from '../src/data/landedCraft.js'
 import { CONSTELLATION_REGIONS } from '../src/data/constellations.js'
@@ -346,6 +346,56 @@ console.log('\nGrouping under headings\n')
     if (new Set(keys).size !== keys.length) split = `${q}: ${keys.join(', ')}`
   }
   check('each heading appears once', split === null, split ?? 'no group is split in two')
+}
+
+console.log('\nMoons, under the planet they orbit\n')
+
+/*
+ * The moons are the one category with a structure of its own, and a flat column
+ * of 413 throws it away. Saturn alone has 278 of them here.
+ */
+for (const key of ['moon', 'minorMoon']) {
+  const entries = categoryEntries(key)
+  const groups = groupByParent(entries)
+  const total = groups.reduce((n, g) => n + g.entries.length, 0)
+
+  check(
+    `every ${key === 'moon' ? 'major' : 'minor'} moon lands under exactly one planet`,
+    total === entries.length && groups.every((g) => g.entries.length > 0),
+    `${entries.length} moons under ${groups.length} planets: ${groups.map((g) => `${g.label} ${g.entries.length}`).join(', ')}`,
+  )
+
+  /*
+   * Outward from the Sun, and this is *not* how the data arrives.
+   *
+   * The two rosters disagree — the major moons are listed Earth-first and the
+   * minor ones Neptune-first — so a grouping that followed first appearance
+   * gave the same category two different orders depending on which half you
+   * opened. The sort is what makes the two agree, so it is worth a check that
+   * fails if it is ever removed.
+   */
+  const order = groups.map((g) => BODIES.findIndex((b) => b.id === g.key))
+  check(
+    'and the planets run outward from the Sun',
+    order.every((n, i) => i === 0 || n > order[i - 1]),
+    groups.map((g) => g.label).join(' → '),
+  )
+
+  check(
+    'each moon really orbits the planet it is filed under',
+    groups.every((g) => g.entries.every((e) => e.body.parent === g.key)),
+    `${groups.length} planets`,
+  )
+}
+
+/* Filtering inside the category keeps the grouping. */
+{
+  const groups = groupByParent(searchAll('pho', 200, 'minorMoon'))
+  check(
+    'a filtered list is still gathered by planet',
+    groups.length > 1 && groups.every((g) => g.entries.length > 0),
+    groups.map((g) => `${g.label}: ${g.entries.map((e) => e.name).join(', ')}`).join(' | '),
+  )
 }
 
 console.log('\nThe empty query\n')

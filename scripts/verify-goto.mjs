@@ -494,6 +494,58 @@ try {
     )
   }
 
+  /* Moons come with a second layer of headings: the planet they orbit. */
+  await page.key('Backspace')
+  await page.frames(20)
+  await page.evaluate(
+    `[...document.querySelectorAll('.search__row')].find((r) => r.querySelector('.search__name')?.textContent === 'Minor moons').click()`,
+  )
+  await page.frames(35)
+  {
+    const state = await page.evaluate(`(() => ({
+      headings: [...document.querySelectorAll('.search__group')].map((g) => g.firstChild.textContent.trim()),
+      rows: document.querySelectorAll('.search__row').length,
+      doors: document.querySelectorAll('.search__group--button').length,
+    }))()`)
+    check(
+      'the minor moons are gathered under their planets',
+      state.headings.join(',') === 'Jupiter,Saturn,Uranus,Neptune' && state.rows === 413,
+      `${state.rows} moons under ${state.headings.join(' → ')}`,
+    )
+    /*
+     * And those headings are labels, not doors. There is no "moons of Saturn"
+     * category to open, so drawing them as buttons would promise something
+     * that does not exist.
+     */
+    check(
+      'and a planet heading is a label, not a door',
+      state.doors === 0,
+      `${state.doors} buttons among ${state.headings.length} headings`,
+    )
+  }
+
+  /* The arrows still walk it — 413 rows across four headings. */
+  {
+    const first = await page.evaluate(ACTIVE)
+    await page.key('ArrowDown')
+    await page.frames(12)
+    const second = await page.evaluate(ACTIVE)
+    check(
+      'the arrows walk a grouped category',
+      first.at === 0 && second.at === 1,
+      `${first.name} → ${second.name}`,
+    )
+  }
+
+  await page.evaluate(`window.__solar.state().setSearchOpen(false)`)
+  await page.frames(15)
+  await page.evaluate(`window.__solar.state().setSearchOpen(true)`)
+  await page.frames(25)
+  await page.evaluate(
+    `[...document.querySelectorAll('.search__row')].find((r) => r.querySelector('.search__name')?.textContent === 'Spacecraft').click()`,
+  )
+  await page.frames(30)
+
   /* Backspace on an empty field steps back out, as it does in any palette. */
   await page.key('Backspace')
   await page.frames(25)

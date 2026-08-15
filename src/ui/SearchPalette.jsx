@@ -5,7 +5,14 @@ import { isFlying } from '../orbit/trajectory'
 import { landedCraft } from '../data/landedCraft'
 import { useStore } from '../store/useStore'
 import { useNamer } from './useBodyName'
-import { CATEGORIES, categoryEntries, groupResults, resultContext, searchAll } from './bodySearch'
+import {
+  CATEGORIES,
+  categoryEntries,
+  groupByParent,
+  groupResults,
+  resultContext,
+  searchAll,
+} from './bodySearch'
 import './SearchPalette.css'
 
 /**
@@ -62,7 +69,17 @@ const CLASS_MARK = {
  * bodies, formatted slightly differently, is not something anyone would notice
  * from a screenshot.
  */
-function Row({ entry, index, active, setActive, go, namer, displayJD, showEnglish = false }) {
+function Row({
+  entry,
+  index,
+  active,
+  setActive,
+  go,
+  namer,
+  displayJD,
+  showEnglish = false,
+  hideParent = false,
+}) {
   const isActive = index === active
   const className = `search__row${isActive ? ' is-active' : ''}`
 
@@ -115,7 +132,7 @@ function Row({ entry, index, active, setActive, go, namer, displayJD, showEnglis
    * inch. A moon's is kept either way, because "Moon of Jupiter" names the
    * *parent* and no heading can.
    */
-  const context = body.parent ? resultContext(entry) : ''
+  const context = body.parent && !hideParent ? resultContext(entry) : ''
 
   return (
     <li>
@@ -159,6 +176,15 @@ const CATEGORY_MARK = {
   spacecraft: CLASS_MARK.spacecraft,
   constellation: CLASS_MARK.constellation,
 }
+
+/**
+ * The categories whose lists are gathered under a further heading.
+ *
+ * Only the moons, because they are the only class where every member belongs
+ * to something else in the same app. A comet belongs to the Sun and a
+ * constellation to nobody.
+ */
+const GROUPED_BY_HOST = new Set(['moon', 'minorMoon'])
 
 export default function SearchPalette() {
   const open = useStore((s) => s.searchOpen)
@@ -205,13 +231,26 @@ export default function SearchPalette() {
    * flat array the ranking produced is no longer the order on screen, and
    * indexing the old one would send the arrows jumping backwards up the list.
    */
-  /* Inside a category every result shares one heading, so there is nothing to
-     gather and the heading would only repeat the chip in the field. */
-  const groups = useMemo(() => (category ? null : groupResults(results)), [results, category])
-  const order = useMemo(
-    () => (groups ? groups.flatMap((g) => g.entries) : results),
-    [groups, results],
-  )
+  /**
+   * The list as sections, which is the one shape the renderer understands.
+   *
+   * Three arrangements collapse into it. A mixed search is gathered by class,
+   * and those headings are doors into the whole category. The moons are
+   * gathered by the planet they orbit — 413 minor moons in one column is a
+   * list that already has a structure, thrown away — and those headings are
+   * only labels, since there is no "moons of Saturn" category to open. Every
+   * other category is one unlabelled section, because the chip in the field is
+   * already carrying its name.
+   */
+  const sections = useMemo(() => {
+    if (!category) return groupResults(results).map((g) => ({ ...g, door: true }))
+    if (GROUPED_BY_HOST.has(category)) {
+      return groupByParent(results).map((g) => ({ ...g, door: false }))
+    }
+    return [{ key: category, label: null, door: false, entries: results }]
+  }, [results, category])
+
+  const order = useMemo(() => sections.flatMap((s) => s.entries), [sections])
 
   /* What the arrows walk: the categories when they are what is on screen. */
   const browsing = !category && !query
@@ -410,28 +449,41 @@ export default function SearchPalette() {
               </li>
             ))}
 
-          {(groups ?? []).map((group) => (
-            <Fragment key={group.key}>
-              {/* The heading is also the way into the whole category, so it is
-                  a button — and being a button it is announced, which is why
-                  this one is not `aria-hidden` the way a bare label would be.
-                  The count is what makes it obviously more than a label: three
-                  matching spacecraft under a heading that says 50. */}
-              <li>
-                <button
-                  type="button"
-                  className="search__group search__group--button"
-                  onClick={() => enter(group.key)}
-                >
-                  {group.label}
-                  <span className="search__group-count">
-                    {CATEGORY_COUNT[group.key]}
-                    <span className="search__group-go" aria-hidden="true">→</span>
-                  </span>
-                </button>
-              </li>
+          {sections.map((section) => (
+            <Fragment key={section.key}>
+              {/* A door into the whole category, or a plain label.
 
-              {group.entries.map((entry) => (
+                  A class heading is a button because there is a category behind
+                  it to open. A planet's name over its moons is not: there is no
+                  "moons of Saturn" list to go to, and making it look clickable
+                  would promise something that does not exist. */}
+              {section.label !== null &&
+                (section.door ? (
+                  <li>
+                    <button
+                      type="button"
+                      className="search__group search__group--button"
+                      onClick={() => enter(section.key)}
+                    >
+                      {section.label}
+                      <span className="search__group-count">
+                        {CATEGORY_COUNT[section.key]}
+                        <span className="search__group-go" aria-hidden="true">
+                          →
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ) : (
+                  /* `aria-hidden`: a label that is not focusable should not
+                     interrupt a screen reader walking a list of results. */
+                  <li className="search__group" aria-hidden="true">
+                    {section.label}
+                    <span className="search__group-count">{section.entries.length}</span>
+                  </li>
+                ))}
+
+              {section.entries.map((entry) => (
                 <Row
                   key={entry.id}
                   entry={entry}
@@ -443,27 +495,14 @@ export default function SearchPalette() {
                   go={go}
                   namer={namer}
                   displayJD={displayJD}
+                  showEnglish={category === 'constellation'}
+                  /* The parent is the heading here, so the row need not repeat
+                     it 146 times down a column. */
+                  hideParent={!section.door && section.label !== null}
                 />
               ))}
             </Fragment>
           ))}
-
-          {/* Inside a category the rows are drawn without headings — they all
-              share one, and the chip in the field already carries it. */}
-          {category &&
-            order.map((entry, i) => (
-              <Row
-                key={entry.id}
-                entry={entry}
-                index={i}
-                active={active}
-                setActive={setActive}
-                go={go}
-                namer={namer}
-                displayJD={displayJD}
-                showEnglish
-              />
-            ))}
 
           {query && results.length === 0 && (
             <li className="search__empty">
