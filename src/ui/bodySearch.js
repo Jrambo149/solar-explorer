@@ -343,6 +343,85 @@ const CATEGORY_BY_KEY = Object.fromEntries(CATEGORIES.map((c) => [c.key, c]))
 export const categoryEntries = (key) => CATEGORY_BY_KEY[key]?.entries ?? []
 
 /**
+ * Where a spacecraft was sent, which is not always where the roster files it.
+ *
+ * Every craft already carries a `group` — Eyes' own, and the roster is imported
+ * with it — and for forty-six of the fifty it is exactly the mission target:
+ * Cassini under Saturn, MESSENGER under Mercury, seventeen under Mars.
+ *
+ * Four are filed by where they *ended up* instead, and using that unexamined
+ * would put three false claims on screen. **Voyager 1 and 2** are grouped under
+ * Jupiter, which is where they arrived first; Voyager 2 went on to Saturn,
+ * Uranus and Neptune, and both are now outside the heliosphere. **Pioneer 10
+ * and 11** are grouped under the Sun, which describes the heliocentric orbit
+ * they were left on rather than the giant planets they were aimed at.
+ *
+ * All four belong together under a heading that is true of every one of them:
+ * they are the craft that left. New Horizons is deliberately *not* moved — it
+ * is beyond Pluto now, but it was sent to Pluto, and the roster's "small body"
+ * is a fair description of that.
+ */
+const MISSION_TARGET = {
+  sc_voyager_1: 'interstellar',
+  sc_voyager_2: 'interstellar',
+  sc_pioneer_10: 'interstellar',
+  sc_pioneer_11: 'interstellar',
+}
+
+/**
+ * The targets in order, and the labels they are drawn with.
+ *
+ * Outward from the Sun, with the small-body missions between Mars and Jupiter
+ * — which is where the belt is, and where most of their targets are — and the
+ * ones that left the solar system last of all. The roster's own key for that
+ * group is "small body spacecraft", which is a name for a *kind of craft*
+ * rather than a place, so it is relabelled here.
+ */
+const TARGETS = [
+  ['sun', 'The Sun'],
+  ['mercury', 'Mercury'],
+  ['venus', 'Venus'],
+  ['moon', 'The Moon'],
+  ['mars', 'Mars'],
+  ['small body spacecraft', 'Asteroids and comets'],
+  ['jupiter', 'Jupiter'],
+  ['saturn', 'Saturn'],
+  ['interstellar', 'Beyond the planets'],
+]
+
+const TARGET_LABEL = Object.fromEntries(TARGETS)
+const TARGET_ORDER = Object.fromEntries(TARGETS.map(([key], index) => [key, index]))
+
+/** Which target heading a craft belongs under. */
+export const spacecraftTarget = (body) => MISSION_TARGET[body.id] ?? body.group
+
+/**
+ * Spacecraft, gathered by where they were sent.
+ *
+ * Fifty craft in one column is a list nobody reads to the end, and seventeen of
+ * them are at Mars — so the flat version was mostly a Mars list with the rest
+ * of the solar system scattered through it. Grouped, the shape of the fleet is
+ * the first thing you see: ten at the Moon, seventeen at Mars, one at Venus.
+ */
+export function groupByTarget(entries) {
+  const groups = []
+  const byTarget = new Map()
+
+  for (const entry of entries) {
+    const key = spacecraftTarget(entry.body)
+    let group = byTarget.get(key)
+    if (!group) {
+      group = { key, label: TARGET_LABEL[key] ?? key, entries: [] }
+      byTarget.set(key, group)
+      groups.push(group)
+    }
+    group.entries.push(entry)
+  }
+
+  return groups.sort((a, b) => (TARGET_ORDER[a.key] ?? 99) - (TARGET_ORDER[b.key] ?? 99))
+}
+
+/**
  * Moons, gathered under the planet they orbit.
  *
  * The one category whose members are not a flat set. A list of 413 minor moons

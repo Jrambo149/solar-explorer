@@ -13,7 +13,15 @@
  *   node scripts/verify-search.mjs
  */
 
-import { categoryEntries, groupByParent, groupResults, searchAll, searchBodies } from '../src/ui/bodySearch.js'
+import {
+  categoryEntries,
+  groupByParent,
+  groupByTarget,
+  groupResults,
+  searchAll,
+  searchBodies,
+  spacecraftTarget,
+} from '../src/ui/bodySearch.js'
 import { BODIES, BODIES_BY_ID } from '../src/data/bodies.js'
 import { LANDED_CRAFT } from '../src/data/landedCraft.js'
 import { CONSTELLATION_REGIONS } from '../src/data/constellations.js'
@@ -395,6 +403,60 @@ for (const key of ['moon', 'minorMoon']) {
     'a filtered list is still gathered by planet',
     groups.length > 1 && groups.every((g) => g.entries.length > 0),
     groups.map((g) => `${g.label}: ${g.entries.map((e) => e.name).join(', ')}`).join(' | '),
+  )
+}
+
+console.log('\nSpacecraft, by where they were sent\n')
+
+{
+  const craft = categoryEntries('spacecraft')
+  const groups = groupByTarget(craft)
+  const total = groups.reduce((n, g) => n + g.entries.length, 0)
+
+  check(
+    'every craft lands under exactly one target',
+    total === craft.length,
+    `${craft.length} craft under ${groups.length}: ${groups.map((g) => `${g.label} ${g.entries.length}`).join(', ')}`,
+  )
+
+  /* Every heading is one this file knows the name of — a target key with no
+     label would draw the roster's raw string, "small body spacecraft". */
+  check(
+    'every heading has a real name',
+    groups.every((g) => g.label && g.label !== g.key),
+    groups.map((g) => g.label).join(' → '),
+  )
+
+  /*
+   * The four the roster files by where they ended up.
+   *
+   * Voyager 1 and 2 are grouped under Jupiter, which is only where they arrived
+   * first; Pioneer 10 and 11 under the Sun, which describes the orbit they were
+   * left on. Using those unexamined would put "Voyager 1 — Jupiter" on screen,
+   * which is a claim, and a wrong one. This is the check that keeps the
+   * correction from being quietly dropped.
+   */
+  for (const id of ['sc_voyager_1', 'sc_voyager_2', 'sc_pioneer_10', 'sc_pioneer_11']) {
+    const body = BODIES_BY_ID[id]
+    check(
+      `${body.name} is filed beyond the planets, not under ${body.group}`,
+      spacecraftTarget(body) === 'interstellar',
+      `roster says ${body.group}`,
+    )
+  }
+
+  /* And New Horizons is deliberately left where the roster puts it. */
+  check(
+    'New Horizons stays with the small-body missions',
+    spacecraftTarget(BODIES_BY_ID.sc_new_horizons) === 'small body spacecraft',
+    'sent to Pluto, and that is what the grouping claims',
+  )
+
+  /* Ordered outward, ending past the planets. */
+  check(
+    'the targets run outward from the Sun',
+    groups[0].key === 'sun' && groups[groups.length - 1].key === 'interstellar',
+    groups.map((g) => g.label).join(' → '),
   )
 }
 

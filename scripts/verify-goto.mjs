@@ -546,6 +546,23 @@ try {
   )
   await page.frames(30)
 
+  /* The spacecraft carry a second layer of headings too: where they were sent. */
+  {
+    const state = await page.evaluate(`(() => ({
+      headings: [...document.querySelectorAll('.search__group')].map((g) => g.firstChild.textContent.trim()),
+      rows: document.querySelectorAll('.search__row').length,
+      doors: document.querySelectorAll('.search__group--button').length,
+    }))()`)
+    check(
+      'the spacecraft are gathered by mission target',
+      state.headings[0] === 'The Sun' &&
+        state.headings[state.headings.length - 1] === 'Beyond the planets' &&
+        state.rows === CATEGORIES.find((c) => c.key === 'spacecraft').count,
+      `${state.rows} craft under ${state.headings.join(' → ')}`,
+    )
+    check('and those headings are labels too', state.doors === 0, `${state.doors} buttons`)
+  }
+
   /* Backspace on an empty field steps back out, as it does in any palette. */
   await page.key('Backspace')
   await page.frames(25)

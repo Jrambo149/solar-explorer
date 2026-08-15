@@ -9,6 +9,7 @@ import {
   CATEGORIES,
   categoryEntries,
   groupByParent,
+  groupByTarget,
   groupResults,
   resultContext,
   searchAll,
@@ -234,18 +235,21 @@ export default function SearchPalette() {
   /**
    * The list as sections, which is the one shape the renderer understands.
    *
-   * Three arrangements collapse into it. A mixed search is gathered by class,
+   * Four arrangements collapse into it. A mixed search is gathered by class,
    * and those headings are doors into the whole category. The moons are
-   * gathered by the planet they orbit — 413 minor moons in one column is a
-   * list that already has a structure, thrown away — and those headings are
-   * only labels, since there is no "moons of Saturn" category to open. Every
-   * other category is one unlabelled section, because the chip in the field is
-   * already carrying its name.
+   * gathered by the planet they orbit and the spacecraft by where they were
+   * sent — both are categories that already have a structure which one column
+   * would throw away — and those headings are only labels, since there is no
+   * "moons of Saturn" category to open. Every other category is one unlabelled
+   * section, because the chip in the field is already carrying its name.
    */
   const sections = useMemo(() => {
     if (!category) return groupResults(results).map((g) => ({ ...g, door: true }))
     if (GROUPED_BY_HOST.has(category)) {
       return groupByParent(results).map((g) => ({ ...g, door: false }))
+    }
+    if (category === 'spacecraft') {
+      return groupByTarget(results).map((g) => ({ ...g, door: false }))
     }
     return [{ key: category, label: null, door: false, entries: results }]
   }, [results, category])
