@@ -4,7 +4,19 @@
  * describe.
  *
  * Run with:
- *     node scripts/fetch-spacecraft-elements.mjs
+ *     npm run fetch:spacecraft-elements
+ *
+ * Worth rerunning periodically, and `verify-trails` says when. Nothing breaks
+ * when a table runs out — the last measured orbit is carried forward, see
+ * `orbitAt` — but a fresh fetch is a measurement where that is an
+ * extrapolation.
+ *
+ * **Run `npm run fetch:spacecraft` first.** Every request below asks Horizons
+ * for exactly `segment.t0 .. segment.t1` — the span of the craft's baked
+ * trajectory — so these tables can never reach past the trajectories that bound
+ * them. Rerunning this alone against stale trajectories returns the same end
+ * dates it returned last time, which is a convincing way to spend ten minutes
+ * and achieve nothing. The trajectory moves first; the elements follow.
  *
  * ## Why these craft cannot be sampled positions
  *

@@ -43,6 +43,7 @@
     "models:spacecraft": "node scripts/fetch-spacecraft-models.mjs",
     "thumbs:spacecraft": "node scripts/render-spacecraft-thumbs.mjs",
     "fetch:spacecraft": "node scripts/fetch-spacecraft.mjs",
+    "fetch:spacecraft-elements": "node scripts/fetch-spacecraft-elements.mjs",
     "fetch:stars": "node scripts/fetch-stars.mjs",
     "fetch:features": "node scripts/fetch-surface-features.mjs",
     "fetch:attitude": "node scripts/fetch-spacecraft-attitude.mjs",

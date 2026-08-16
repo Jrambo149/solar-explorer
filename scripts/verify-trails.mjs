@@ -405,6 +405,12 @@ try {
  * A warning rather than a failure, deliberately. The app is correct either way
  * — that is what the fix was for — and a check that fails purely because time
  * passed would be a check that gets disabled.
+ *
+ * The command below is named rather than described, and it is worth naming
+ * correctly: the first version of this note pointed at `fetch:spacecraft-
+ * elements`, which did not exist. The script had never had an npm entry — it
+ * was always run as a bare `node scripts/…` — so the advice was wrong the
+ * moment it was written. It has one now.
  */
 {
   const today = julianDate(new Date())
@@ -415,17 +421,77 @@ try {
     if (!isFlying(craft, today)) continue
     const end = entry.rows[entry.rows.length - 1][0]
     const yearsLeft = (end - today) / 365.25
-    if (yearsLeft < 1) thin.push({ id: craft.id, yearsLeft })
+    if (yearsLeft >= 1) continue
+
+    /*
+     * Which fetch would actually help, which is not always the obvious one.
+     *
+     * `fetch-spacecraft-elements` asks Horizons for exactly the span of the
+     * craft's trajectory segment, so an element table can never reach past the
+     * trajectory that bounds it. When the two end on the same day — which is
+     * the common case, and was true of all six craft the first time this note
+     * appeared — rerunning the element fetch is pure ceremony: it will return
+     * the same end date it returned last time.
+     *
+     * The trajectory is what has to move first. Saying so is the difference
+     * between a note that fixes the problem and one that sends you round a
+     * loop that cannot.
+     */
+    const window = trajectoryWindow(craft)
+    const bound = window && Math.abs(window.end - end) < 1.5
+    thin.push({ id: craft.id, yearsLeft, bound })
   }
 
   if (thin.length) {
+    const free = thin.filter((t) => !t.bound)
     console.log(
-      `\n  note  ${thin.length} element table(s) within a year of running out — ` +
-        `rerun \`npm run fetch:spacecraft-elements\`:`,
+      `\n  note  ${thin.length} element table(s) within a year of running out` +
+        (free.length ? ` — rerun \`npm run fetch:spacecraft-elements\`:` : ':'),
     )
-    for (const { id, yearsLeft } of thin.sort((a, b) => a.yearsLeft - b.yearsLeft)) {
-      const when = yearsLeft < 0 ? `${(-yearsLeft * 365.25).toFixed(0)} days past its end` : `${(yearsLeft * 365.25).toFixed(0)} days left`
-      console.log(`          ${id} — ${when}`)
+    for (const { id, yearsLeft, bound } of thin.sort((a, b) => a.yearsLeft - b.yearsLeft)) {
+      const when =
+        yearsLeft < 0
+          ? `${(-yearsLeft * 365.25).toFixed(0)} days past its end`
+          : `${(yearsLeft * 365.25).toFixed(0)} days left`
+      // The element fetch asks only for the trajectory's own span, so a table
+      // that already reaches the end of its trajectory cannot be extended
+      // without extending that first.
+      console.log(`          ${id} — ${when}${bound ? ' (bounded by its trajectory)' : ''}`)
+    }
+  }
+
+  /*
+   * And the same for the *trajectories*, which is the harder cliff of the two.
+   *
+   * An element table running out now degrades gracefully — the last measured
+   * orbit is carried forward. A trajectory running out does not degrade at all:
+   * `isFlying` goes false and the craft stops being drawn, along with its
+   * trail, its marker and its dossier's position. A live mission simply
+   * vanishes on a date buried in a generated file.
+   *
+   * This cannot be fixed the way the elements were. Extrapolating a cruise is
+   * not a small liberty like extending a stable orbit by its own mean motion —
+   * a craft's future path depends on burns nobody has performed yet, which is
+   * exactly why JPL's own ephemeris stops where it does. The honest answer is
+   * to refetch, so this says so.
+   */
+  const ending = []
+  for (const craft of SPACECRAFT) {
+    const window = trajectoryWindow(craft)
+    // A mission that is genuinely over is not stale data — Cassini's
+    // trajectory ends in 2017 because Cassini ended in 2017.
+    if (!window || window.end < today) continue
+    const daysLeft = window.end - today
+    if (daysLeft < 365) ending.push({ name: craft.name, daysLeft })
+  }
+
+  if (ending.length) {
+    console.log(
+      `\n  note  ${ending.length} flying craft stop being drawn within a year — ` +
+        `rerun \`npm run fetch:spacecraft\`:`,
+    )
+    for (const { name, daysLeft } of ending.sort((a, b) => a.daysLeft - b.daysLeft)) {
+      console.log(`          ${name} — ${daysLeft.toFixed(0)} days of trajectory left`)
     }
   }
 }
