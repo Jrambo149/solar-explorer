@@ -515,25 +515,53 @@ console.log('\nOrbiter elements')
      */
     const first = rows[0][0]
     const last = rows[rows.length - 1][0]
-    const base = TODAY >= first && TODAY <= last ? TODAY : (first + last) / 2
-    const period = elementPeriodDays(entry, base) * 24
+    const period = elementPeriodDays(entry, TODAY >= first && TODAY <= last ? TODAY : (first + last) / 2) * 24
+
+    /*
+     * Probed across the table, not at one point in it.
+     *
+     * This measured five offsets around a single base — today, or the midpoint
+     * for a finished mission — and that is not enough to characterise a fit
+     * spanning years. The generator made exactly this mistake and it cost
+     * something real: LRO's table measured under 2% where its probe happened to
+     * look and **142%** two thirds of the way along, and shipped at 197 km, or
+     * ten per cent of its orbit radius.
+     *
+     * This check did catch that one, by luck — the bad stretch reached today.
+     * The next such table need not be so obliging, so the bases are spread over
+     * the span and the *worst* of them is the answer. An error that varies
+     * along a table is not summarised by a sample from one end of it.
+     */
+    const bases = [first + (last - first) * 0.1, (first + last) / 2, first + (last - first) * 0.9]
+    if (TODAY >= first && TODAY <= last) bases.push(TODAY)
 
     let worst = 0
     let radius = 0
-    for (const offset of [0, 0.31 * step, 0.5 * step, 0.77 * step, -0.4 * step]) {
-      const jd = base + offset
-      const ours = elementPositionAt(entry, jd, {})
-      const theirs = await horizonsAt(naif, center, jd)
-      if (!theirs) continue
-      radius = Math.hypot(ours.x, ours.y, ours.z)
-      worst = Math.max(worst, Math.hypot(ours.x - theirs.x, ours.y - theirs.y, ours.z - theirs.z))
+    let worstAt = null
+    for (const base of bases) {
+      for (const offset of [0, 0.5 * step, 0.77 * step]) {
+        const jd = base + offset
+        if (jd < first || jd > last) continue
+        const ours = elementPositionAt(entry, jd, {})
+        const theirs = await horizonsAt(naif, center, jd)
+        if (!theirs) continue
+        const off = Math.hypot(ours.x - theirs.x, ours.y - theirs.y, ours.z - theirs.z)
+        if (off > worst) {
+          worst = off
+          radius = Math.hypot(ours.x, ours.y, ours.z)
+          worstAt = jd
+        } else if (radius === 0) {
+          radius = Math.hypot(ours.x, ours.y, ours.z)
+        }
+      }
     }
 
     const km = worst * KM_PER_AU
     const relative = radius > 0 ? worst / radius : 1
     console.log(
       `  ${craft.name}: period ${period.toFixed(2)} h, worst ${km.toFixed(0)} km ` +
-        `(${(relative * 100).toFixed(2)}% of orbit radius)`,
+        `(${(relative * 100).toFixed(2)}% of orbit radius)` +
+        (worstAt ? ` at ${new Date((worstAt - 2440587.5) * 86400000).toISOString().slice(0, 10)}` : ''),
     )
 
     // 5% of the orbital radius. The sampled trajectories these replaced were off

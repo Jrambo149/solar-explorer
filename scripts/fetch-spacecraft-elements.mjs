@@ -70,6 +70,7 @@ import { BODIES_BY_ID } from '../src/data/bodies.js'
 import { HORIZONS_ID, FRAMES } from './spacecraft-roster.mjs'
 import { segmentAt, trailDays } from '../src/orbit/trajectory.js'
 import { elementPositionAt } from '../src/orbit/spacecraftElements.js'
+import { julianDate } from '../src/orbit/kepler.js'
 
 const KM_PER_AU = 149597870.7
 
@@ -483,17 +484,49 @@ async function midIntervalError(entry, naif, center, jd) {
   const last = rows.length - 1
   const step = (rows[last][0] - rows[0][0]) / last
 
+  /*
+   * Probed across the whole table, not just around one date.
+   *
+   * This used to walk six consecutive intervals either side of `jd` — about
+   * three weeks of an eighteen-year table for LRO — and decide the step for the
+   * entire fit from them. Whether the refinement triggered therefore depended
+   * on *which day the script was run*, which is not a property a bake should
+   * have.
+   *
+   * It was not hypothetical. LRO measured over 2% at one date and refined to a
+   * 0.44-day step; run twelve days later it measured under 2% on a quieter
+   * stretch, kept the 3.5-day step, and shipped a table whose true worst error
+   * was **197 km, or 10.6% of its orbit radius** — against 1 km for the refined
+   * one. The probe passed; the table was wrong everywhere the probe was not.
+   *
+   * So the probes are spread evenly across the rows, with a few kept near `jd`
+   * because the present is the part anyone is looking at. The measurement is
+   * the worst of them, which is the only useful summary of an error that varies
+   * along a table: an average would let one bad stretch hide behind a good one,
+   * and it is the bad stretch that gets drawn.
+   */
+  const SPREAD_PROBES = 7
+  const NEAR_PROBES = 3
+
+  const at = new Set()
+  for (let i = 0; i < SPREAD_PROBES; i++) {
+    at.add(Math.min(last - 1, Math.max(0, Math.round(((last - 1) * i) / (SPREAD_PROBES - 1)))))
+  }
+  const here = Math.floor((jd - rows[0][0]) / step)
+  for (let i = 0; i < NEAR_PROBES; i++) {
+    const k = here + i - 1
+    if (k >= 0 && k < last) at.add(k)
+  }
+
   const solved = { x: 0, y: 0, z: 0 }
   let worst = 0
   let scale = 0
 
-  for (let i = -3; i < 3; i++) {
-    const k = Math.floor((jd - rows[0][0]) / step) + i
-    if (k < 0 || k >= last) continue
-    const at = rows[k][0] + step * 0.5
-    const truth = await horizonsVector(naif, center, at)
+  for (const k of [...at].sort((a, b) => a - b)) {
+    const when = rows[k][0] + step * 0.5
+    const truth = await horizonsVector(naif, center, when)
     if (!truth) continue
-    elementPositionAt(entry, at, solved)
+    elementPositionAt(entry, when, solved)
     worst = Math.max(
       worst,
       Math.hypot(solved.x - truth.x, solved.y - truth.y, solved.z - truth.z),
@@ -543,6 +576,36 @@ async function horizonsVector(naif, center, jd) {
  * improvement.
  */
 const MAX_MID_INTERVAL_ERROR = 0.02
+
+/**
+ * The shortest stretch that can be called an orbit rather than a manoeuvre.
+ *
+ * Thirty days, and the number sits in a gap rather than being tuned. Measured
+ * across the tables this script produces, the spans run 71, 112, 193, 352, 354
+ * days and upward — and then one at **7.5**.
+ *
+ * That one is Lunar Prospector, whose entire lunar trajectory segment is a week
+ * long and sits inside its orbit-insertion sequence: the semi-major axis varies
+ * more than threefold end to end, because the craft was still lowering itself
+ * into its science orbit. Elements fitted across that describe no orbit the
+ * craft was ever on, and it placed it **10,457 km — 120% of its orbit radius —
+ * from where Horizons puts it**, the worst error of any craft in the file.
+ *
+ * Rejecting it costs a week of 1998 drawn from samples instead. The samples are
+ * aliased at a two-hour period and known to be, but an honestly coarse path
+ * beats a confident wrong one — the alternative is drawing the craft on the far
+ * side of the Moon it is orbiting.
+ *
+ * This is deliberately *not* a test of how much `a` varies. That was the first
+ * attempt and it was wrong: a multi-year table legitimately spans mission
+ * phases, so MRO varies 7.2x across its own aerobraking, Mars Express 11.2x and
+ * TGO 14x. A threshold tight enough to catch Lunar Prospector's 3.3x threw out
+ * 22 of the 25 craft. The length of the stretch is the thing that separates a
+ * manoeuvre from a mission; the size of the change is not.
+ */
+const MIN_TABLE_DAYS = 30
+
+
 const MAX_REFINEMENTS = 3
 
 /**
@@ -583,15 +646,48 @@ function closedRun(rows, jd, bodyRadiusAU) {
 }
 
 async function main() {
-  const today = 2461255.955
+  /*
+   * Now, rather than the day this line was last edited.
+   *
+   * It was a bare `2461255.955` — 2026-08-04, with no note saying why — and it
+   * decides which craft are asked about at all: `candidates` picks the segment
+   * covering this instant, so a craft is admitted on the strength of the orbit
+   * it was on *then*. Pinned, that answer drifts a little further from the
+   * truth every day the file is not touched, and the failure would be a craft
+   * quietly fitted to a phase of its mission it has since left.
+   *
+   * Nothing about the bake needs a fixed instant: it is not a reproducibility
+   * anchor — the output already changes every run as JPL extends its ephemeris
+   * — it is just a question about the present that was answered once.
+   */
+  const today = julianDate(new Date())
   const wanted = candidates(today)
   console.log(`asking Horizons about ${wanted.length} craft in a body's frame:\n`)
 
   const baked = {}
+  /*
+   * Craft whose orbit has been *answered*, as opposed to merely not fetched.
+   *
+   * The fallback down a craft's legs exists for one case: Horizons refusing to
+   * answer at all, as it does for Dawn at Ceres. It is not for the case where
+   * the geometry answers and the answer is no — and without this it was, with a
+   * consequence CAPSTONE demonstrated the moment its trajectory ran out.
+   *
+   * CAPSTONE flies a near-rectilinear halo orbit about the Moon, which is not
+   * an ellipse and is correctly rejected as one. While it was still flying that
+   * was the end of it: a live craft offers only the leg it is on. Three days
+   * after its data ended it became a *finished* craft, every leg was offered
+   * longest-first, and having refused its real orbit the script went on to fit
+   * a 0.2-year cruise near the Earth and shipped that instead — a table whose
+   * own admission check calls it "many revolutions" of an 82-day period.
+   *
+   * A rejection is a result. Record it and stop asking about that craft.
+   */
+  const decided = new Set()
   for (const { craft, segment, epoch } of wanted) {
     // A finished craft offers every orbital phase it had, longest first, and one
     // usable table is the whole answer — see `referenceEpochs`.
-    if (baked[craft.id]) continue
+    if (baked[craft.id] || decided.has(craft.id)) continue
 
     const naif = HORIZONS_ID[craft.id]
     const center = centerFor(segment.frame)
@@ -674,6 +770,7 @@ async function main() {
 
     if (!why.length) {
       console.log(`${label} — samples are fine`)
+      decided.add(craft.id)
       continue
     }
 
@@ -681,6 +778,7 @@ async function main() {
     if (error !== null) label += `, ellipse fits to ${(error * 100).toFixed(2)}%`
     if (error !== null && error > MAX_ELEMENT_ERROR) {
       console.log(`${label} — not an ellipse, samples kept`)
+      decided.add(craft.id)
       continue
     }
 
@@ -712,6 +810,13 @@ async function main() {
         if (!run || run.length < 3) break
         entry = { frame: segment.frame, rows: run }
       }
+    }
+
+    const tableDays = entry.rows[entry.rows.length - 1][0] - entry.rows[0][0]
+    if (tableDays < MIN_TABLE_DAYS) {
+      console.log(`${label} — only ${tableDays.toFixed(1)} d of closed orbit, a manoeuvre not an orbit`)
+      decided.add(craft.id)
+      continue
     }
 
     const rowsKept = entry.rows
