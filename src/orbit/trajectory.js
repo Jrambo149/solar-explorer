@@ -292,6 +292,38 @@ export function autoTrailDays(segment, jd) {
  * way: a default of thirty years, fifty days across each of the two encounters,
  * and five years before them.
  */
+/**
+ * The element set to draw a craft from at `jd`, or null to use its samples.
+ *
+ * **One rule, in one place, because three call sites have to agree.** The craft
+ * itself, its trail, and the trail's *length* each used to decide this
+ * separately, and two of the three disagreed the moment a fit ran out: the
+ * trail went on extrapolating the last known orbit while the craft dropped back
+ * to the sampled path, and they were drawn 0.4 world units apart — a trail
+ * hanging in space with no craft on the end of it.
+ *
+ * The rule:
+ *
+ * - **Inside the fit**, use it. That is what it is for.
+ * - **Outside the fit but still in the frame it was made in**, use it anyway.
+ *   `elementsAtEpoch` clamps to the nearest row and propagates it by its own
+ *   stored mean motion, so this is the last measured orbit carried forward —
+ *   which for a lunar orbiter a few days past the end of its table is far
+ *   better than the sampled path, whose 110-hour step aliases a one-day orbit
+ *   into nonsense.
+ * - **In a different frame**, do not. A craft that has left lunar orbit for a
+ *   heliocentric cruise is not doing anything its old lunar elements describe,
+ *   and this is the guard that keeps the rule above from being nonsense rather
+ *   than merely convenient.
+ */
+export function orbitAt(craft, jd) {
+  const entry = elementsFor(craft.id)
+  if (!entry) return null
+  if (elementsCover(entry, jd)) return entry
+  const segment = segmentAt(craft, jd)
+  return segment && segment.frame === entry.frame ? entry : null
+}
+
 export function trailDays(craft, jd, config) {
   if (!config) return null
 
@@ -315,8 +347,20 @@ export function trailDays(craft, jd, config) {
    * is the period of the circular orbit matching the current state — so using
    * the actual period is what it was reaching for.
    */
-  const orbit = elementsFor(craft.id)
-  if (orbit && elementsCover(orbit, jd)) return elementPeriodDays(orbit, jd)
+  /*
+   * The element tables are fetched with an end date, and that end arrives.
+   *
+   * ARTEMIS P1 and P2 were fitted to 2026-08-15, and on 2026-08-15 they fell
+   * out of coverage and into `autoTrailDays` — which the note above says
+   * plainly is wrong for exactly these craft, returning 73 days for a one-day
+   * orbit. The trails went from one clean ellipse to seventy overlaid, with a
+   * 107° corner where the aliasing folded the path back on itself. Nothing
+   * about the spacecraft changed that morning, so neither should the trail:
+   * `orbitAt` carries the last measured orbit forward while the craft is still
+   * in the frame it was measured in.
+   */
+  const orbit = orbitAt(craft, jd)
+  if (orbit) return elementPeriodDays(orbit, jd)
 
   const segment = segmentAt(craft, jd)
   return segment ? autoTrailDays(segment, jd) : null

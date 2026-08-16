@@ -19,6 +19,7 @@ import { SPACECRAFT } from '../src/data/bodies.js'
 import { isFlying, trajectoryWindow } from '../src/orbit/trajectory.js'
 import { LANDED_CRAFT } from '../src/data/landedCraft.js'
 import { julianDate } from '../src/orbit/kepler.js'
+import { SPACECRAFT_ELEMENTS } from '../src/data/spacecraftElements.js'
 
 /** `MAX_POINTS` in `SpacecraftPath`. Raised from 256 for Juno and Parker. */
 const BUDGET = 512
@@ -381,6 +382,52 @@ try {
   check('no console errors', errors.length === 0, errors.slice(0, 3).join(' | '))
 } finally {
   await page.close()
+}
+
+/* ---- the fits have not run out ---- */
+
+/*
+ * The failure this whole section exists for, caught before it is visible.
+ *
+ * A craft's trail is drawn from its fitted elements, and those tables are baked
+ * with an end date. ARTEMIS P1 and P2 were fitted to 2026-08-15 — and on
+ * 2026-08-15 they fell out of coverage, took the fallback that derives a period
+ * by differentiating an aliased path, and drew seventy overlapping ellipses
+ * with a 107° corner in them. Nothing about the spacecraft changed that
+ * morning; the data simply ran out, on a date nobody had written down.
+ *
+ * `orbitAt` now carries the last measured orbit forward while the craft is
+ * still in the frame it was measured in, so the cliff is gone. This is the
+ * warning that the ground under it is thinning: a table with less than a year
+ * left is one to re-fetch, and one already past its end is being extrapolated
+ * further every day it is left.
+ *
+ * A warning rather than a failure, deliberately. The app is correct either way
+ * — that is what the fix was for — and a check that fails purely because time
+ * passed would be a check that gets disabled.
+ */
+{
+  const today = julianDate(new Date())
+  const thin = []
+  for (const craft of SPACECRAFT) {
+    const entry = SPACECRAFT_ELEMENTS[craft.id]
+    if (!entry?.rows?.length) continue
+    if (!isFlying(craft, today)) continue
+    const end = entry.rows[entry.rows.length - 1][0]
+    const yearsLeft = (end - today) / 365.25
+    if (yearsLeft < 1) thin.push({ id: craft.id, yearsLeft })
+  }
+
+  if (thin.length) {
+    console.log(
+      `\n  note  ${thin.length} element table(s) within a year of running out — ` +
+        `rerun \`npm run fetch:spacecraft-elements\`:`,
+    )
+    for (const { id, yearsLeft } of thin.sort((a, b) => a.yearsLeft - b.yearsLeft)) {
+      const when = yearsLeft < 0 ? `${(-yearsLeft * 365.25).toFixed(0)} days past its end` : `${(yearsLeft * 365.25).toFixed(0)} days left`
+      console.log(`          ${id} — ${when}`)
+    }
+  }
 }
 
 console.log(failures === 0 ? '\nall trail checks passed' : `\n${failures} check(s) failed`)

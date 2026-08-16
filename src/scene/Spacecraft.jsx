@@ -4,7 +4,7 @@ import * as framePriority from './framePriority'
 import * as THREE from 'three'
 import { BODIES_BY_ID, bodyRadius } from '../data/bodies'
 import { warpRadius } from '../orbit/frames'
-import { isFlying, trajectoryAt } from '../orbit/trajectory'
+import { isFlying, orbitAt, trajectoryAt } from '../orbit/trajectory'
 import { elementPositionAt, elementsCover, elementsFor } from '../orbit/spacecraftElements'
 import { planetPositions, simClock, useStore } from '../store/useStore'
 import { satelliteClearance } from './satelliteFrame'
@@ -390,9 +390,19 @@ export default function Spacecraft({ craft }) {
     }
 
     let here = null
-    if (elements && elementsCover(elements, jd)) {
-      elementPositionAt(elements, jd, localAU.current)
-      localAU.current.frame = elements.frame
+    /*
+     * `orbitAt`, not a coverage test of its own.
+     *
+     * This asked `elementsCover` directly while `SpacecraftPath` used the
+     * element set unconditionally, and the two answers parted company the day a
+     * fit ran out: the trail carried on from the elements, the craft fell back
+     * to the samples, and they were drawn 0.4 world units apart. One rule now
+     * decides for both — see `orbitAt`.
+     */
+    const orbit = orbitAt(craft, jd)
+    if (orbit) {
+      elementPositionAt(orbit, jd, localAU.current)
+      localAU.current.frame = orbit.frame
       here = localAU.current
     } else {
       here = trajectoryAt(craft, jd, localAU.current)

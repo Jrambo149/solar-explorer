@@ -5,7 +5,14 @@ import { BODIES_BY_ID, bodyRadius } from '../data/bodies'
 import { SPACECRAFT_TRAILS } from '../data/spacecraftTrails'
 import { landedCraft } from '../data/landedCraft'
 import { warpRadius } from '../orbit/frames'
-import { isFlying, sampleSegment, segmentAt, trailDays, trajectoryWindow } from '../orbit/trajectory'
+import {
+  isFlying,
+  orbitAt,
+  sampleSegment,
+  segmentAt,
+  trailDays,
+  trajectoryWindow,
+} from '../orbit/trajectory'
 import {
   elementPositionAt,
   elementsCover,
@@ -361,11 +368,24 @@ function SpacecraftPath({ craft }) {
       const mat = materials[r]
       if (!group || !mat) continue
 
-      // This run's overlap with the window. Everything outside it — every
-      // segment of every completed mission — simply does not draw, which is the
-      // whole point. An element set's bounds are its first and last epoch.
+      /*
+       * This run's overlap with the window. Everything outside it — every
+       * segment of every completed mission — simply does not draw, which is the
+       * whole point. An element set's bounds are its first and last epoch.
+       *
+       * With one exception, and it is the same rule the craft is drawn by: past
+       * the last epoch, while the craft is still in the frame the elements were
+       * fitted in, they remain the best description of where it is, so the
+       * trail runs to *now* rather than stopping at the last row.
+       *
+       * Stopping there is what left ARTEMIS P1's trail hanging 0.4 world units
+       * behind it on the day its table ran out — the head pinned to the final
+       * epoch while the craft, drawn from those same elements carried forward,
+       * went on round the Moon without it.
+       */
+      const carriesOn = orbit !== null && orbitAt(craft, jd) === orbit
       const from = orbit ? orbit.rows[0][0] : seg.t0
-      const to = orbit ? orbit.rows[orbit.rows.length - 1][0] : seg.t1
+      const to = orbit ? (carriesOn ? jd : orbit.rows[orbit.rows.length - 1][0]) : seg.t1
       const w0 = Math.max(from, windowStart)
       const w1 = Math.min(to, jd)
       if (!visible || w1 <= w0) {
