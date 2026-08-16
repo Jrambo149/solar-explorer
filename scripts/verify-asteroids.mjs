@@ -236,9 +236,23 @@ try {
   await page.evaluate(`window.FAMILY = [${Array.from(ASTEROID_FAMILY).join(',')}]`)
   const drawn = await page.evaluate(`(() => {
     const THREE = window.__solar.three
+    // By name, not by counting instances. The belt is thinned with distance, so
+    // "the instanced mesh with a lot of instances" stopped identifying it — at
+    // the overview it draws 1,200.
     let mesh = null
-    window.__solar.scene.traverse((o) => { if (o.isInstancedMesh && o.count > 2000) mesh = o })
+    window.__solar.scene.traverse((o) => { if (o.name === 'asteroid-belt') mesh = o })
     if (!mesh) return null
+    /*
+     * Slots are in brightness order, not catalogue order, so the family of
+     * slot n is the family of beltOrder[n]. Read from the app rather than
+     * re-derived here: recomputing the sort in this file would check it against
+     * itself, and the mapping is exactly the thing that could be wrong.
+     *
+     * (No backticks in this comment. It lives inside a template literal, and
+     * this repo has lost an afternoon to that four times now.)
+     */
+    const order = window.__solar.beltOrder
+    if (!order) return null
     const m = new THREE.Matrix4()
     const v = new THREE.Vector3()
     const belt = []
@@ -247,14 +261,33 @@ try {
     for (let n = 0; n < mesh.count; n++) {
       mesh.getMatrixAt(n, m)
       v.setFromMatrixPosition(m)
-      ;(window.FAMILY[n] === 1 ? trojan : belt).push(v.length())
+      ;(window.FAMILY[order[n]] === 1 ? trojan : belt).push(v.length())
       if (n === 0) scale = m.getMaxScaleOnAxis()
     }
     const median = (xs) => { xs.sort((a, b) => a - b); return xs[Math.floor(xs.length / 2)] }
     return { count: mesh.count, belt: median(belt), trojan: median(trojan), scale }
   })()`)
 
-  check('the belt is drawn as one instanced mesh', drawn !== null && drawn.count > 3000, drawn ? `${drawn.count} rocks` : 'not found')
+  check(
+    'the belt is drawn as one instanced mesh',
+    drawn !== null && drawn.count > 0,
+    drawn ? `${drawn.count} rocks at the overview` : 'not found',
+  )
+
+  /*
+   * Thinned when far away, whole when you are in it.
+   *
+   * The belt was drawn in full at every distance, held at minimum legibility by
+   * an angular floor, and at the overview that is three and a half thousand
+   * hard specks over the inner planets. Drawing fewer of them from far away is
+   * what makes it a band again — so this pins both ends: the overview draws a
+   * fraction, and flying to Vesta, which is inside the belt, draws most of it.
+   */
+  check(
+    'the belt is thinned at the overview',
+    drawn.count < ASTEROID_COUNT * 0.6,
+    `${drawn.count} of ${ASTEROID_COUNT}`,
+  )
 
   /*
    * At diorama scale the belt's edges warp to 44.7 and 55.1 world units and
@@ -281,6 +314,49 @@ try {
     'no rock is drawn larger than a rock',
     drawn.scale > 0 && drawn.scale < 1,
     `${drawn.scale.toFixed(3)} world units across`,
+  )
+
+  /* And the other end of the ramp: inside the belt, nearly all of it is there. */
+  await page.evaluate(`window.__solar.state().revealAndSelect('vesta')`)
+  await page.frames(260)
+  const near = await page.evaluate(`(() => {
+    let mesh = null
+    window.__solar.scene.traverse((o) => { if (o.name === 'asteroid-belt') mesh = o })
+    return mesh ? { count: mesh.count, range: window.__solar.camera.position.length() } : null
+  })()`)
+  /*
+   * The same at the other end of the scale dial.
+   *
+   * The thresholds were once absolute world units, tuned at diorama, and the
+   * band is twelve times wider at true scale — so "far away" meant twenty-one
+   * band widths at one end and 1.8 at the other, and the belt stayed thinned
+   * while you stood inside it. Measured at both ends rather than reasoned about.
+   */
+  for (const mode of [0, 1]) {
+    await page.evaluate(`(() => {
+      const s = window.__solar.state()
+      s.clearSelection()
+      s.setScaleMode(${mode})
+    })()`)
+    await page.frames(120)
+    const at = await page.evaluate(`(() => {
+      let mesh = null
+      window.__solar.scene.traverse((o) => { if (o.name === 'asteroid-belt') mesh = o })
+      return mesh ? mesh.count : 0
+    })()`)
+    check(
+      `the overview thins the belt at scale ${mode}`,
+      at > 0 && at < ASTEROID_COUNT * 0.6,
+      `${at} of ${ASTEROID_COUNT}`,
+    )
+  }
+  await page.evaluate(`window.__solar.state().setScaleMode(0)`)
+  await page.frames(60)
+
+  check(
+    'and drawn in full once you are inside it',
+    near !== null && near.count > ASTEROID_COUNT * 0.9,
+    near ? `${near.count} of ${ASTEROID_COUNT} at range ${near.range.toFixed(0)}` : 'no mesh',
   )
 
   const errors = page.errors.filter((e) => !e.startsWith('warning:'))
