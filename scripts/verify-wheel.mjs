@@ -141,22 +141,71 @@ try {
     // rectangle contains the point, and the two overlap on the right edge. With
     // it open this scrolled the layer panel and reported the events list stuck.
     if (s.panelOpen) s.togglePanel()
+    /*
+     * And nothing selected, with the page at the top.
+     *
+     * The cases above leave a craft selected, which opens the dossier and makes
+     * the *document* scrollable — and past the hero the wheel handler hands
+     * every gesture to the page. The events panel still claims its own
+     * rectangle, so the camera checks below passed either way, but the list sat
+     * motionless under six wheels and the case reported a panel that could not
+     * scroll. It scrolls perfectly; it was being asked in the wrong room.
+     */
+    s.clearSelection()
+    window.scrollTo(0, 0)
     if (!s.eventsOpen) s.toggleEvents()
   })()`)
+  await page.frames(120)
   await page.frames(60)
 
   const list = await centreOf(page, '.events__list')
   if (!list) check('the events list is on screen', false)
   else {
-    // To the bottom, and confirm it is actually there — a list that never
-    // reached its end would pass the check below for the wrong reason.
-    for (let i = 0; i < 40; i++) await page.wheel(list.x, list.y, 240)
+    /*
+     * Two separate claims, and they used to be one.
+     *
+     * The wheel has to *scroll the list* rather than reach the camera — that is
+     * the property this whole case exists for — and the checks below need the
+     * list parked at its end, because "does the gesture leak when there is no
+     * room left" is a different branch from "does it scroll".
+     *
+     * Wheeling to the end no longer works as a way of getting there. The panel
+     * listed twenty-six events when this was written and now lists all 4,349,
+     * which is a quarter of a million pixels of list: forty steps of 240 got
+     * nowhere near the bottom and the check failed with nothing wrong. So the
+     * wheel proves the scrolling and `scrollTop` does the travelling.
+     */
+    /*
+     * Parked in the middle first, so there is room to scroll *down*.
+     *
+     * The list opens at the clock, and the clock is 2026 in a timeline running
+     * to 2050 — nine tenths of the way along. Wheeling down from there moved
+     * nothing and the check failed with the panel working perfectly.
+     */
+    const scrolled = await page.evaluate(`(() => {
+      const el = document.querySelector('.events__list')
+      el.scrollTop = Math.floor((el.scrollHeight - el.clientHeight) / 2)
+      return el.scrollTop
+    })()`)
+    await page.frames(30)
+    // A frame between each, which matters: the panel scrolls in response to the
+    // event and six dispatched back-to-back can be coalesced into one that
+    // arrives after the reading below.
+    for (let i = 0; i < 6; i++) {
+      await page.wheel(list.x, list.y, 240)
+      await page.frames(4)
+    }
     await page.frames(60)
+    const after = await page.evaluate(`document.querySelector('.events__list').scrollTop`)
+    check('the wheel scrolls the events list', after > scrolled, `${scrolled} → ${after}`)
+
     const atEnd = await page.evaluate(`(() => {
       const el = document.querySelector('.events__list')
+      el.scrollTop = el.scrollHeight
       return el.scrollTop >= el.scrollHeight - el.clientHeight - 2
     })()`)
-    check('the events list scrolls, and reaches its end', atEnd)
+    await page.frames(30)
+    check('and can be taken to its end', atEnd)
 
     const was = await page.evaluate(READ)
     for (let i = 0; i < 8; i++) await page.wheel(list.x, list.y, 240)
@@ -168,7 +217,17 @@ try {
 
     // The other end, which fails independently: `scrollTop` at 0 with an
     // upward wheel is a different branch of the same room test.
-    for (let i = 0; i < 40; i++) await page.wheel(list.x, list.y, -240)
+    await page.evaluate(`document.querySelector('.events__list').scrollTop = 0`)
+    /*
+     * Long enough for the camera to stop moving on its own.
+     *
+     * The follow and the flight are damped, so a camera that was still easing
+     * when the "before" reading was taken keeps drifting into the "after" one,
+     * and the check reports a leak that is really a settling. It measured
+     * 9.26e-2 world units of drift with no wheel involved at all.
+     */
+    await page.frames(120)
+    for (let i = 0; i < 4; i++) await page.wheel(list.x, list.y, -240)
     await page.frames(60)
     const top = await page.evaluate(READ)
     for (let i = 0; i < 8; i++) await page.wheel(list.x, list.y, -240)

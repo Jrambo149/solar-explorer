@@ -276,3 +276,63 @@
     animation: none;
   }
 }
+
+/* The search field, under the filters.
+
+   Same shape as the palette's, deliberately: this is the second search box in
+   the app and there is no reason for them to look like different ideas. */
+.events__search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 6px;
+  padding: 6px 9px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  color: var(--text-faint);
+}
+
+.events__search:focus-within {
+  border-color: color-mix(in srgb, var(--text) 22%, transparent);
+  color: var(--text-dim);
+}
+
+.events__search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  outline: none;
+}
+
+.events__search-input::placeholder {
+  color: var(--text-faint);
+}
+
+.events__search-clear {
+  flex: none;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.events__search-clear:hover {
+  color: var(--text);
+}
+
+/* Says so when a search finds nothing, rather than showing an empty box. */
+.events__empty {
+  padding: 14px 10px;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
