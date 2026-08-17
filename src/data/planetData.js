@@ -25,6 +25,30 @@ import { warpRadius } from '../orbit/frames.js'
  */
 export const FOCUS_RADII = 3.4
 
+/*
+ * Mass as a *number*, beside the `mass` string the panel already printed.
+ *
+ * The string is display text — "6.42 × 10²³ kg (0.107 Earth)" — and there is no
+ * honest way to compute with it. Surface gravity, escape velocity and density
+ * are all one line each given a mass and a radius, and none of them could be
+ * derived while the only mass in the file was prose. Parsing it back out of the
+ * string was the alternative and is exactly the kind of thing that works until
+ * somebody writes a mass slightly differently.
+ *
+ * Values are NASA's planetary fact sheet, and they agree with the strings
+ * already here to every digit those strings carry.
+ *
+ * `equatorialRadiusKm` comes with it, and the two radii are **not**
+ * interchangeable. `radiusKm` is the volumetric mean — the right radius for
+ * drawing a sphere and the right one for density, since density is mass over
+ * the volume the body actually occupies. Surface gravity and escape velocity
+ * are quoted at the equator by every reference, and for a fast-rotating gas
+ * giant that is a different number: Saturn's equator is 2,036 km further from
+ * its centre than the mean, which is a 7% difference in gravity. Using the mean
+ * for everything gave Saturn 11.19 m/s² against a published 10.44 — consistent
+ * with the app's own data and disagreeing with every source a reader could
+ * check it against.
+ */
 const RAW = [
   {
     id: 'mercury',
@@ -35,6 +59,8 @@ const RAW = [
     // composition text shown in the info panel; `glow` is the render setting.)
     glow: null,
     radiusKm: 2439.7,
+    massKg: 3.3011e23,
+    equatorialRadiusKm: 2440.5,
     au: 0.387,
     dayHours: 1407.6, // sidereal: 58.6 Earth days
     retrograde: false,
@@ -71,6 +97,8 @@ const RAW = [
     // not enough to bury the ground under it.
     glow: { color: '#ffe6a8', intensity: 0.5, thickness: 0.05 },
     radiusKm: 6051.8,
+    massKg: 4.8675e24,
+    equatorialRadiusKm: 6051.8,
     au: 0.723,
     dayHours: 5832.5, // 243 Earth days, retrograde
     retrograde: true,
@@ -103,6 +131,8 @@ const RAW = [
     // signature look — bright and narrow rather than a soft wash.
     glow: { color: '#5aa9ff', intensity: 1.15, thickness: 0.055 },
     radiusKm: 6371,
+    massKg: 5.9722e24,
+    equatorialRadiusKm: 6378.137,
     au: 1,
     dayHours: 23.934,
     retrograde: false,
@@ -135,6 +165,8 @@ const RAW = [
     // Barely there — Mars's atmosphere is under 1% of Earth's pressure.
     glow: { color: '#ff9e63', intensity: 0.5, thickness: 0.04 },
     radiusKm: 3389.5,
+    massKg: 6.4171e23,
+    equatorialRadiusKm: 3396.2,
     au: 1.524,
     dayHours: 24.62,
     retrograde: false,
@@ -165,6 +197,8 @@ const RAW = [
     color: '#c79a6f',
     glow: { color: '#ffd9a8', intensity: 0.8, thickness: 0.06 },
     radiusKm: 69911,
+    massKg: 1.89819e27,
+    equatorialRadiusKm: 71492,
     au: 5.204,
     dayHours: 9.93,
     retrograde: false,
@@ -195,6 +229,8 @@ const RAW = [
     color: '#e4cf9f',
     glow: { color: '#ffeec2', intensity: 0.72, thickness: 0.06 },
     radiusKm: 58232,
+    massKg: 5.6834e26,
+    equatorialRadiusKm: 60268,
     au: 9.583,
     dayHours: 10.66,
     retrograde: false,
@@ -231,6 +267,8 @@ const RAW = [
     // Methane haze gives the ice giants a cold, even limb.
     glow: { color: '#9beef5', intensity: 0.85, thickness: 0.055 },
     radiusKm: 25362,
+    massKg: 8.6810e25,
+    equatorialRadiusKm: 25559,
     au: 19.19,
     dayHours: 17.24,
     retrograde: true,
@@ -261,6 +299,8 @@ const RAW = [
     color: '#4a7ad4',
     glow: { color: '#6f9dff', intensity: 0.9, thickness: 0.055 },
     radiusKm: 24622,
+    massKg: 1.02409e26,
+    equatorialRadiusKm: 24764,
     au: 30.07,
     dayHours: 16.11,
     retrograde: false,

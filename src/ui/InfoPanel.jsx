@@ -3,6 +3,8 @@ import { getBody, majorMoonsOf } from '../data/bodies'
 import { useStore } from '../store/useStore'
 import { useBodyName } from './useBodyName'
 import { hasPole } from '../scene/pole'
+import { PLANET_IMAGES } from '../data/planetImages'
+import { derivedFacts } from './planetFacts'
 import { cancelGlide, glideTo } from './glideTo'
 import './InfoPanel.css'
 
@@ -164,6 +166,9 @@ export default function InfoPanel() {
 
   if (!planet) return null
 
+  const derived = derivedFacts(planet)
+  const gallery = PLANET_IMAGES[planet.id] ?? []
+
   return (
     <section className="dossier" aria-label={`${name} details`}>
       {/* Keyed by body so every reveal replays on a switch. */}
@@ -242,6 +247,34 @@ export default function InfoPanel() {
                   <h3 className="dossier__section-title">Atmosphere</h3>
                   <p className="dossier__atmosphere">{planet.atmosphere}</p>
                 </section>
+
+                {/*
+                  Worked out rather than written down — see `planetFacts`.
+                  Everything here comes from the mass, radius and orbit the app
+                  already carries, which is what makes it both free to add and
+                  impossible to let drift out of step with the rest of the file.
+
+                  It answers a different question from the table above it too.
+                  "Mass: 6.42 × 10²³ kg" is a number nobody has intuition for;
+                  "you would weigh 38% of what you weigh here" is the same
+                  number, answered.
+                */}
+                {derived && (
+                  <section className="dossier__section">
+                    <h3 className="dossier__section-title">By the numbers</h3>
+                    <dl className="derived-grid">
+                      {derived.map((row) => (
+                        <div className="derived-grid__row" key={row.label}>
+                          <dt>{row.label}</dt>
+                          <dd>
+                            <span className="derived-grid__value">{row.value}</span>
+                            {row.note && <span className="derived-grid__note">{row.note}</span>}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                )}
               </Reveal>
 
               <Reveal className="dossier__column">
@@ -306,6 +339,49 @@ export default function InfoPanel() {
                 </section>
               </Reveal>
             </div>
+
+            {/*
+              Real photographs, and the captions are doing two different jobs.
+
+              `why` is this project's line — what the picture is here to show,
+              which is the only reason it was chosen. Everything under it is
+              NASA's own metadata carried through unchanged, so the credit is
+              theirs rather than a label we wrote about their work.
+
+              Lazy, because three full-width photographs per planet is a lot to
+              load for a section most of the way down a page that many people
+              will never scroll to.
+            */}
+            {gallery.length > 0 && (
+              <Reveal className="dossier__gallery-wrap">
+                <section className="dossier__section">
+                  <h3 className="dossier__section-title">Seen for real</h3>
+                  <div className="dossier__gallery">
+                    {gallery.map((shot) => (
+                      <figure className="shot" key={shot.file}>
+                        <img
+                          className="shot__image"
+                          src={`${import.meta.env.BASE_URL}images/planets/${shot.file}`}
+                          alt={shot.title}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <figcaption className="shot__caption">
+                          <p className="shot__why">{shot.why}</p>
+                          <p className="shot__meta">
+                            <span className="shot__title">{shot.title}</span>
+                            <span className="shot__credit">
+                              {shot.credit}
+                              {shot.date ? ` · ${shot.date.slice(0, 4)}` : ''}
+                            </span>
+                          </p>
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                </section>
+              </Reveal>
+            )}
           </div>
         </div>
       </div>

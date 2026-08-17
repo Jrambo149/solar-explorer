@@ -412,3 +412,116 @@
     gap: 38px;
   }
 }
+
+/* ---- By the numbers ----
+   Built on the same hairline rhythm as `.fact-grid` rather than sharing its
+   class, because the shape of a row is different: this one carries a value and
+   a note under it, and forcing that into a two-column baseline layout put the
+   note in the label's column. */
+.derived-grid {
+  margin: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.derived-grid__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.derived-grid dt {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--text-faint);
+  /* The labels here are sentence fragments the value completes — "You would
+     weigh · 38% of Earth's" — so they read as prose rather than as headings. */
+  padding-top: 1px;
+}
+
+.derived-grid dd {
+  margin: 0;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.derived-grid__value {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.derived-grid__note {
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.35;
+}
+
+/* ---- Seen for real ----
+   Full width, below both columns: a photograph held to a third of the page is
+   a thumbnail, and the whole point of the section is that these are the real
+   thing. */
+.dossier__gallery-wrap {
+  margin-top: 34px;
+}
+
+.dossier__gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 22px;
+}
+
+.shot {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shot__image {
+  width: 100%;
+  /* A fixed frame with the photograph covering it, because these arrive at
+     wildly different shapes — a 4128x423 panorama of Mars beside a square
+     globe. Letting each set its own height made the row into a staircase. */
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.02);
+  display: block;
+}
+
+.shot__caption {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.shot__why {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.shot__meta {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.shot__title {
+  font-style: italic;
+}
+
+.shot__credit {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 10px;
+}

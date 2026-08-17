@@ -63,7 +63,9 @@
     "verify:models": "node scripts/verify-models.mjs",
     "bake:galaxy": "node scripts/bake-galaxy.mjs",
     "verify:galaxy": "node scripts/verify-galaxy.mjs",
-    "fetch:galaxy-sprite": "node scripts/fetch-galaxy-sprite.mjs"
+    "fetch:galaxy-sprite": "node scripts/fetch-galaxy-sprite.mjs",
+    "fetch:planet-images": "node scripts/fetch-planet-images.mjs",
+    "verify:dossier": "node scripts/verify-dossier.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
