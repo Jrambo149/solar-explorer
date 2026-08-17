@@ -160,6 +160,46 @@ check(
   wrongly.length ? wrongly.map((b) => b.name).join(', ') : `${BODIES.length} bodies checked`,
 )
 
+/*
+ * The prose and the facts must not repeat each other.
+ *
+ * Adding a "story" beside a list of facts written years earlier produced
+ * twenty-six restatements and one outright contradiction: a fact claimed the
+ * Great Red Spot had been observed "for over 350 years" while the paragraph
+ * under it said "at least 190 years and possibly since the 1660s". Both are
+ * defensible readings of the same disputed history, and having both on one page
+ * is indefensible.
+ *
+ * Word overlap will not catch a contradiction — only a person reading can — but
+ * it catches the restatements, and it was the restatements that hid the
+ * contradiction in the noise.
+ */
+section('The writing does not repeat itself')
+
+const words = (text) =>
+  new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, '')
+      .split(/\s+/)
+      .filter((w) => w.length > 3),
+  )
+
+for (const p of PLANETS) {
+  const pieces = [...p.facts, ...(p.story ?? [])]
+  const clashes = []
+  for (let i = 0; i < p.facts.length; i++) {
+    for (let j = i + 1; j < pieces.length; j++) {
+      const a = words(p.facts[i])
+      const b = words(pieces[j])
+      const shared = [...b].filter((w) => a.has(w)).length
+      if (shared / Math.min(a.size, b.size) > 0.55) clashes.push(p.facts[i].slice(0, 44))
+    }
+  }
+  check(`${p.name}: ${p.facts.length} facts, ${p.story?.length ?? 0} paragraphs, none restated`,
+    clashes.length === 0, clashes.length ? clashes.join(' / ') : undefined)
+}
+
 section('The photographs')
 let shots = 0
 for (const p of PLANETS) {
@@ -167,6 +207,18 @@ for (const p of PLANETS) {
   shots += gallery.length
   const onDisk = gallery.every((s) => existsSync(join(ROOT, 'public', 'images', 'planets', s.file)))
   const credited = gallery.every((s) => s.credit && /NASA/i.test(s.credit) && s.title && s.why)
+  /*
+   * Every picture links to its own source, and no caption carries a bare URL.
+   *
+   * NASA's descriptions routinely end with a photojournal link, which read as a
+   * wall of raw URL in the middle of a paragraph — redundant, since the picture
+   * is already a link to exactly that.
+   */
+  const linked = gallery.every(
+    (s) => /^https:\/\/images\.nasa\.gov\/details\//.test(s.source ?? '') &&
+      !/https?:\/\//.test(s.description ?? ''),
+  )
+  check(`${p.name}: every picture links to its source, no URLs in the prose`, linked)
   check(`${p.name}: ${gallery.length} images, all present and credited`, gallery.length >= 3 && onDisk && credited)
 }
 check(`${shots} photographs in total`, shots === PLANETS.length * 3)

@@ -224,6 +224,27 @@ export default function InfoPanel() {
               </button>
             </div>
 
+            {/*
+              The long read, above the two columns and across the full width.
+
+              A column of prose set beside a column of numbers turns both into
+              a form: the eye starts comparing rows that have nothing to do
+              with each other. This is the part meant to be *read*, so it gets
+              its own measure — capped near 68 characters a line, which is
+              where continuous text stops being comfortable.
+            */}
+            {planet.story?.length > 0 && (
+              <Reveal className="dossier__story-wrap">
+                <section className="dossier__section">
+                  {planet.story.map((paragraph) => (
+                    <p className="dossier__story" key={paragraph.slice(0, 40)}>
+                      {paragraph}
+                    </p>
+                  ))}
+                </section>
+              </Reveal>
+            )}
+
             <div className="dossier__columns">
               <Reveal className="dossier__column">
                 <section className="dossier__section">
@@ -359,20 +380,56 @@ export default function InfoPanel() {
                   <div className="dossier__gallery">
                     {gallery.map((shot) => (
                       <figure className="shot" key={shot.file}>
-                        <img
-                          className="shot__image"
-                          src={`${import.meta.env.BASE_URL}images/planets/${shot.file}`}
-                          alt={shot.title}
-                          loading="lazy"
-                          decoding="async"
-                        />
+                        {/*
+                          The picture is a link to its own source.
+
+                          What ships here is a few hundred kilobytes of a
+                          photograph that exists at full resolution, with NASA's
+                          entire caption and every other rendition, at the other
+                          end of this. Sending people there is the least the
+                          gallery can do for images it did not take.
+                        */}
+                        <a
+                          className="shot__link"
+                          href={shot.source}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          <img
+                            className="shot__image"
+                            src={`${import.meta.env.BASE_URL}images/planets/${shot.file}`}
+                            alt={shot.title}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                          <span className="shot__open" aria-hidden="true">
+                            <svg viewBox="0 0 16 16" width="11" height="11" fill="none"
+                              stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"
+                              strokeLinejoin="round">
+                              <path d="M6 3h7v7M13 3L4 12" />
+                            </svg>
+                          </span>
+                        </a>
                         <figcaption className="shot__caption">
                           <p className="shot__why">{shot.why}</p>
+                          {/* NASA's own words about the picture, not ours. */}
+                          {shot.description && (
+                            <p className="shot__description">{shot.description}</p>
+                          )}
                           <p className="shot__meta">
                             <span className="shot__title">{shot.title}</span>
                             <span className="shot__credit">
                               {shot.credit}
                               {shot.date ? ` · ${shot.date.slice(0, 4)}` : ''}
+                              {' · '}
+                              <a
+                                className="shot__source"
+                                href={shot.source}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                              >
+                                {shot.nasaId}
+                              </a>
                             </span>
                           </p>
                         </figcaption>

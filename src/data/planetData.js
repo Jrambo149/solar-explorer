@@ -79,6 +79,11 @@ const RAW = [
       'A single day on Mercury (sunrise to sunrise) lasts 176 Earth days — two full Mercurian years.',
       'Despite being closest to the Sun, it is not the hottest planet; Venus is far hotter.',
       'Ice survives in permanently shadowed craters at its poles, never touched by sunlight.',
+      "Radar found water ice in polar craters whose floors have never seen sunlight.",
+    ],
+    story: [
+      "Mercury is the smallest planet and the fastest, going round the Sun every 88 days at 47 km/s. With almost no atmosphere to carry heat around, the day side reaches about 430 °C while the night side falls to −180 °C — the widest temperature range of any planet. Its iron core fills roughly 85% of its radius, proportionally the largest of any planet, which is why a world smaller than Ganymede is the second densest.",
+      "Its orbit is where Newton's gravity visibly ran out. Mercury's perihelion advances 43 arcseconds per century more than the other planets can account for, and the discrepancy stood unexplained for decades until general relativity produced exactly that figure in 1915 — the first real test Einstein's theory passed. Only two spacecraft have ever been: Mariner 10 in the 1970s, and MESSENGER, which orbited from 2011 to 2015.",
     ],
     nasaLinks: [
       { label: 'NASA — Mercury overview', url: 'https://science.nasa.gov/mercury/' },
@@ -118,6 +123,10 @@ const RAW = [
       'It rotates backwards, so on Venus the Sun rises in the west and sets in the east.',
       'Its day is longer than its year: 243 Earth days to spin once, 225 to orbit the Sun.',
     ],
+    story: [
+      "Venus is almost exactly Earth's size and nothing like it. Carbon dioxide holds heat so well there that the surface sits near 465 °C — hotter than Mercury's day side, despite Venus being twice as far from the Sun. The clouds are sulfuric acid. It is the closest thing to a runaway greenhouse anyone has been able to study, and the reason it is studied at all is that Earth and Venus began as near-twins.",
+      "Radar is the only way to see the ground, since the cloud deck never opens. Magellan mapped 98% of the planet in the early 1990s and found volcanoes, lava plains, and strikingly few impact craters — which implies the entire surface was renewed a few hundred million years ago, long after the planet formed. What resurfaced it is still argued about.",
+    ],
     nasaLinks: [
       { label: 'NASA — Venus overview', url: 'https://science.nasa.gov/venus/' },
       { label: 'NASA — Magellan mission', url: 'https://science.nasa.gov/mission/magellan/' },
@@ -151,6 +160,11 @@ const RAW = [
       'About 71% of the surface is ocean, and 97% of all that water is salt water.',
       'Earth’s magnetic field deflects the solar wind that would otherwise strip away the atmosphere.',
       'The Moon is slowly drifting away at about 3.8 cm per year, gradually lengthening our days.',
+      "It is the only planet not named after a Greek or Roman deity.",
+    ],
+    story: [
+      "Earth is the only place known to have liquid water on its surface, and the only one known to have life. It is also the densest planet in the solar system, and the only one whose surface is divided into moving plates — a process that recycles the crust, buries carbon, and has kept the climate within a habitable band for billions of years.",
+      "Its Moon is disproportionately large, about a quarter of Earth's diameter, and almost certainly the debris of a collision with a Mars-sized body early on. That moon steadies Earth's axial tilt, and the tilt is what gives us seasons — without it the axis would wander, and the climate with it. The tides it raises are also slowly braking the planet's spin.",
     ],
     nasaLinks: [
       { label: 'NASA — Earth overview', url: 'https://science.nasa.gov/earth/' },
@@ -185,6 +199,12 @@ const RAW = [
       'Olympus Mons rises about 22 km — nearly three times the height of Mount Everest.',
       'Valles Marineris stretches over 4,000 km, long enough to span the United States.',
       'Its two moons, Phobos and Deimos, are likely captured asteroids.',
+      "Phobos orbits faster than Mars rotates, so it rises in the west, twice a day.",
+      "The dust is iron oxide: Mars is rusted.",
+    ],
+    story: [
+      "Mars is half Earth's diameter and carries the solar system's most extreme landscape, and the reason is what it lacks. With no drifting plates, a volcano sits over its hotspot for hundreds of millions of years instead of being carried off it — so instead of a chain of islands like Hawaii, Mars piles everything into one mountain. Lower gravity lets that pile grow far higher than anything Earth's crust could carry.",
+      "It was once wet. Orbiters and rovers have found river valleys, deltas, lake beds and clay minerals that only form in water, and the case that Mars had standing water billions of years ago is now overwhelming. What it lacks is a magnetic field: without one the solar wind has stripped most of the atmosphere away, leaving a surface pressure under 1% of Earth's, where liquid water boils away rather than pooling.",
     ],
     nasaLinks: [
       { label: 'NASA — Mars overview', url: 'https://science.nasa.gov/mars/' },
@@ -214,9 +234,15 @@ const RAW = [
     description:
       'The giant of the solar system — more than twice as massive as all the other planets combined. Jupiter is a ball of gas with no solid surface, banded by ferocious storms that have raged for centuries.',
     facts: [
-      'The Great Red Spot is a storm wider than Earth that has been observed for over 350 years.',
+      'The Great Red Spot has been watched continuously since 1830, and may be the spot Cassini recorded in 1665.',
       'It spins faster than any other planet, completing a rotation in under 10 hours.',
       'Its gravity acts as a shield, deflecting many comets and asteroids away from the inner planets.',
+      "Io is the most volcanically active body in the solar system.",
+      "Europa likely holds twice as much liquid water as all of Earth's oceans.",
+    ],
+    story: [
+      "Jupiter is more massive than everything else orbiting the Sun combined, twice over. It has no surface — going down means gas thickening steadily into supercritical fluid and then into metallic hydrogen, a state that exists nowhere on Earth and which generates a magnetic field twenty thousand times stronger than ours.",
+      "The Great Red Spot is a storm wider than the Earth that has been observed for at least 190 years and possibly since the 1660s, though it has been shrinking noticeably for the last century. Jupiter's gravity also shapes the rest of the solar system: it holds two swarms of Trojan asteroids in its orbit, stirs the main belt into gaps, and has been redirecting comets for four billion years.",
     ],
     nasaLinks: [
       { label: 'NASA — Jupiter overview', url: 'https://science.nasa.gov/jupiter/' },
@@ -250,6 +276,11 @@ const RAW = [
       'Saturn is less dense than water; given a big enough ocean, it would float.',
       'Its rings are only about 10 metres thick in places, despite spanning 280,000 km.',
       'Its moon Titan has a thick atmosphere and lakes of liquid methane on its surface.',
+      "Enceladus vents water into space from an ocean beneath its ice.",
+    ],
+    story: [
+      "Saturn's rings are its whole reputation and they are almost nothing at all: a vast, vanishingly thin sheet of water ice, from grains to house-sized boulders, every piece on its own orbit. They may also be young — Cassini's measurements of their mass and how quickly they are darkening suggest they formed within the last few hundred million years, long after the planet itself, which would mean the dinosaurs missed them.",
+      "Its north pole carries a hexagonal jet stream 30,000 km across, which has held its shape since Voyager first saw it in 1981; laboratory tanks reproduce the effect, but why the atmosphere settles on six sides is still open. Cassini ended its mission in 2017 by flying into the planet deliberately, so that a dead spacecraft could never drift down onto Enceladus and contaminate the ocean it had just found.",
     ],
     nasaLinks: [
       { label: 'NASA — Saturn overview', url: 'https://science.nasa.gov/saturn/' },
@@ -288,6 +319,10 @@ const RAW = [
       'It was the first planet discovered with a telescope, by William Herschel in 1781.',
       'It has 13 faint rings, far darker and thinner than Saturn’s.',
     ],
+    story: [
+      "Uranus orbits on its side. Its axis is tilted 98 degrees, so it rolls around the Sun rather than spinning upright, and the poles take turns pointing almost directly at it — each gets 42 years of continuous daylight followed by 42 years of night. The most likely cause is a collision large enough to knock the whole planet over.",
+      "It is the coldest planet, reaching −224 °C despite Neptune being further out, and it is the only giant that radiates almost no more heat than it receives. Voyager 2 flew past in 1986 and found a nearly featureless blue disc; no spacecraft has been back since, and nothing is scheduled. Its 13 rings are dark and narrow, and were discovered from Earth in 1977 when they blocked a star.",
+    ],
     nasaLinks: [
       { label: 'NASA — Uranus overview', url: 'https://science.nasa.gov/uranus/' },
       { label: 'NASA — Voyager mission', url: 'https://science.nasa.gov/mission/voyager/' },
@@ -319,6 +354,10 @@ const RAW = [
       'Winds reach 2,100 km/h, the fastest recorded anywhere in the solar system.',
       'It has completed only one full orbit of the Sun since its discovery in 1846.',
       'Its largest moon, Triton, orbits backwards and is probably a captured Kuiper Belt object.',
+    ],
+    story: [
+      "Neptune was found with mathematics before anyone looked. Irregularities in Uranus's orbit implied another planet pulling on it, and in 1846 Johann Galle found it within a degree of where Urbain Le Verrier's calculations said it would be — on the first night of searching.",
+      "Whatever drives its weather, it is not sunlight: Neptune receives about a thousandth of what Earth does, and still whips up the most violent gales in the solar system. Voyager 2 photographed a Great Dark Spot in 1989; by the time Hubble looked in 1994 it had gone, and later storms have appeared and vanished on the same scale of years.",
     ],
     nasaLinks: [
       { label: 'NASA — Neptune overview', url: 'https://science.nasa.gov/neptune/' },

@@ -79,7 +79,7 @@ const GALLERY = {
   jupiter: [
     ['PIA22946', 'The banded atmosphere, which is all weather and no surface'],
     ['PIA21773', 'The Great Red Spot, a storm wider than the Earth'],
-    ['PIA01519', 'The four Galilean moons that broke geocentrism'],
+    ['PIA01400', 'The four Galilean moons that broke geocentrism'],
   ],
   saturn: [
     ['PIA06193', 'The portrait — the rings at the angle that made them famous'],
@@ -92,9 +92,9 @@ const GALLERY = {
     ['PIA01977', 'The rings, which are there and very nearly invisible'],
   ],
   neptune: [
-    ['PIA00046', 'The Great Dark Spot, a storm that had gone by the next look'],
+    ['PIA00049', 'The Great Dark Spot, a storm that had gone by the next look'],
     ['PIA01493', 'The rings, and the arcs in them nothing fully explains'],
-    ['PIA02245', 'The last thing Voyager 2 photographed on its way out'],
+    ['PIA02245', 'The blue-green of it, which is methane soaking up the red'],
   ],
 }
 
@@ -123,15 +123,40 @@ function pickRendition(hrefs) {
   return hrefs.find((h) => /\.jpe?g$/i.test(h)) ?? null
 }
 
-/** Trim NASA's description to something a caption can carry. */
+/**
+ * NASA's own description of the picture, trimmed to a readable paragraph.
+ *
+ * These run from a sentence to several screens — the Cassini captions in
+ * particular carry full observation geometry, spacecraft range and phase angle
+ * — so they need a limit. 700 characters is two or three sentences, which is
+ * where they stop being about the picture and start being about the exposure.
+ *
+ * Cut at a **sentence** end, never at a character count. The first version cut
+ * at 300 and left "The image was taken on July 10, 2017 at 07:10 p.m. PDT
+ * (10:10 p.m…" — a truncation that reads as a bug rather than as an excerpt.
+ * If no sentence ends in the window the whole thing is dropped instead: a
+ * caption that trails off mid-clause is worse than no caption.
+ */
 function summarise(text) {
   if (!text) return null
-  const clean = text.replace(/\s+/g, ' ').trim()
-  if (clean.length <= 300) return clean
-  // Cut at a sentence end rather than mid-word.
-  const cut = clean.slice(0, 300)
-  const stop = cut.lastIndexOf('. ')
-  return `${stop > 120 ? cut.slice(0, stop) : cut.trimEnd()}…`
+  const clean = text
+    .replace(/<[^>]*>/g, ' ')
+    /*
+     * Bare URLs out.
+     *
+     * Many of these captions end with a link to the same image on
+     * photojournal.jpl.nasa.gov, sometimes followed by a fragment of credit
+     * ("Enhanced image by Kevin M."). Printed as prose it is a wall of raw URL
+     * in the middle of a paragraph, and it is redundant: the picture is already
+     * a link to its own source, and the credit already has its own line.
+     */
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (clean.length <= 700) return clean
+  const cut = clean.slice(0, 700)
+  const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('.\u201d'))
+  return stop > 200 ? cut.slice(0, stop + 1) : null
 }
 
 mkdirSync(OUT_DIR, { recursive: true })
@@ -178,6 +203,12 @@ for (const [planet, entries] of Object.entries(GALLERY)) {
         credit: meta.secondary_creator?.trim() || `NASA/${meta.center ?? 'JPL'}`,
         date: meta.date_created?.slice(0, 10) ?? null,
         description: summarise(meta.description),
+        /*
+         * Where the picture came from, so a reader can go and see the original
+         * at full resolution with NASA's whole caption around it. The app ships
+         * a few hundred kilobytes of each; this is the rest of it.
+         */
+        source: `https://images.nasa.gov/details/${encodeURIComponent(nasaId)}`,
       })
       log(`  ${planet.padEnd(8)} ${nasaId.padEnd(30)} ${(buffer.length / 1024).toFixed(0)} KB`)
     } catch (error) {
@@ -195,6 +226,27 @@ for (const [planet, entries] of Object.entries(GALLERY)) {
 if (missing.length) {
   log(`\n${missing.length} image(s) could not be fetched:`)
   for (const line of missing) log(`  ${line}`)
+}
+
+/*
+ * Every caption printed beside the title NASA gave the picture.
+ *
+ * `why` is written here and the image is fetched from over there, so the two
+ * can disagree and nothing would notice: the gallery renders perfectly, and the
+ * caption simply describes a different photograph. It has already happened
+ * twice — PIA01519 was captioned as the four Galilean moons and is a disturbed
+ * region west of the Great Red Spot, and PIA00046 was captioned as the Great
+ * Dark Spot when its own description does not mention one.
+ *
+ * There is no way to check a claim like that automatically. Printing the pair
+ * on every run is the next best thing: it costs a glance and it is the only
+ * moment at which the mismatch is visible at all.
+ */
+log('\ncaption against NASA’s own title — these must agree:')
+for (const [planet, list] of Object.entries(out)) {
+  for (const shot of list) {
+    log(`  ${planet.padEnd(8)} ${shot.why.slice(0, 52).padEnd(52)} | ${shot.title.slice(0, 46)}`)
+  }
 }
 
 const counts = Object.entries(out).map(([k, v]) => `${k} ${v.length}`)

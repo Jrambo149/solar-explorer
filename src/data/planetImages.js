@@ -22,7 +22,8 @@ export const PLANET_IMAGES = {
       "title": "MESSENGER Enhanced Coverage of Mercury Surface",
       "credit": "NASA/Johns Hopkins University Applied Physics Laboratory/Carnegie Institution of Washington",
       "date": "2008-10-29",
-      "description": "MESSENGER Enhanced Coverage of Mercury Surface"
+      "description": "MESSENGER Enhanced Coverage of Mercury Surface",
+      "source": "https://images.nasa.gov/details/PIA11403"
     },
     {
       "file": "mercury-2.jpg",
@@ -31,7 +32,8 @@ export const PLANET_IMAGES = {
       "title": "Exploring Mercury Surface with MESSENGER Color Images",
       "credit": "NASA/Johns Hopkins University Applied Physics Laboratory/Arizona State   University/Carnegie Institution of Washington. Image reproduced courtesy   of <i>Science/AAAS</i>.",
       "date": "2008-09-16",
-      "description": "Exploring Mercury Surface with MESSENGER Color Images"
+      "description": "Exploring Mercury Surface with MESSENGER Color Images",
+      "source": "https://images.nasa.gov/details/PIA11219"
     },
     {
       "file": "mercury-3.jpg",
@@ -40,7 +42,8 @@ export const PLANET_IMAGES = {
       "title": "Looking Toward the South Pole of Mercury",
       "credit": "NASA/Johns Hopkins University Applied Physics Laboratory/Carnegie Institution of Washington",
       "date": "2008-01-21",
-      "description": "On January 14, 2008, NASA MESSENGER spacecraft passed 200 kilometers 124 miles above the surface of Mercury and snapped the first pictures of a side of Mercury not previously seen, with a view looking toward Mercury south pole."
+      "description": "On January 14, 2008, NASA MESSENGER spacecraft passed 200 kilometers 124 miles above the surface of Mercury and snapped the first pictures of a side of Mercury not previously seen, with a view looking toward Mercury south pole.",
+      "source": "https://images.nasa.gov/details/PIA10187"
     }
   ],
   "venus": [
@@ -51,7 +54,8 @@ export const PLANET_IMAGES = {
       "title": "Venus - Computer Simulated Global View of the Northern Hemisphere",
       "credit": "NASA/JPL",
       "date": "1996-07-18",
-      "description": "The northern hemisphere is displayed in this global view of the surface of Venus as seen by NASA Magellan spacecraft. http://photojournal.jpl.nasa.gov/catalog/PIA00271"
+      "description": "The northern hemisphere is displayed in this global view of the surface of Venus as seen by NASA Magellan spacecraft.",
+      "source": "https://images.nasa.gov/details/PIA00271"
     },
     {
       "file": "venus-2.jpg",
@@ -60,7 +64,8 @@ export const PLANET_IMAGES = {
       "title": "Venus - 3-D Perspective View of Maat Mons",
       "credit": "NASA/JPL",
       "date": "1996-03-14",
-      "description": "Maat Mons is displayed in this 3-dimensional perspective view of the surface of Venus taken by NASA Magellan. The viewpoint is located north of Maat Mons. http://photojournal.jpl.nasa.gov/catalog/PIA00254"
+      "description": "Maat Mons is displayed in this 3-dimensional perspective view of the surface of Venus taken by NASA Magellan. The viewpoint is located north of Maat Mons.",
+      "source": "https://images.nasa.gov/details/PIA00254"
     },
     {
       "file": "venus-3.jpg",
@@ -69,7 +74,8 @@ export const PLANET_IMAGES = {
       "title": "Venus - Computer Simulated Global View Centered at 180 Degrees East Longitude",
       "credit": "NASA/JPL",
       "date": "1996-11-12",
-      "description": "This global view from NASA's Magellan spacecraft is of the surface of Venus is centered at 180 degrees east longitude. http://photojournal.jpl.nasa.gov/catalog/PIA00104"
+      "description": "This global view from NASA's Magellan spacecraft is of the surface of Venus is centered at 180 degrees east longitude.",
+      "source": "https://images.nasa.gov/details/PIA00104"
     }
   ],
   "earth": [
@@ -80,7 +86,8 @@ export const PLANET_IMAGES = {
       "title": "Earth",
       "credit": "NASA",
       "date": "2012-01-30",
-      "description": "Behold one of the more detailed images of the Earth yet created. This Blue Marble Earth montage shown above -- created from photographs taken by the Visible/Infrared Imager Radiometer Suite (VIIRS) instrument on board the new Suomi NPP satellite -- shows many stunning details of our home planet…"
+      "description": "Behold one of the more detailed images of the Earth yet created. This Blue Marble Earth montage shown above -- created from photographs taken by the Visible/Infrared Imager Radiometer Suite (VIIRS) instrument on board the new Suomi NPP satellite -- shows many stunning details of our home planet. The Suomi NPP satellite was launched last October and renamed last week after Verner Suomi, commonly deemed the father of satellite meteorology. The composite was created from the data collected during four orbits of the robotic satellite taken earlier this month and digitally projected onto the globe.",
+      "source": "https://images.nasa.gov/details/PIA18033"
     },
     {
       "file": "earth-2.jpg",
@@ -89,7 +96,8 @@ export const PLANET_IMAGES = {
       "title": "Most Amazing High Definition Image of Earth - Blue Marble 2012",
       "credit": "NASA/GSFC",
       "date": "2017-12-08",
-      "description": "January 25, 2012 <b>*Updated February 2, 2012: According to Flickr, &quot;The western hemisphere Blue Marble 2012 image has rocketed up to over 3.1 million views making it one of the all time most viewed images on the site after only one week.&quot;</b> A 'Blue Marble' image of the Earth taken from…"
+      "description": "January 25, 2012 *Updated February 2, 2012: According to Flickr, &quot;The western hemisphere Blue Marble 2012 image has rocketed up to over 3.1 million views making it one of the all time most viewed images on the site after only one week.&quot; A 'Blue Marble' image of the Earth taken from the VIIRS instrument aboard NASA's most recently launched Earth-observing satellite - Suomi NPP. This composite image uses a number of swaths of the Earth's surface taken on January 4, 2012. The NPP satellite was renamed 'Suomi NPP' on January 24, 2012 to honor the late Verner E. Suomi of the University of Wisconsin. Suomi NPP is NASA's next Earth-observing research satellite.",
+      "source": "https://images.nasa.gov/details/GSFC_20171208_Archive_e001386"
     },
     {
       "file": "earth-3.jpg",
@@ -98,7 +106,8 @@ export const PLANET_IMAGES = {
       "title": "Apollo 8 Mission image, Earth over the horizon of the moon",
       "credit": "NASA/JSC",
       "date": "1968-12-24",
-      "description": "AS08-14-2383 (24 Dec. 1968) --- The rising Earth is about five degrees above the lunar horizon in this telephoto view taken from the Apollo 8 spacecraft near 110 degrees east longitude…"
+      "description": "AS08-14-2383 (24 Dec. 1968) --- The rising Earth is about five degrees above the lunar horizon in this telephoto view taken from the Apollo 8 spacecraft near 110 degrees east longitude. The horizon, about 570 kilometers (350 statute miles) from the spacecraft, is near the eastern limb of the moon as viewed from Earth. Width of the view at the horizon is about 150 kilometers (95 statute miles). On Earth 240,000 statute miles away the sunset terminator crosses Africa. The crew took the photo around 10:40 a.m. Houston time on the morning of Dec. 24, and that would make it 15:40 GMT on the same day. The South Pole is in the white area near the left end of the terminator.",
+      "source": "https://images.nasa.gov/details/as08-14-2383"
     }
   ],
   "mars": [
@@ -109,7 +118,8 @@ export const PLANET_IMAGES = {
       "title": "Mars Daily Global Image from April 1999",
       "credit": "NASA/JPL/MSSS",
       "date": "2000-09-08",
-      "description": "Twelve orbits a day provide NASA Mars Global Surveyor MOC wide angle cameras a global napshot of weather patterns across the planet. Here, bluish-white water ice clouds hang above the Tharsis volcanoes."
+      "description": "Twelve orbits a day provide NASA Mars Global Surveyor MOC wide angle cameras a global napshot of weather patterns across the planet. Here, bluish-white water ice clouds hang above the Tharsis volcanoes.",
+      "source": "https://images.nasa.gov/details/PIA02653"
     },
     {
       "file": "mars-2.jpg",
@@ -118,7 +128,8 @@ export const PLANET_IMAGES = {
       "title": "Color Mosaic of Olympus Mons",
       "credit": "NASA/JPL",
       "date": "2000-11-04",
-      "description": "Color mosaic of Olympus Mons volcano on Mars from the Viking 1 Orbiter. The mosaic was created using images from orbit 735 taken 22 June 1978. Olympus Mons is about 600 km in diameter and the summit caldera is 24 km above the surrounding plains."
+      "description": "Color mosaic of Olympus Mons volcano on Mars from the Viking 1 Orbiter. The mosaic was created using images from orbit 735 taken 22 June 1978. Olympus Mons is about 600 km in diameter and the summit caldera is 24 km above the surrounding plains.",
+      "source": "https://images.nasa.gov/details/PIA02982"
     },
     {
       "file": "mars-3.jpg",
@@ -127,7 +138,8 @@ export const PLANET_IMAGES = {
       "title": "Curiosity Captures a Spaghetti Western Landscape on Mars",
       "credit": "NASA/JPL-Caltech/MSSS",
       "date": "2020-08-03",
-      "description": "This wide panorama was taken by NASA's Curiosity Mars rover on Dec. 19, 2019, the 2,620th Martian day, or sol, of the mission. On the righthand foreground is Western Butte; the ridge with a crusty cap in the background is the Greenheugh pediment, which Curiosity ascended in March of 2020…"
+      "description": "This wide panorama was taken by NASA's Curiosity Mars rover on Dec. 19, 2019, the 2,620th Martian day, or sol, of the mission. On the righthand foreground is Western Butte; the ridge with a crusty cap in the background is the Greenheugh pediment, which Curiosity ascended in March of 2020. The rover's Mast Camera, or Mastcam, used its telephoto lens to produce the panorama, which includes 130 individual images stitched together. The panorama has been white-balanced so that the colors of the rock materials resemble how they would appear under daytime lighting conditions on Earth.",
+      "source": "https://images.nasa.gov/details/PIA23971"
     }
   ],
   "jupiter": [
@@ -138,7 +150,8 @@ export const PLANET_IMAGES = {
       "title": "Jupiter Marble",
       "credit": "NASA/JPL",
       "date": "2019-03-21",
-      "description": "This striking view of Jupiter's Great Red Spot and turbulent southern hemisphere was captured by NASA's Juno spacecraft as it performed a close pass of the gas giant planet. Juno took the three images used to produce this color-enhanced view on Feb. 12, 2019, between 9:59 a.m. PST (12:59 p.m…"
+      "description": "This striking view of Jupiter's Great Red Spot and turbulent southern hemisphere was captured by NASA's Juno spacecraft as it performed a close pass of the gas giant planet. Juno took the three images used to produce this color-enhanced view on Feb. 12, 2019, between 9:59 a.m. PST (12:59 p.m. EST) and 10:39 p.m. PST (1:39 p.m. EST), as the spacecraft performed its 17th science pass of Jupiter. At the time the images were taken, the spacecraft was between 16,700 miles (26,900 kilometers) and 59,300 miles (95,400 kilometers) above Jupiter's cloud tops, above a southern latitude spanning from about 40 to 74 degrees. Enhanced image by Kevin M.",
+      "source": "https://images.nasa.gov/details/PIA22946"
     },
     {
       "file": "jupiter-2.jpg",
@@ -147,16 +160,18 @@ export const PLANET_IMAGES = {
       "title": "Jupiter's Great Red Spot (Enhanced Color)",
       "credit": "NASA/JPL",
       "date": "2017-07-12",
-      "description": "This enhanced-color image of Jupiter's Great Red Spot was created by citizen scientist Gerald Eichstädt using data from the JunoCam imager on NASA's Juno spacecraft. The image was taken on July 10, 2017 at 07:10 p.m. PDT (10:10 p.m…"
+      "description": "This enhanced-color image of Jupiter's Great Red Spot was created by citizen scientist Gerald Eichstädt using data from the JunoCam imager on NASA's Juno spacecraft. The image was taken on July 10, 2017 at 07:10 p.m. PDT (10:10 p.m. EDT), as the Juno spacecraft performed its 7th close flyby of Jupiter. At the time the image was taken, the spacecraft was about 8,648 miles (13,917 kilometers) from the tops of the clouds of the planet. - Enhanced image by Gerald Eichstädt based on images provided courtesy of NASA/JPL-Caltech/SwRI/MSSS",
+      "source": "https://images.nasa.gov/details/PIA21773"
     },
     {
       "file": "jupiter-3.jpg",
-      "nasaId": "PIA01519",
+      "nasaId": "PIA01400",
       "why": "The four Galilean moons that broke geocentrism",
-      "title": "Disturbed Region West of the Great Red Spot",
-      "credit": "NASA/JPL",
-      "date": "1999-03-13",
-      "description": "This photo from NASA Voyager 2 was taken on Jun. 9, 1979 and is centered over the long-lived disturbed region west of the Great Red Spot GRS."
+      "title": "The Galilean Satellites",
+      "credit": "NASA/JPL/DLR",
+      "date": "1998-05-08",
+      "description": "In this \"family portrait,\" the four Galilean Satellites are shown to scale. These four largest moons of Jupiter shown in increasing distance from Jupiter are (left to right) Io, Europa, Ganymede, and Callisto. These global views show the side of volcanically active Io which always faces away from Jupiter, icy Europa, the Jupiter-facing side of Ganymede, and heavily cratered Callisto. The appearances of these neighboring satellites are amazingly different even though they are relatively close to Jupiter (350,000 kilometers for Io; 1, 800,000 kilometers for Callisto).",
+      "source": "https://images.nasa.gov/details/PIA01400"
     }
   ],
   "saturn": [
@@ -167,7 +182,8 @@ export const PLANET_IMAGES = {
       "title": "The Greatest Saturn Portrait ...Yet",
       "credit": "NASA/JPL/Space Science Institute",
       "date": "2005-02-24",
-      "description": "While cruising around Saturn in early October 2004, Cassini captured a series of images that have been composed into the largest, most detailed, global natural color view of Saturn and its rings ever made…"
+      "description": "While cruising around Saturn in early October 2004, Cassini captured a series of images that have been composed into the largest, most detailed, global natural color view of Saturn and its rings ever made. This grand mosaic consists of 126 images acquired in a tile-like fashion, covering one end of Saturn's rings to the other and the entire planet in between. The images were taken over the course of two hours on Oct. 6, 2004, while Cassini was approximately 6.3 million kilometers (3.9 million miles) from Saturn. Since the view seen by Cassini during this time changed very little, no re-projection or alteration of any of the images was necessary.",
+      "source": "https://images.nasa.gov/details/PIA06193"
     },
     {
       "file": "saturn-2.jpg",
@@ -176,7 +192,8 @@ export const PLANET_IMAGES = {
       "title": "In Saturn Shadow",
       "credit": "NASA/JPL/Space Science Institute",
       "date": "2006-10-11",
-      "description": "With giant Saturn hanging in the blackness and sheltering Cassini from the sun blinding glare, the spacecraft viewed the rings as never before, revealing previously unknown faint rings and even glimpsing its home world."
+      "description": "With giant Saturn hanging in the blackness and sheltering Cassini from the sun blinding glare, the spacecraft viewed the rings as never before, revealing previously unknown faint rings and even glimpsing its home world.",
+      "source": "https://images.nasa.gov/details/PIA08329"
     },
     {
       "file": "saturn-3.jpg",
@@ -185,7 +202,8 @@ export const PLANET_IMAGES = {
       "title": "The Edge of the Night",
       "credit": "NASA/JPL-Caltech/Space Science Institute",
       "date": "2018-03-19",
-      "description": "Saturn's shadow sweeps across the rings in a view captured on Nov. 5, 2006 by NASA's Cassini spacecraft. In the bottom half of the image, the countless icy particles that make up the rings bask in full daylight. In the top half, they move through Saturn's shadow…"
+      "description": "Saturn's shadow sweeps across the rings in a view captured on Nov. 5, 2006 by NASA's Cassini spacecraft. In the bottom half of the image, the countless icy particles that make up the rings bask in full daylight. In the top half, they move through Saturn's shadow. On the right side of the image, the planet's night side, dimly lit by reflected ringshine, can be seen through gaps in the darkened rings. This view is a mosaic of four visible light images taken with Cassini's narrow-angle camera at a distance of approximately 932,000 miles (1.5 million kilometers) from Saturn. The Cassini spacecraft ended its mission on Sept. 15, 2017.",
+      "source": "https://images.nasa.gov/details/PIA17199"
     }
   ],
   "uranus": [
@@ -196,7 +214,8 @@ export const PLANET_IMAGES = {
       "title": "Uranus as seen by NASA Voyager 2",
       "credit": "NASA/JPL-Caltech",
       "date": "1986-12-18",
-      "description": "This is an image of the planet Uranus taken by the spacecraft Voyager 2 in 1986."
+      "description": "This is an image of the planet Uranus taken by the spacecraft Voyager 2 in 1986.",
+      "source": "https://images.nasa.gov/details/PIA18182"
     },
     {
       "file": "uranus-2.jpg",
@@ -205,7 +224,8 @@ export const PLANET_IMAGES = {
       "title": "Color Voyager 2 Image Showing Crescent Uranus",
       "credit": "NASA/JPL/USGS",
       "date": "1998-06-04",
-      "description": "This image shows a crescent Uranus, a view that Earthlings never witnessed until Voyager 2 flew near and then beyond Uranus on Jan 24, 1986. http://photojournal.jpl.nasa.gov/catalog/PIA00346"
+      "description": "This image shows a crescent Uranus, a view that Earthlings never witnessed until Voyager 2 flew near and then beyond Uranus on Jan 24, 1986.",
+      "source": "https://images.nasa.gov/details/PIA00346"
     },
     {
       "file": "uranus-3.jpg",
@@ -214,18 +234,20 @@ export const PLANET_IMAGES = {
       "title": "Uranus Rings",
       "credit": "NASA/JPL",
       "date": "1999-06-21",
-      "description": "NASA Voyager 2 returned this picture of the Uranus rings on Jan. 22, 1986, from a distance of 2.52 million kilometers 1.56 million miles. All nine known rings are visible in this image."
+      "description": "NASA Voyager 2 returned this picture of the Uranus rings on Jan. 22, 1986, from a distance of 2.52 million kilometers 1.56 million miles. All nine known rings are visible in this image.",
+      "source": "https://images.nasa.gov/details/PIA01977"
     }
   ],
   "neptune": [
     {
       "file": "neptune-1.jpg",
-      "nasaId": "PIA00046",
+      "nasaId": "PIA00049",
       "why": "The Great Dark Spot, a storm that had gone by the next look",
-      "title": "Neptune Full Disk",
+      "title": "Neptune - Great Dark Spot, Scooter, Dark Spot 2",
       "credit": "NASA/JPL",
-      "date": "1996-01-29",
-      "description": "During August 16 and 17, 1989, the Voyager 2 narrow-angle camera was used to photograph Neptune almost continuously, recording approximately two and one-half rotations of the planet. http://photojournal.jpl.nasa.gov/catalog/PIA00046"
+      "date": "1998-01-08",
+      "description": "This photograph of Neptune was reconstructed from two images taken by NASA Voyager 2. At the north top is the Great Dark Spot.",
+      "source": "https://images.nasa.gov/details/PIA00049"
     },
     {
       "file": "neptune-2.jpg",
@@ -234,16 +256,18 @@ export const PLANET_IMAGES = {
       "title": "Neptune Rings",
       "credit": "NASA/JPL",
       "date": "1998-10-30",
-      "description": "In Neptune outermost ring, 39,000 miles out, material mysteriously clumps into three arcs. Voyager 2 acquired this image as it encountered Neptune in August of 1989."
+      "description": "In Neptune outermost ring, 39,000 miles out, material mysteriously clumps into three arcs. Voyager 2 acquired this image as it encountered Neptune in August of 1989.",
+      "source": "https://images.nasa.gov/details/PIA01493"
     },
     {
       "file": "neptune-3.jpg",
       "nasaId": "PIA02245",
-      "why": "The last thing Voyager 2 photographed on its way out",
+      "why": "The blue-green of it, which is methane soaking up the red",
       "title": "Neptune Blue-green Atmosphere",
       "credit": "NASA/JPL",
       "date": "2000-02-16",
-      "description": "Neptune's blue-green atmosphere is shown in greater detail than ever before by the Voyager 2 spacecraft as it rapidly approaches its encounter with the giant planet. This color image, produced from a distance of about 16 million kilometers, shows several complex and puzzling atmospheric features…"
+      "description": "Neptune's blue-green atmosphere is shown in greater detail than ever before by the Voyager 2 spacecraft as it rapidly approaches its encounter with the giant planet. This color image, produced from a distance of about 16 million kilometers, shows several complex and puzzling atmospheric features. The Great Dark Spot (GDS) seen at the center is about 13,000 km by 6,600 km in size -- as large along its longer dimension as the Earth. The bright, wispy \"cirrus-type\" clouds seen hovering in the vicinity of the GDS are higher in altitude than the dark material of unknown origin which defines its boundaries. A thin veil often fills part of the GDS interior, as seen on the image.",
+      "source": "https://images.nasa.gov/details/PIA02245"
     }
   ]
 }

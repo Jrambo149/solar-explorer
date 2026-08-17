@@ -525,3 +525,88 @@
   text-transform: uppercase;
   font-size: 10px;
 }
+
+/* The photograph as a link to its source. `block` so the anchor is the frame
+   rather than a text-sized box around an inline image, and `relative` so the
+   corner arrow has something to sit in. */
+.shot__link {
+  display: block;
+  position: relative;
+  border-radius: 3px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+
+.shot__link:hover .shot__image,
+.shot__link:focus-visible .shot__image {
+  border-color: var(--text-faint);
+  opacity: 0.94;
+}
+
+/* The affordance. Always present rather than appearing on hover — a picture
+   that only reveals it is clickable once you are already on it has not told
+   anyone anything, and touch has no hover at all. */
+.shot__open {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  opacity: 0.75;
+  transition: opacity 160ms ease;
+}
+
+.shot__link:hover .shot__open,
+.shot__link:focus-visible .shot__open {
+  opacity: 1;
+}
+
+.shot__image {
+  transition:
+    opacity 160ms ease,
+    border-color 160ms ease;
+}
+
+.shot__description {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.shot__source {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.shot__source:hover {
+  color: var(--text);
+}
+
+/* ---- The long read ----
+   Full width but not full measure: prose set to the width of a 1400px page is
+   unreadable, so the column is capped where continuous text stays comfortable
+   and the rest of the row is left empty. */
+.dossier__story-wrap {
+  margin-bottom: 38px;
+}
+
+.dossier__story {
+  margin: 0 0 15px;
+  max-width: 62ch;
+  font-size: 15px;
+  line-height: 1.62;
+  color: var(--text-soft, var(--text));
+}
+
+.dossier__story:last-child {
+  margin-bottom: 0;
+}
