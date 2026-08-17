@@ -115,48 +115,11 @@
   box-shadow: 0 0 18px rgba(255, 255, 255, 0.16);
 }
 
-/* ---- the defocus reveal ----
-
-   Blur and a small rise, not just opacity. Arriving out of focus is what makes
-   the copy read as resolving in front of the planet rather than being switched
-   on over it. `filter` is the expensive half, so it is only ever applied to
-   these three blocks and only while they are moving.
-
-   No `will-change`: it would keep a layer alive for the whole session on
-   content that animates twice.
-
-   Note which way round this is. The bare `.reveal` is *visible* — the hidden
-   state hangs off `.is-armed`, which JavaScript only adds once the observer has
-   actually reported. Styling it hidden by default would mean that any failure
-   to observe leaves the page blank, and a missing flourish is a much smaller
-   problem than missing content. */
-.reveal {
-  transition:
-    opacity 0.62s var(--ease-out),
-    filter 0.62s var(--ease-out),
-    transform 0.7s var(--ease-out);
-}
-
-.reveal.is-armed {
-  opacity: 0;
-  filter: blur(14px);
-  transform: translateY(28px);
-}
-
-.reveal.is-armed.is-in {
-  opacity: 1;
-  filter: blur(0);
-  transform: none;
-}
-
-/* The fade stays — it is what marks the arrival — but the defocus and the rise
-   are exactly the kind of motion this preference is asking us not to make. */
-@media (prefers-reduced-motion: reduce) {
-  .reveal.is-armed {
-    filter: none;
-    transform: none;
-  }
-}
+/* The dossier used to blur and rise into view as you scrolled, on an
+   IntersectionObserver. It is gone deliberately: the effect reads as depth the
+   first time and as latency every time after, and on a page people come back to
+   in order to *read*, content that is not there yet until it decides to appear
+   is a cost with no return. Everything below is simply present. */
 
 /* ---- screen two: the rest, on a surface ---- */
 
@@ -175,7 +138,7 @@
 }
 
 .dossier__inner {
-  max-width: 1100px;
+  max-width: 1160px;
   margin: 0 auto;
   padding: 0 40px;
 }
@@ -221,15 +184,31 @@
   background: var(--surface-hover);
 }
 
+/* The two measured tables on the left, everything meant to be read on the
+   right. They were mixed before — a table, some prose, another table facing a
+   list of bullets — which left neither side with a rhythm. Grouping by *kind*
+   means each column has one, and the numbers line up down a single edge.
+
+   Slightly narrower on the left, because a label and a value need less room
+   than a paragraph does. */
 .dossier__columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 56px;
+  grid-template-columns: minmax(280px, 0.85fr) 1fr;
+  gap: 30px 64px;
   align-items: start;
 }
 
+/* Below the split, one column: side-by-side at this width would give each about
+   forty characters, which is narrower than either a table or a sentence wants. */
+@media (max-width: 860px) {
+  .dossier__columns {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
 .dossier__section {
-  margin-bottom: 38px;
+  margin-bottom: 40px;
 }
 
 .dossier__section:last-child {
@@ -609,4 +588,36 @@
 
 .dossier__story:last-child {
   margin-bottom: 0;
+}
+
+/* ---- section rhythm ----
+   A hairline above every section heading, so the page reads as a set of blocks
+   rather than as one long ribbon of text at three different sizes. The first in
+   a column does not get one — it would sit immediately under the split's own
+   edge and read as a double rule. */
+.dossier__column .dossier__section + .dossier__section,
+.dossier__gallery-wrap .dossier__section {
+  padding-top: 26px;
+  border-top: 1px solid var(--hairline);
+}
+
+/* NASA's descriptions run from one sentence to a full paragraph about exposure
+   geometry, and a three-up row of them was ragged by six or seven lines.
+
+   Clamped rather than stretched. Pushing each credit line to a common bottom
+   was the first attempt and it aligned them by opening a hole under every short
+   caption, which is worse than a ragged edge — it looks like something failed
+   to load. Clamping evens the row out at the top instead, where the eye
+   actually reads, and nothing is lost: the picture links to the full caption at
+   the source. */
+.shot__description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
+}
+
+.dossier__story-wrap {
+  padding-bottom: 4px;
 }

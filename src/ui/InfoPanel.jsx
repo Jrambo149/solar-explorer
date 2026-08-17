@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { getBody, majorMoonsOf } from '../data/bodies'
 import { useStore } from '../store/useStore'
 import { useBodyName } from './useBodyName'
@@ -59,58 +59,6 @@ function eyebrowFor(body) {
   // probe has none.
   if (body.kind === 'spacecraft') return 'Spacecraft'
   return `Planet ${body.order}`
-}
-
-/**
- * Content that blurs into focus as it arrives, and back out as it leaves.
- *
- * The defocus is doing real work rather than decorating: the split view has no
- * panel behind it, so the text sits directly on the scene, and something
- * arriving *out of focus* reads as depth — as copy resolving in front of the
- * planet rather than a label switched on over it.
- *
- * An IntersectionObserver rather than a scroll-linked animation. CSS
- * `animation-timeline: view()` would tie it to scroll position exactly, which
- * is what the source material does, but it is Chromium-only — a class toggle
- * and a transition reverse just as correctly when you scroll back up, and work
- * everywhere.
- */
-function Reveal({ className = '', threshold = 0.25, children }) {
-  const ref = useRef(null)
-  /*
-   * `armed` is the fail-safe, and it is not decoration.
-   *
-   * The hidden state is what the transition animates *from*, so if the observer
-   * never reported, content styled hidden by default would simply never appear
-   * — an invisible page, which is a far worse outcome than a missing flourish.
-   * So the element starts plainly visible and only becomes hideable once a
-   * callback has actually arrived, proving the mechanism works. Nothing here
-   * can leave the dossier blank.
-   *
-   * Not a hypothetical: IntersectionObserver delivers during the rendering
-   * steps, and a document that is never rendered never gets a callback.
-   */
-  const [state, setState] = useState({ armed: false, shown: false })
-
-  useEffect(() => {
-    const node = ref.current
-    if (!node) return
-    const observer = new IntersectionObserver(
-      ([entry]) => setState({ armed: true, shown: entry.isIntersecting }),
-      { threshold },
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [threshold])
-
-  return (
-    <div
-      ref={ref}
-      className={`reveal${state.armed ? ' is-armed' : ''}${state.shown ? ' is-in' : ''} ${className}`}
-    >
-      {children}
-    </div>
-  )
 }
 
 /**
@@ -175,7 +123,7 @@ export default function InfoPanel() {
       <div key={planet.id}>
         {/* ---- screen one: the split ---- */}
         <div className="dossier__split">
-          <Reveal className="dossier__lede">
+          <div className="dossier__lede">
             <p className="dossier__eyebrow">{eyebrowFor(planet)}</p>
             <h2 className="dossier__title">{name}</h2>
             <span className="dossier__rule" />
@@ -203,7 +151,7 @@ export default function InfoPanel() {
                 />
               </svg>
             </button>
-          </Reveal>
+          </div>
         </div>
 
         {/* ---- screen two: the rest, on a surface ---- */}
@@ -234,7 +182,7 @@ export default function InfoPanel() {
               where continuous text stops being comfortable.
             */}
             {planet.story?.length > 0 && (
-              <Reveal className="dossier__story-wrap">
+              <div className="dossier__story-wrap">
                 <section className="dossier__section">
                   {planet.story.map((paragraph) => (
                     <p className="dossier__story" key={paragraph.slice(0, 40)}>
@@ -242,11 +190,11 @@ export default function InfoPanel() {
                     </p>
                   ))}
                 </section>
-              </Reveal>
+              </div>
             )}
 
             <div className="dossier__columns">
-              <Reveal className="dossier__column">
+              <div className="dossier__column">
                 <section className="dossier__section">
                   <h3 className="dossier__section-title">Key facts</h3>
                   <dl className="fact-grid">
@@ -262,11 +210,6 @@ export default function InfoPanel() {
                       </div>
                     ))}
                   </dl>
-                </section>
-
-                <section className="dossier__section">
-                  <h3 className="dossier__section-title">Atmosphere</h3>
-                  <p className="dossier__atmosphere">{planet.atmosphere}</p>
                 </section>
 
                 {/*
@@ -296,9 +239,14 @@ export default function InfoPanel() {
                     </dl>
                   </section>
                 )}
-              </Reveal>
+              </div>
 
-              <Reveal className="dossier__column">
+              <div className="dossier__column">
+                <section className="dossier__section">
+                  <h3 className="dossier__section-title">Atmosphere</h3>
+                  <p className="dossier__atmosphere">{planet.atmosphere}</p>
+                </section>
+
                 <section className="dossier__section">
                   <h3 className="dossier__section-title">Fun facts</h3>
                   <ul className="dossier__facts">
@@ -358,7 +306,7 @@ export default function InfoPanel() {
                     ))}
                   </div>
                 </section>
-              </Reveal>
+              </div>
             </div>
 
             {/*
@@ -374,7 +322,7 @@ export default function InfoPanel() {
               will never scroll to.
             */}
             {gallery.length > 0 && (
-              <Reveal className="dossier__gallery-wrap">
+              <div className="dossier__gallery-wrap">
                 <section className="dossier__section">
                   <h3 className="dossier__section-title">Seen for real</h3>
                   <div className="dossier__gallery">
@@ -437,7 +385,7 @@ export default function InfoPanel() {
                     ))}
                   </div>
                 </section>
-              </Reveal>
+              </div>
             )}
           </div>
         </div>
