@@ -56,6 +56,10 @@ export const MOONS_RAW = [
       'It almost certainly formed from debris thrown off when a Mars-sized body struck the early Earth.',
       'The dark maria are ancient basalt floods — vast lava plains, not seas.',
     ],
+    story: [
+      "The Moon is a quarter of Earth's diameter, which makes the pair almost a double planet — no other rocky world has a satellite anything like this size relative to itself. It is almost certainly the debris of a collision: a Mars-sized body struck the early Earth, and what did not sink into the core spun out into a ring and gathered.",
+      "It keeps one face turned toward us because tides have slowed its spin until the day matches the orbit, and it is still taking energy from Earth's rotation — receding 3.8 cm a year while our days lengthen by 1.8 milliseconds a century. Twelve people have walked on it, all of them between 1969 and 1972.",
+    ],
     nasaLinks: [
       { label: "NASA — Earth's Moon", url: 'https://science.nasa.gov/moon/' },
       { label: 'NASA — Artemis', url: 'https://science.nasa.gov/artemis/' },
@@ -81,6 +85,10 @@ export const MOONS_RAW = [
       'Stickney, its largest crater, is 9 km across on a moon only 22 km wide — the impact nearly destroyed it.',
       'It is drawn here as a sphere, which is generous: Phobos is far too small for gravity to have rounded it.',
     ],
+    story: [
+      "Phobos is 22 km across, shaped like a battered potato, and orbits closer to its planet than any other moon in the solar system — 6,000 km above the surface, inside the height where a body should be torn apart. It goes round in 7 hours 39 minutes, faster than Mars turns, so from the ground it rises in the west and sets in the east twice a day.",
+      "It is also falling. Tides are drawing it inward about 2 cm a year, and in perhaps 50 million years it will either break into a ring or hit. The long grooves across its surface were once read as impact scars; the better explanation now is that they are stretch marks, from a moon already coming apart.",
+    ],
     nasaLinks: [{ label: 'NASA — Phobos', url: 'https://science.nasa.gov/mars/moons/phobos/' }],
   },
   {
@@ -102,6 +110,10 @@ export const MOONS_RAW = [
       "Its surface is smoother than Phobos's — a blanket of dust has partly buried its craters.",
       'Unlike Phobos it is slowly moving away from Mars rather than falling in.',
       'Phobos and Deimos are named for the Greek personifications of fear and dread, the sons of Ares.',
+    ],
+    story: [
+      "Deimos is the smaller and further of Mars's two moons, 12 km across and orbiting at 23,500 km. Its surface is smoother than Phobos's — not because it has fewer craters, but because a layer of loose dust has filled them in, which is surprising on a body whose escape velocity is about 5 m/s.",
+      "From the Martian surface it is barely more than a bright star, and when it crosses the Sun the result is a transit rather than an eclipse: it is far too small to cover the disc. Both moons are probably captured asteroids, though their near-circular equatorial orbits are hard to explain that way, and the argument is not settled.",
     ],
     nasaLinks: [{ label: 'NASA — Deimos', url: 'https://science.nasa.gov/mars/moons/deimos/' }],
   },
@@ -125,6 +137,10 @@ export const MOONS_RAW = [
       'Its volcanoes feed a doughnut of charged particles around Jupiter called the Io plasma torus.',
       'Io, Europa and Ganymede are locked in a 4:2:1 orbital resonance — for every Ganymede orbit, Io makes exactly four.',
     ],
+    story: [
+      "Io is the most volcanically active body in the solar system, with several hundred active volcanoes throwing plumes 300 km above the surface. The heat comes from Jupiter: caught in a resonance with Europa and Ganymede, Io is flexed by tides on every orbit, and the friction melts its interior.",
+      "The result is a world that resurfaces itself faster than craters can accumulate — there are essentially none. What there is instead is sulphur, in yellows, oranges and whites, and lava hotter than anything erupting on Earth today. It also feeds a torus of ionised gas around Jupiter and carries a current of five million amps.",
+    ],
     nasaLinks: [{ label: 'NASA — Io', url: 'https://science.nasa.gov/jupiter/moons/io/' }],
   },
   {
@@ -146,6 +162,10 @@ export const MOONS_RAW = [
       'Its surface is the smoothest of any solid body known — the ice is young and constantly renewed.',
       'The dark cracks criss-crossing it are fractures where the shell has pulled apart and refrozen.',
       'Europa Clipper, launched in 2024, will make dozens of close passes to survey the ice and the ocean beneath.',
+    ],
+    story: [
+      "Europa is the smoothest object in the solar system. Its surface is water ice, criss-crossed with brown cracks and almost devoid of craters, which means it is young — tens of millions of years, not billions. Underneath, the evidence points to a global ocean perhaps 100 km deep, holding more than twice the liquid water of all Earth's oceans.",
+      "That makes it one of the best places to look for life beyond Earth. The ocean is in contact with a rocky floor, tidal flexing supplies energy, and the cracks suggest material moves between the surface and the water below. Europa Clipper launched in 2024 to find out, and will make dozens of close passes from 2030.",
     ],
     nasaLinks: [
       { label: 'NASA — Europa', url: 'https://science.nasa.gov/jupiter/moons/europa/' },
@@ -172,6 +192,10 @@ export const MOONS_RAW = [
       'Its magnetic field creates aurorae, and watching them shift is how the subsurface ocean was confirmed.',
       'Its surface is half ancient dark cratered terrain and half younger grooved ice.',
     ],
+    story: [
+      "Ganymede is the largest moon in the solar system, bigger than Mercury, and the only one with a magnetic field of its own — generated in a liquid iron core, and strong enough to carve its own small magnetosphere inside Jupiter's vast one.",
+      "Its surface is two terrains in one: dark, ancient, heavily cratered ground, and lighter regions cut with parallel grooves where the crust has been pulled apart. It very probably holds a saltwater ocean too, buried under 150 km of ice — deeper and less accessible than Europa's, but likely larger.",
+    ],
     nasaLinks: [
       { label: 'NASA — Ganymede', url: 'https://science.nasa.gov/jupiter/moons/ganymede/' },
     ],
@@ -195,6 +219,10 @@ export const MOONS_RAW = [
       'It has no large-scale geological activity at all: nothing has resurfaced it since the solar system was young.',
       'Valhalla, a bullseye of concentric rings from one ancient impact, spans about 3,800 km.',
       'Its low radiation makes it the most plausible site for a crewed base anywhere in the Jupiter system.',
+    ],
+    story: [
+      "Callisto is the most heavily cratered body known. Nothing has resurfaced it in four billion years — no volcanism, no tectonics, no tidal heating, because it orbits far enough out to escape the resonance that drives Io, Europa and Ganymede. What it looks like now is roughly what it looked like when the solar system finished forming.",
+      "That makes it the quietest of the four, and the most useful: it sits outside Jupiter's fiercest radiation belts, which has made it a recurring candidate for a crewed outpost. It may also have an ocean, inferred from the way it disturbs Jupiter's magnetic field.",
     ],
     nasaLinks: [
       { label: 'NASA — Callisto', url: 'https://science.nasa.gov/jupiter/moons/callisto/' },
@@ -220,6 +248,10 @@ export const MOONS_RAW = [
       "Ring particles in the Cassini Division circle Saturn twice for every one of Mimas's orbits, and that 2:1 resonance is what keeps the 4,800 km gap swept clear.",
       "Cassini's final orbits found a wobble in its rotation best explained by a young ocean beneath the ice, which nobody expected of a moon this small.",
     ],
+    story: [
+      "Mimas is 396 km across and carries a crater 130 km wide — Herschel, a third the width of the moon itself. The impact that made it came close to shattering the body; fractures on the opposite side may be the shock arriving round the other way.",
+      "It is the smallest body known to have been pulled into a round shape by its own gravity, and it is mostly water ice. Its wobble is larger than a solid interior allows, which has led to the suggestion of an ocean 20 to 30 km down — an unexpected place to find one, on a moon with a frozen and ancient surface.",
+    ],
     nasaLinks: [{ label: 'NASA — Mimas', url: 'https://science.nasa.gov/saturn/moons/mimas/' }],
   },
   {
@@ -241,6 +273,10 @@ export const MOONS_RAW = [
       "Its plumes escape into orbit and are the entire source of Saturn's broad, diffuse E ring.",
       'It reflects about 90% of the sunlight reaching it, making it the most reflective body in the solar system — and one of the coldest.',
       'The chemistry in the plumes points to hot water meeting rock on the ocean floor.',
+    ],
+    story: [
+      "Enceladus is 500 km across and vents water into space. More than a hundred geysers erupt from fractures near its south pole — the “tiger stripes” — throwing ice and vapour hundreds of kilometres up, some of it escaping to form Saturn's E ring. Cassini flew through the plumes and tasted them directly.",
+      "What it found makes this one of the most promising places in the solar system: liquid water, salts, silica grains implying a hot rocky floor, and organic molecules including hydrogen — an energy source a microbe could use. All of it from a moon small enough to fit inside the British Isles.",
     ],
     nasaLinks: [
       { label: 'NASA — Enceladus', url: 'https://science.nasa.gov/saturn/moons/enceladus/' },
@@ -266,6 +302,10 @@ export const MOONS_RAW = [
       "Ithaca Chasma is 2,000 km long and up to 100 km wide — the moon's ice shell cracking as its interior froze and expanded.",
       "It is one of the most reflective bodies in the solar system, continuously sandblasted clean by ice from Enceladus's plumes.",
     ],
+    story: [
+      "Tethys is almost pure water ice, with a density barely above water itself, and one of the most reflective surfaces of any body in the solar system. It carries two enormous features: Odysseus, an impact basin two fifths of its diameter, and Ithaca Chasma, a canyon running most of the way round it.",
+      "It shares its orbit with two small moons, Telesto and Calypso, sitting 60 degrees ahead and behind at the stable Lagrange points — the same arrangement Jupiter's Trojan asteroids hold with the Sun, on a far smaller scale.",
+    ],
     nasaLinks: [{ label: 'NASA — Tethys', url: 'https://science.nasa.gov/saturn/moons/tethys/' }],
   },
   {
@@ -287,6 +327,10 @@ export const MOONS_RAW = [
       'Its gravity field suggests an ocean perhaps 100 km down, under 100 km of ice.',
       'It has more craters on its trailing hemisphere than its leading one — the opposite of what orbital motion predicts, so it was probably spun around by a large impact.',
       'Two small moons, Helene and Polydeuces, ride 60° ahead of and behind it in its orbit.',
+    ],
+    story: [
+      "Dione's trailing side is streaked with bright lines that Voyager saw as wispy and took for something erupted. Cassini resolved them: they are ice cliffs, hundreds of metres high, where the crust has fractured — tectonics on a moon of ice.",
+      "It is dense enough to be about a third rock, and shows signs of past activity that has since stopped. Like Tethys it has two Trojan companions, Helene and Polydeuces, in the same 60-degree positions.",
     ],
     nasaLinks: [{ label: 'NASA — Dione', url: 'https://science.nasa.gov/saturn/moons/dione/' }],
   },
@@ -310,6 +354,10 @@ export const MOONS_RAW = [
       'For a while it was thought to have its own ring system; a dedicated search found nothing, and the idea was withdrawn.',
       'It is so lightly bound that a rock thrown hard enough by hand could, in principle, be put into orbit around it.',
     ],
+    story: [
+      "Rhea is Saturn's second largest moon and almost entirely water ice, with a surface saturated in craters and no sign of ever having been resurfaced. It is a cold, ancient, geologically finished world.",
+      "In 2008 Cassini found a symmetric drop in electrons on both sides of it, which was read as a possible ring system — the only moon that would have one. Later imaging found nothing, and the case is now generally considered unproven.",
+    ],
     nasaLinks: [{ label: 'NASA — Rhea', url: 'https://science.nasa.gov/saturn/moons/rhea/' }],
   },
   {
@@ -331,6 +379,10 @@ export const MOONS_RAW = [
       "Surface pressure is 1.5 times Earth's, and the air is so thick and gravity so low that a person could fly by flapping strapped-on wings.",
       'Huygens landed there in 2005 — still the most distant landing ever made.',
       'Its haze is so opaque that its surface was not seen until radar and infrared cut through it.',
+    ],
+    story: [
+      "Titan is the only moon with a substantial atmosphere: nitrogen, half again as dense at the surface as Earth's, and thick with orange haze that hid the ground entirely until radar and infrared got through it. It is the only place besides Earth known to have standing liquid on its surface.",
+      "That liquid is methane and ethane, in seas hundreds of kilometres across, fed by rain and rivers that carve channels into water ice bedrock. In 2005 Huygens descended through the haze and landed on a plain of rounded pebbles — the most distant landing ever made. Dragonfly, a nuclear-powered rotorcraft, is due to arrive in the 2030s.",
     ],
     nasaLinks: [
       { label: 'NASA — Titan', url: 'https://science.nasa.gov/saturn/moons/titan/' },
@@ -357,6 +409,10 @@ export const MOONS_RAW = [
       'That dust almost certainly comes from Phoebe, an outer moon orbiting backwards far beyond it.',
       'Its orbit is tilted 15.5° and lies far outside the rings, so it is the only large Saturnian moon from which the rings can be seen at an angle rather than edge-on.',
     ],
+    story: [
+      "Iapetus is two colours. Its leading side is as dark as coal and its trailing side as bright as snow, a contrast Giovanni Cassini noticed in 1671 when the moon vanished on one side of its orbit. The dark material is dust swept up from the outer moons; where it settles the surface warms, ice sublimates away, and the darkening runs away with itself.",
+      "It also has a ridge of mountains up to 20 km high running almost exactly along its equator, giving it the outline of a walnut. Nothing else in the solar system has one, and there is still no agreed explanation.",
+    ],
     nasaLinks: [{ label: 'NASA — Iapetus', url: 'https://science.nasa.gov/saturn/moons/iapetus/' }],
   },
   {
@@ -378,6 +434,10 @@ export const MOONS_RAW = [
       'Verona Rupes is a scarp up to 20 km high — the tallest known cliff in the solar system. Stepping off it, you would fall for about twelve minutes.',
       'It may have been broken apart and gravitationally reassembled, or heated by a tidal resonance it has since fallen out of.',
       'Voyager 2 saw only its southern hemisphere. The rest has never been photographed.',
+    ],
+    story: [
+      "Miranda is only 470 km across and has the most extreme terrain known. Verona Rupes is a cliff some 20 km high — ten times the depth of the Grand Canyon — and the surface is a patchwork of unrelated regions butted against each other, as though assembled from parts.",
+      "The old explanation was that it shattered and reassembled. The better one now is tidal heating: partial melting drove dense material down and lighter material up, and the surface is the record of that overturn stalling part way through.",
     ],
     nasaLinks: [{ label: 'NASA — Miranda', url: 'https://science.nasa.gov/uranus/moons/miranda/' }],
   },
@@ -401,6 +461,10 @@ export const MOONS_RAW = [
       "Carbon dioxide frost has been detected on its trailing side, concentrated where Uranus's magnetosphere sweeps across it.",
       'It reflects about a third of the light that reaches it — twice as much as Umbriel, its near-twin in size.',
     ],
+    story: [
+      "Ariel is the brightest of Uranus's moons and the least cratered, which means something resurfaced it after it formed. It is cut by a network of rift valleys, and their floors are smooth — filled by something that flowed, probably a water-ammonia mixture erupting as an icy lava.",
+      "Everything known about it comes from a few days in January 1986, when Voyager 2 passed through the Uranian system. No spacecraft has returned, and none is scheduled.",
+    ],
     nasaLinks: [{ label: 'NASA — Ariel', url: 'https://science.nasa.gov/uranus/moons/ariel/' }],
   },
   {
@@ -422,6 +486,10 @@ export const MOONS_RAW = [
       'One bright ring stands out on an otherwise featureless dark surface — the floor of the crater Wunda, made of something nobody has identified.',
       'Why it is so much darker than its neighbours is unresolved; it may simply never have had the internal warmth to resurface itself.',
       "Its uniform greyness makes it useful: it is the reference against which the other moons' brightness variations are measured.",
+    ],
+    story: [
+      "Umbriel is the darkest of Uranus's large moons, reflecting only about 16% of the light that reaches it, and its surface is uniformly ancient and cratered. Why it is so dark when Ariel, a near neighbour of similar size, is so bright is not understood.",
+      "Its one distinguishing feature is Wunda, a bright ring about 130 km across near the equator, sitting on an otherwise featureless dark face. It was photographed once, by Voyager 2, and there are no other pictures of it.",
     ],
     nasaLinks: [{ label: 'NASA — Umbriel', url: 'https://science.nasa.gov/uranus/moons/umbriel/' }],
   },
@@ -445,6 +513,10 @@ export const MOONS_RAW = [
       'It has fewer large craters than Oberon, so something resurfaced it after the heaviest bombardment ended.',
       'Models allow a liquid ocean at its rock-ice boundary, kept from freezing by ammonia rather than heat.',
     ],
+    story: [
+      "Titania is the largest moon of Uranus at 1,578 km across, roughly half the diameter of our own. Its surface carries huge fault valleys — Messina Chasma runs some 1,500 km — formed as the interior froze, expanded, and split the crust.",
+      "It has fewer large craters than its neighbours, so something resurfaced it early on. Like the rest of the Uranian system it is about half ice and half rock, and like the rest of it, everything known comes from a single flyby.",
+    ],
     nasaLinks: [{ label: 'NASA — Titania', url: 'https://science.nasa.gov/uranus/moons/titania/' }],
   },
   {
@@ -466,6 +538,10 @@ export const MOONS_RAW = [
       'Voyager 2 caught a mountain about 11 km high in silhouette on its limb, which is why we know it is there at all.',
       "It orbits far enough out to spend part of each Uranian year outside the planet's magnetosphere.",
       "It and Titania are close enough in size and colour to be near-twins, but Oberon's surface is far older.",
+    ],
+    story: [
+      "Oberon is the outermost of Uranus's large moons and among the most heavily cratered, with dark material on the floors of many of its craters — possibly matter erupted from below after the impacts opened the crust.",
+      "Voyager 2 caught a mountain about 11 km high in profile on its limb, which is how its height is known at all. Its orbit lies far enough out that it spends part of its time outside Uranus's magnetosphere.",
     ],
     nasaLinks: [{ label: 'NASA — Oberon', url: 'https://science.nasa.gov/uranus/moons/oberon/' }],
   },
@@ -489,6 +565,10 @@ export const MOONS_RAW = [
       'Its backwards orbit is decaying; in a few billion years it will be torn apart into a ring.',
       'Its cantaloupe terrain — a dimpled, ridged landscape — is found nowhere else.',
     ],
+    story: [
+      "Triton orbits Neptune backwards, against the planet's rotation, which no large moon does if it formed in place. It is almost certainly a captured Kuiper belt object — a dwarf planet like Pluto, of nearly the same size and density, that came too close and was taken.",
+      "It is one of the coldest places measured anywhere, at −235 °C, and it is still active: Voyager 2 saw plumes of nitrogen gas rising 8 km and streaking downwind across the polar cap. The capture is also killing it — tides are drawing it inward, and in a few billion years it will break up into a ring.",
+    ],
     nasaLinks: [{ label: 'NASA — Triton', url: 'https://science.nasa.gov/neptune/moons/triton/' }],
   },
   {
@@ -510,6 +590,10 @@ export const MOONS_RAW = [
       'Serenity Chasma is part of a canyon system running at least 1,800 km, in places four times deeper than the Grand Canyon.',
       'Its dark red north polar cap, Mordor Macula, is made of tholins built from methane that escaped Pluto and froze out here.',
       'Its whole southern plain appears to be one enormous refrozen flood of water ice — a cryovolcanic resurfacing early in its history.',
+    ],
+    story: [
+      "Charon is half Pluto's diameter, a ratio no other planet-moon pair comes close to, and the two are tidally locked to each other: each keeps the same face toward the other, and they turn about a point in the empty space between them. It is the nearest thing in the solar system to a genuine double planet.",
+      "Its north pole is capped in dark red material — tholins, made when methane escaping from Pluto's atmosphere is caught by Charon's gravity, freezes out on the coldest ground, and is worked on by sunlight. Its surface is also split by a canyon system four times the length of the Grand Canyon.",
     ],
     nasaLinks: [
       { label: 'NASA — Charon', url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/charon/' },
@@ -535,6 +619,10 @@ export const MOONS_RAW = [
       'Its spin is not locked to its orbit — the shifting pull of the Pluto–Charon pair makes the rotation of all four small moons chaotic.',
       'New Horizons resolved it into a double-lobed shape, suggesting two smaller bodies that merged.',
     ],
+    story: [
+      "Styx is the smallest and faintest of Pluto's four small moons, roughly 16 by 9 km, and was not found until 2012 — three years before New Horizons arrived. It orbits between Charon and Nix.",
+      "All four small moons orbit close to the plane of the Pluto-Charon pair and in near-resonance with it, which is the strongest evidence that they formed from debris of the same collision that made Charon rather than being captured separately.",
+    ],
     nasaLinks: [
       { label: "NASA — Pluto's moons", url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
     ],
@@ -558,6 +646,10 @@ export const MOONS_RAW = [
       'That reddish crater is the only strong colour on an otherwise grey-white surface — an impact that dug up something different from below.',
       'It tumbles chaotically, so there is no fixed day: its poles and equator wander over time.',
       "It is named for the Greek goddess of night, and its discovery images were taken in the same run as Hydra's.",
+    ],
+    story: [
+      "Nix is about 50 by 35 by 33 km and was discovered by Hubble in 2005. New Horizons found it to be elongated and surprisingly bright, with a large reddish crater on an otherwise grey, icy surface.",
+      "It does not keep one face toward Pluto. Pulled by two large bodies at once, its rotation is chaotic: the axis wanders and the length of its day changes unpredictably, which is true of all four of the small moons.",
     ],
     nasaLinks: [
       { label: "NASA — Pluto's moons", url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
@@ -583,6 +675,10 @@ export const MOONS_RAW = [
       "Its orbit sits between Nix's and Hydra's, near a 5:1 resonance with Charon.",
       'It is named for the three-headed dog guarding the entrance to the underworld — spelled the Greek way, because Cerberus was already an asteroid.',
     ],
+    story: [
+      "Kerberos was found in 2011 and was expected to be dark, because the light it reflects is faint. New Horizons showed the opposite: a small double-lobed body about 19 by 10 km, as reflective as the others, and simply much smaller than the brightness estimate assumed.",
+      "Its double shape suggests it formed when two objects met slowly enough to settle together rather than shatter — a common outcome among the small bodies of the outer solar system.",
+    ],
     nasaLinks: [
       { label: "NASA — Pluto's moons", url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },
     ],
@@ -606,6 +702,10 @@ export const MOONS_RAW = [
       'Its surface is unusually clean water ice, which suggests it is being resurfaced or scoured rather than accumulating dark material.',
       "It circles almost exactly six times for every one of Charon's orbits.",
       'Its irregular outline has at least two obvious lobes, the same merged-pair shape seen on Styx and Kerberos.',
+    ],
+    story: [
+      "Hydra is the outermost of Pluto's known moons, about 65 by 45 km, and irregular — a lumpy shard rather than a sphere. Its surface is nearly pure water ice, cleaner than expected, which suggests it is regularly scoured by micrometeorite impacts.",
+      "Like Nix it tumbles chaotically, so its day genuinely has no fixed length. It orbits about 65,000 km out and takes 38 days to go round.",
     ],
     nasaLinks: [
       { label: "NASA — Pluto's moons", url: 'https://science.nasa.gov/dwarf-planets/pluto/moons/' },

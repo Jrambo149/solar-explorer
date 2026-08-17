@@ -3,7 +3,7 @@ import { getBody, majorMoonsOf } from '../data/bodies'
 import { useStore } from '../store/useStore'
 import { useBodyName } from './useBodyName'
 import { hasPole } from '../scene/pole'
-import { PLANET_IMAGES } from '../data/planetImages'
+import { BODY_IMAGES } from '../data/bodyImages'
 import { derivedFacts } from './planetFacts'
 import { cancelGlide, glideTo } from './glideTo'
 import './InfoPanel.css'
@@ -115,7 +115,7 @@ export default function InfoPanel() {
   if (!planet) return null
 
   const derived = derivedFacts(planet)
-  const gallery = PLANET_IMAGES[planet.id] ?? []
+  const gallery = BODY_IMAGES[planet.id] ?? []
 
   return (
     <section className="dossier" aria-label={`${name} details`}>
@@ -345,7 +345,7 @@ export default function InfoPanel() {
                         >
                           <img
                             className="shot__image"
-                            src={`${import.meta.env.BASE_URL}images/planets/${shot.file}`}
+                            src={`${import.meta.env.BASE_URL}images/bodies/${shot.file}`}
                             alt={shot.title}
                             loading="lazy"
                             decoding="async"

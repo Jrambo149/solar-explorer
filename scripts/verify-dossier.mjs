@@ -30,7 +30,7 @@
  */
 
 import { PLANETS } from '../src/data/planetData.js'
-import { PLANET_IMAGES } from '../src/data/planetImages.js'
+import { BODY_IMAGES } from '../src/data/bodyImages.js'
 import {
   density,
   derivedFacts,
@@ -259,12 +259,30 @@ for (const id of ['styx', 'nix', 'kerberos', 'hydra']) {
   check(`${moon(id).name} has no table, because nobody has weighed it`, derivedFacts(moon(id)) === null)
 }
 
+section('The prose')
+
+const MOONS_ALL = ALL.filter((b) => b.kind === 'moon' && b.tier !== 'minor')
+check(
+  'every major moon has a story to read',
+  MOONS_ALL.every((m) => m.story?.length >= 2),
+  `${MOONS_ALL.filter((m) => m.story?.length >= 2).length} of ${MOONS_ALL.length}`,
+)
+check(
+  'and every planet does',
+  PLANETS.every((b) => b.story?.length >= 2),
+)
+
 section('The photographs')
 let shots = 0
-for (const p of PLANETS) {
-  const gallery = PLANET_IMAGES[p.id] ?? []
+/*
+ * Planets and moons together. Moons carry two rather than three, and for most
+ * of them two is all that exists — Umbriel was photographed once, in 1986.
+ */
+const WITH_GALLERIES = [...PLANETS, ...ALL.filter((b) => b.kind === 'moon' && b.tier !== 'minor')]
+for (const p of WITH_GALLERIES) {
+  const gallery = BODY_IMAGES[p.id] ?? []
   shots += gallery.length
-  const onDisk = gallery.every((s) => existsSync(join(ROOT, 'public', 'images', 'planets', s.file)))
+  const onDisk = gallery.every((s) => existsSync(join(ROOT, 'public', 'images', 'bodies', s.file)))
   const credited = gallery.every((s) => s.credit && /NASA/i.test(s.credit) && s.title && s.why)
   /*
    * Every picture links to its own source, and no caption carries a bare URL.
@@ -278,9 +296,22 @@ for (const p of PLANETS) {
       !/https?:\/\//.test(s.description ?? ''),
   )
   check(`${p.name}: every picture links to its source, no URLs in the prose`, linked)
-  check(`${p.name}: ${gallery.length} images, all present and credited`, gallery.length >= 3 && onDisk && credited)
+  check(
+    `${p.name}: ${gallery.length} image${gallery.length === 1 ? '' : 's'}, present and credited`,
+    gallery.length >= (p.kind === 'moon' ? 1 : 3) && onDisk && credited,
+  )
 }
-check(`${shots} photographs in total`, shots === PLANETS.length * 3)
+/*
+ * Counted from the galleries themselves rather than from a literal, so adding a
+ * moon cannot quietly leave it without pictures: the expected total is "three
+ * for every planet, at least one for every major moon", which is a rule rather
+ * than a number somebody has to remember to bump.
+ */
+const expected = PLANETS.length * 3
+check(
+  `${shots} photographs in total`,
+  shots >= expected + MOONS_ALL.length && WITH_GALLERIES.every((b) => (BODY_IMAGES[b.id] ?? []).length > 0),
+)
 
 /*
  * Nothing in the shipped app may reach for them over the network.
@@ -290,7 +321,7 @@ check(`${shots} photographs in total`, shots === PLANETS.length * 3)
  * offline, which is exactly the failure this project's no-runtime-fetch rule
  * exists to prevent.
  */
-const remote = Object.values(PLANET_IMAGES)
+const remote = Object.values(BODY_IMAGES)
   .flat()
   .filter((s) => /^https?:/i.test(s.file))
 check('no image is loaded from the network', remote.length === 0)

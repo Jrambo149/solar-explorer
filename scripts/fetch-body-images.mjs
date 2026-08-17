@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Bakes a small gallery of real NASA photographs for each planet.
+ * Bakes a small gallery of real NASA photographs for each planet and moon.
  *
  * Run with:
- *     npm run fetch:planet-images
+ *     npm run fetch:body-images
  *
  * ## Why they are baked
  *
  * The app makes no network requests at run time, and that rule does not bend
  * for pictures. Everything here is downloaded once, written into
- * `public/images/planets`, and shipped.
+ * `public/images/bodies`, and shipped.
  *
  * ## Why the IDs are curated rather than searched
  *
@@ -42,18 +42,24 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT_DIR = join(ROOT, 'public', 'images', 'planets')
-const OUT = join(ROOT, 'src', 'data', 'planetImages.js')
+const OUT_DIR = join(ROOT, 'public', 'images', 'bodies')
+const OUT = join(ROOT, 'src', 'data', 'bodyImages.js')
 
 const SEARCH = 'https://images-api.nasa.gov/search'
 const ASSET = 'https://images-api.nasa.gov/asset'
 
-const log = (...args) => console.log('[planet-images]', ...args)
+const log = (...args) => console.log('[body-images]', ...args)
 
 /**
- * Three per planet, and the three are chosen to do different jobs: one that
- * shows the whole world, one that shows the feature the dossier talks about,
- * and one that shows it as a place rather than as a disc.
+ * Three per planet, and the three do different jobs: one that shows the whole
+ * world, one that shows the feature the dossier talks about, and one that shows
+ * it as a place rather than as a disc.
+ *
+ * Moons get two rather than three, and not for lack of care — for most of them
+ * two is all that exists. Umbriel was photographed once, by Voyager 2, in 1986;
+ * Styx has never been resolved into more than a few pixels. Padding those out
+ * to three would mean reaching for artists' impressions, and an illustration in
+ * a section called "Seen for real" is the one thing it must not contain.
  */
 const GALLERY = {
   mercury: [
@@ -95,6 +101,106 @@ const GALLERY = {
     ['PIA00049', 'The Great Dark Spot, a storm that had gone by the next look'],
     ['PIA01493', 'The rings, and the arcs in them nothing fully explains'],
     ['PIA02245', 'The blue-green of it, which is methane soaking up the red'],
+  ],
+
+  /* ---- moons ---- */
+
+  luna: [
+    ['GSFC_20171208_Archive_e001861', 'The face it always shows us, and the only one it ever will'],
+    ['PIA03793', 'Wrinkle ridges — a sea of frozen lava, seen close'],
+  ],
+  phobos: [
+    ['PIA22249', 'A 22 km lump of rubble, and the largest thing in the Martian sky'],
+    ['GSFC_20171208_Archive_e000505', 'The grooves down its side, from a moon being slowly pulled apart'],
+  ],
+  deimos: [
+    ['PIA17305', 'Both moons at once, and the smaller one is barely a dot'],
+    ['PIA05518', 'Crossing the Sun — an eclipse too small to darken anything'],
+  ],
+  io: [
+    ['PIA00282', 'Yellow with sulphur, and without a single impact crater'],
+    ['PIA00899', 'A volcanic hot spot, caught erupting from orbit'],
+  ],
+  europa: [
+    ['PIA19048', 'The smoothest surface in the solar system, cracked all over'],
+    ['PIA17737', 'Ridges and cracks — ice floating on something that moves'],
+  ],
+  ganymede: [
+    ['PIA25028', 'The largest moon in the solar system, bigger than Mercury'],
+    ['PIA00519', 'Dark ancient ground beside bright grooved terrain'],
+  ],
+  callisto: [
+    ['PIA03456', 'The most heavily cratered surface known — nothing has resurfaced it'],
+    ['PIA00514', 'A chain of craters, from a comet torn up before it hit'],
+  ],
+  mimas: [
+    ['PIA11540', 'Herschel, a crater a third the width of the moon it is on'],
+    ['PIA20523', 'The impact that nearly broke it apart'],
+  ],
+  enceladus: [
+    ['PIA08954', 'Water venting into space from an ocean under the ice'],
+    ['PIA14599', 'The plumes lit from behind, which is how they were found'],
+  ],
+  tethys: [
+    ['PIA19638', 'Almost pure water ice — one of the whitest bodies anywhere'],
+    ['PIA14622', 'Odysseus, an impact basin two fifths of its diameter'],
+  ],
+  dione: [
+    ['PIA07743', 'Bright ice cliffs that Voyager mistook for wisps of cloud'],
+    ['PIA17195', 'The cratered surface, close up'],
+  ],
+  rhea: [
+    ['PIA11630', 'Saturn’s second largest moon, and almost entirely ice'],
+    ['PIA12546', 'A crescent of craters, on a world with no weather to erase them'],
+  ],
+  titan: [
+    ['PIA21923', 'Under the haze, in infrared — the only way to see the ground'],
+    ['PIA23174', 'The first geological map of it: dunes, plains, and lakes'],
+  ],
+  iapetus: [
+    ['PIA11608', 'One side black, one side white, and nobody expected that'],
+    ['PIA12556', 'The ridge around its equator, which nothing else has'],
+  ],
+  miranda: [
+    ['PIA01490', 'Cliffs 20 km high — the tallest anywhere in the solar system'],
+    ['PIA18185', 'A surface that looks assembled out of mismatched pieces'],
+  ],
+  ariel: [
+    ['PIA00037', 'The brightest of Uranus’s moons, and the least cratered'],
+    ['PIA01356', 'Valleys cut across it, floored with something that flowed'],
+  ],
+  umbriel: [
+    ['PIA00040', 'The darkest of them, photographed once, in 1986, and never again'],
+  ],
+  titania: [
+    ['PIA01978', 'The largest moon of Uranus, scarred by a huge rift'],
+    ['PIA00039', 'The best picture anyone has of it'],
+  ],
+  oberon: [
+    ['PIA00034', 'The outermost large moon, with a mountain on its limb'],
+    ['PIA01361', 'All five of Uranus’s large moons, to scale'],
+  ],
+  triton: [
+    ['PIA00317', 'A moon going the wrong way round, captured from the Kuiper belt'],
+    ['PIA00059', 'The south polar cap, with nitrogen geysers streaking it'],
+  ],
+  charon: [
+    ['PIA19968', 'Half Pluto’s diameter — the two orbit a point in the space between'],
+    ['PIA19690', 'The dark red cap, made of gas that escaped from Pluto'],
+  ],
+  styx: [
+    ['PIA20033', 'The family portrait: four small moons, all of them faint'],
+  ],
+  nix: [
+    ['PIA19847', 'Nix and Hydra, resolved for the first time in 2015'],
+    ['PIA20152', 'Tumbling, because nothing has locked its rotation'],
+  ],
+  kerberos: [
+    ['PIA20033', 'The smallest and darkest of Pluto’s four small moons'],
+  ],
+  hydra: [
+    ['PIA19847', 'The outermost of Pluto’s moons, a lumpy shard of water ice'],
+    ['PIA20152', 'Its rotation is chaotic — the day length genuinely varies'],
   ],
 }
 
@@ -165,8 +271,8 @@ const out = {}
 const missing = []
 let bytes = 0
 
-for (const [planet, entries] of Object.entries(GALLERY)) {
-  out[planet] = []
+for (const [body, entries] of Object.entries(GALLERY)) {
+  out[body] = []
   for (const [nasaId, why] of entries) {
     try {
       const found = await json(`${SEARCH}?nasa_id=${encodeURIComponent(nasaId)}`)
@@ -182,11 +288,11 @@ for (const [planet, entries] of Object.entries(GALLERY)) {
       if (!res.ok) throw new Error(`${res.status} fetching the image`)
       const buffer = Buffer.from(await res.arrayBuffer())
 
-      const file = `${planet}-${out[planet].length + 1}.jpg`
+      const file = `${body}-${out[body].length + 1}.jpg`
       writeFileSync(join(OUT_DIR, file), buffer)
       bytes += buffer.length
 
-      out[planet].push({
+      out[body].push({
         file,
         nasaId,
         why,
@@ -210,10 +316,10 @@ for (const [planet, entries] of Object.entries(GALLERY)) {
          */
         source: `https://images.nasa.gov/details/${encodeURIComponent(nasaId)}`,
       })
-      log(`  ${planet.padEnd(8)} ${nasaId.padEnd(30)} ${(buffer.length / 1024).toFixed(0)} KB`)
+      log(`  ${body.padEnd(10)} ${nasaId.padEnd(30)} ${(buffer.length / 1024).toFixed(0)} KB`)
     } catch (error) {
-      missing.push(`${planet}/${nasaId}: ${error.message}`)
-      log(`  ${planet.padEnd(8)} ${nasaId.padEnd(30)} FAILED — ${error.message}`)
+      missing.push(`${body}/${nasaId}: ${error.message}`)
+      log(`  ${body.padEnd(10)} ${nasaId.padEnd(30)} FAILED — ${error.message}`)
     }
   }
 }
@@ -243,9 +349,9 @@ if (missing.length) {
  * moment at which the mismatch is visible at all.
  */
 log('\ncaption against NASA’s own title — these must agree:')
-for (const [planet, list] of Object.entries(out)) {
+for (const [body, list] of Object.entries(out)) {
   for (const shot of list) {
-    log(`  ${planet.padEnd(8)} ${shot.why.slice(0, 52).padEnd(52)} | ${shot.title.slice(0, 46)}`)
+    log(`  ${body.padEnd(10)} ${shot.why.slice(0, 52).padEnd(52)} | ${shot.title.slice(0, 46)}`)
   }
 }
 
@@ -257,13 +363,13 @@ const today = new Date().toISOString().slice(0, 10)
 writeFileSync(
   OUT,
   `/**
- * A few real photographs of each planet.
+ * A few real photographs of each planet and major moon.
  *
  * GENERATED by \`scripts/fetch-planet-images.mjs\` — do not hand-edit; rerun
- * \`npm run fetch:planet-images\` instead. Generated ${today}.
+ * \`npm run fetch:body-images\` instead. Generated ${today}.
  *
  * Images are NASA's, fetched from the NASA Image and Video Library by a
- * curated \`nasaId\` and stored under \`public/images/planets\`. The app makes no
+ * curated \`nasaId\` and stored under \`public/images/bodies\`. The app makes no
  * network requests at run time.
  *
  * \`why\` is this project's editorial line — what the picture is here to show.
@@ -271,7 +377,7 @@ writeFileSync(
  * metadata, carried through unchanged so the credit is theirs rather than ours.
  */
 
-export const PLANET_IMAGES = ${JSON.stringify(out, null, 2)}
+export const BODY_IMAGES = ${JSON.stringify(out, null, 2)}
 `,
 )
 log(`wrote ${OUT}`)
