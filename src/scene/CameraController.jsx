@@ -19,9 +19,13 @@ import {
   farPlane,
   homeCameraPosition,
   nearPlane,
+  unitsPerParsec,
 } from '../orbit/frames'
 import { FOCUS_RADII } from '../data/planetData'
 import { planetPositions, useStore, viewScroll } from '../store/useStore'
+import { CAMERA } from './framePriority'
+import { getCosmicStage, getDiscStage, zoomSpeedFor } from './cosmicStage'
+import { galacticDirection } from './sky'
 import { attachDragGuard } from './dragGuard'
 import { RING_PRESETS } from './Rings'
 import { satelliteClearance, satelliteSystemRadius } from './satelliteFrame'
@@ -35,6 +39,7 @@ import { stepFlightHomeEased, stepFlightToPlanetEased, stepFollow } from './foll
 import { getAttitude } from './attitude'
 import { horizonFrame, lookAngles, lookDirection } from './horizon'
 import { CONSTELLATION_REGIONS } from '../data/constellations'
+import { STARS } from '../data/stars'
 import { starDirection } from './sky'
 import { bodyBasis } from './pole'
 import { surfaceOffset, surfaceSpin } from './surface'
@@ -394,9 +399,21 @@ const _swingOffset = new THREE.Vector3()
 const _swingTurn = new THREE.Quaternion()
 const _swingStep = new THREE.Quaternion()
 
-/** The middle of a constellation, as a direction in the world frame. */
-function constellationDirection(index, out) {
-  const region = CONSTELLATION_REGIONS[index]
+/**
+ * What the view was asked to face, as a direction in the world frame.
+ *
+ * A constellation is its own middle; a star is simply itself. The swing holds
+ * the *direction* rather than an index into either table, because the two
+ * tables have nothing in common and the manoeuvre does not care which one the
+ * answer came from — it only needs somewhere to point.
+ */
+function skyLookDirection(target, out) {
+  if (target.star !== null) {
+    const [ra, dec] = STARS[target.star]
+    starDirection(ra, dec, out)
+    return out
+  }
+  const region = CONSTELLATION_REGIONS[target.constellation]
   starDirection(region.centre[0], region.centre[1], out)
   return out
 }
@@ -422,8 +439,8 @@ function constellationDirection(index, out) {
  * fighting the follow: the offset it rotates is the same offset the follow
  * carries along with the body.
  */
-function armSkySwing(index) {
-  swing.index = index
+function armSkySwing(target) {
+  swing.target = target
   swing.active = true
   swing.started = false
   swing.elapsed = 0
@@ -448,7 +465,7 @@ function beginSwing(camera, controls) {
     // Rebuilds `_frame` for this instant, which is what `lookAngles` needs:
     // the body has rotated since the swing was armed.
     if (!standAt(standing, useStore.getState().scaleMode)) return false
-    constellationDirection(swing.index, _sky)
+    skyLookDirection(swing.target, _sky)
     const { azimuth, altitude } = lookAngles(_frame, _sky)
     swing.fromAzimuth = standing.azimuth
     swing.fromAltitude = standing.altitude
@@ -471,7 +488,7 @@ function beginSwing(camera, controls) {
   swing.from.copy(_swingOffset).divideScalar(distance)
   // Behind the pivot: the camera looks *from* here *at* the target, so the
   // offset that points the view at `d` is `-d`.
-  swing.to.copy(constellationDirection(swing.index, _sky)).negate()
+  swing.to.copy(skyLookDirection(swing.target, _sky)).negate()
   swing.started = true
   return true
 }
@@ -556,6 +573,7 @@ export default function CameraController() {
   const systemId = useStore((s) => s.systemId)
   const flightNonce = useStore((s) => s.flightNonce)
   const lookNonce = useStore((s) => s.lookNonce)
+  const starFlightNonce = useStore((s) => s.starFlightNonce)
   const scaleMode = useStore((s) => s.scaleMode)
 
   const limits = cameraLimits(scaleMode)
@@ -949,9 +967,267 @@ export default function CameraController() {
      longer that size — dialling toward true scale would strand it inside
      Earth's orbit while the planets flew off. Scaling the camera and its target
      by the same ratio holds the shot exactly where the user had it. */
+  /*
+   * --- What the drag turns around, out at the Galaxy ---
+   *
+   * The Sun. Always, at every distance, exactly as it is at home.
+   *
+   * This did briefly slide to the Galactic centre, on the reasoning that the
+   * pivot should be the middle of whatever fills the frame — and out at 60 kpc
+   * that is the Galaxy, 8.15 kpc away. Two things were wrong with it.
+   *
+   * The first was mechanical: sliding the pivot is a real 8.15 kpc translation
+   * of the camera, and no schedule makes that free. Run over the disc fade it
+   * finished at 2 kpc, where 8.15 kpc is four times the camera's whole distance
+   * to its subject, so zooming in stayed centred on the Galaxy and then snapped
+   * across to the solar system at the end. Pushing it out to 20-60 kpc fixed
+   * the snap and left a slow pan in its place.
+   *
+   * The second is the one that settles it: this is a solar system explorer, and
+   * the Sun is what the view is *about* at every scale. The Galaxy is the thing
+   * the Sun is inside, not a new subject that displaces it. Keeping the pivot
+   * where it has always been means the zoom is centred on the same point for
+   * all fourteen decades — nothing to slide, nothing to snap, and the Sun stays
+   * put on screen the whole way in and out.
+   *
+   * What it costs is that a drag out there orbits the Sun rather than the
+   * Galaxy's centre, so the disc swings a little across the frame instead of
+   * turning perfectly about its own middle. That is the honest picture of where
+   * we are: eight kiloparsecs off centre, looking at the Galaxy from the side
+   * of it we happen to live on.
+   */
+
+  /*
+   * --- Going to a star ---
+   *
+   * The one place the pivot does leave the Sun, and it is a different gesture
+   * from zooming: "take me there" rather than "show me more". Selecting a body
+   * already moves the pivot onto it, and a star chosen deliberately is the same
+   * request — the difference is only that a star cannot be approached, so the
+   * flight ends beside it rather than in orbit around it.
+   *
+   * ## Where it stops
+   *
+   * A third of a parsec out. There is no surface to stand off from and no
+   * radius to be a multiple of, so the distance is chosen for what it makes:
+   * close enough that the star dominates its own sky — Vega from here comes out
+   * near magnitude -7, forty times brighter than Venus — and far enough that it
+   * is still a point rather than the inside of the near plane.
+   *
+   * It also lands the camera in the one part of the journey that is otherwise
+   * only passed through: 0.33 parsecs is deep into the deep field and nowhere
+   * near leaving the Galaxy, so the sky is real stars at real distances with
+   * the Milky Way still a band overhead, and the Sun is a fifth-magnitude
+   * speck somewhere behind you.
+   */
+  const PARK_PARSECS = 0.33
+
+  /** Fraction of the remaining distance closed per second. */
+  const STAR_FLIGHT_LAMBDA = 1.9
+
+  const starFlight = useRef({ active: false, at: new THREE.Vector3() })
+  const starScratch = useRef(new THREE.Vector3())
+
+  const stepStarFlight = (camera, controls, dt) => {
+    const flightState = starFlight.current
+    if (!flightState.active || !(dt > 0)) return false
+
+    const to = flightState.at
+    /*
+     * The camera approaches along the line it is already on, so the star grows
+     * from wherever you were looking rather than the view swinging round to a
+     * canned angle. `revealStar` has usually already turned the view to face
+     * it, so that line is normally the line of sight.
+     */
+    const offset = starScratch.current.subVectors(camera.position, to)
+    const range = offset.length()
+    const parked = PARK_PARSECS * unitsPerParsec(useStore.getState().scaleMode)
+
+    const t = 1 - Math.exp(-STAR_FLIGHT_LAMBDA * dt)
+    const next = range + (parked - range) * t
+    if (range > 0) offset.divideScalar(range)
+    else offset.set(0, 0, 1)
+
+    camera.position.copy(to).addScaledVector(offset, next)
+    controls.target.lerp(to, t)
+
+    // Arrived once the remaining error is under a percent of the stand-off,
+    // which is far finer than anything visible and stops the ease running for
+    // ever at a distance nobody can perceive.
+    if (Math.abs(next - parked) < parked * 0.01 && controls.target.distanceTo(to) < parked * 0.01) {
+      controls.target.copy(to)
+      flightState.active = false
+    }
+    return true
+  }
+
+  /*
+   * --- And which way up it arrives ---
+   *
+   * The galactic plane is inclined about 60 degrees to the ecliptic, and the
+   * camera flies out along a fixed direction relative to the *ecliptic*, so the
+   * Galaxy comes into view at 75 degrees from face-on — very nearly edge-on. A
+   * spiral seen that way is a dark smear, which is a poor thing to arrive at
+   * after a fourteen-decade zoom, and it is what the disc used to be billboarded
+   * to avoid.
+   *
+   * So the camera eases round onto the galactic pole as the disc takes over.
+   * The disc still lies in the plane and can still be rotated to any angle
+   * including edge-on — this only decides where the journey *ends up*, not what
+   * is possible from there.
+   *
+   * `handed` sticks to whichever pole the camera is already nearer, so the view
+   * never swings the long way round through the plane.
+   */
+  const poleTaken = useRef(false)
+  const poleAxis = useRef(new THREE.Vector3())
+  const offsetScratch = useRef(new THREE.Vector3())
+  const poleTurn = useRef(new THREE.Quaternion())
+  const polePartial = useRef(new THREE.Quaternion())
+
+  /** How fast the view settles onto the pole, per second, at full stage. */
+  const POLE_LAMBDA = 1.4
+
+  const frameTheGalaxy = (controls, camera, dt) => {
+    const stage = getDiscStage()
+
+    // Back inside the solar system: forget that the user ever took the wheel,
+    // so the next trip out frames itself again.
+    if (stage <= 0) {
+      poleTaken.current = false
+      return
+    }
+    if (poleTaken.current) return
+
+    const offset = offsetScratch.current.subVectors(camera.position, controls.target)
+    const range = offset.length()
+    if (!(range > 0)) return
+
+    const pole = galacticDirection(0, 90)
+    poleAxis.current.set(pole.x, pole.y, pole.z)
+    if (poleAxis.current.dot(offset) < 0) poleAxis.current.negate()
+
+    offset.divideScalar(range)
+
+    /*
+     * Slerped, not lerped: interpolating two directions component-wise drags
+     * the camera through the inside of the sphere when they are far apart, and
+     * 75 degrees is far apart.
+     *
+     * `poleTurn` is the whole rotation from here to the pole; `polePartial` is
+     * the fraction of it taken this frame. Both are held in refs so a sixty-hertz
+     * ease allocates nothing.
+     */
+    const t = 1 - Math.exp(-POLE_LAMBDA * stage * dt)
+    poleTurn.current.setFromUnitVectors(offset, poleAxis.current)
+    polePartial.current.identity().slerp(poleTurn.current, t)
+    offset.applyQuaternion(polePartial.current)
+    camera.position.copy(controls.target).addScaledVector(offset, range)
+  }
+
+  /*
+   * --- Making the wheel glide instead of jump ---
+   *
+   * OrbitControls damps rotation and panning and does **not** damp the dolly:
+   * `update()` multiplies the radius by the accumulated wheel scale in one go
+   * and resets it. Measured frame by frame while zooming in from the Galaxy,
+   * the camera moved 33% of its distance in a single frame and then sat
+   * perfectly still for five — a staircase, not a zoom. It was always like
+   * that; it only became obvious once the zoom rate had to open up for the
+   * cosmic range, where a notch is a third of the way to the subject.
+   *
+   * So the range OrbitControls produces is treated as a *goal* rather than as
+   * a position, and the camera eases toward it geometrically — geometrically
+   * because zoom is multiplicative, so a constant fraction of the remaining
+   * ratio per frame is what reads as constant speed.
+   *
+   * ## Why the goal accumulates instead of being read
+   *
+   * OrbitControls has no notion of a pending zoom: it rebuilds its spherical
+   * from `camera.position` on every update, so writing the camera part of the
+   * way there simply *discards* the rest, which would be a quieter zoom rather
+   * than a smoother one. The intent has to be kept here. Each frame the ratio
+   * OrbitControls just applied is folded into `goal`, so a burst of notches
+   * accumulates and a frame with no wheel leaves it alone.
+   *
+   * ## What has to be excluded
+   *
+   * Anything else that legitimately changes the range would otherwise read as a
+   * wheel notch: a flight, the split-view framing, and a scale change all set
+   * the camera outright. Those resynchronise instead — the goal follows the
+   * camera rather than the camera chasing a stale goal.
+   */
+  const zoomGoal = useRef(0)
+  const zoomHeld = useRef(0)
+
+  /** Fraction of the remaining zoom closed per second. A notch lands in ~0.3 s. */
+  const ZOOM_LAMBDA = 14
+
+  /**
+   * `preRange` is the distance to the pivot *before* `controls.update()`, and
+   * taking it there rather than remembering last frame's is the whole trick.
+   *
+   * The pivot is not fixed: `frameTheGalaxy` slides it from the Sun to the
+   * Galactic centre across the disc handover, which changes the range on its
+   * own. Comparing against last frame's range folded that motion into the zoom
+   * and the two fought — the camera drifted 6% per drag and never settled.
+   * Measured either side of `update()` in one frame, the only thing that can
+   * have changed the range is the dolly.
+   */
+  const smoothDolly = (camera, controls, dt, resync) => {
+    const raw = camera.position.distanceTo(controls.target)
+    const held = zoomHeld.current
+
+    if (resync || !(held > 0) || !(raw > 0) || !(dt > 0)) {
+      zoomGoal.current = raw
+      zoomHeld.current = raw
+      return
+    }
+
+    /*
+     * Anything that changed the range since the last frame is a wheel notch.
+     *
+     * Measured against last frame rather than either side of `controls.update()`
+     * because drei's `<OrbitControls>` runs its own `update()` in its own frame
+     * callback — it subscribes first, being a child — so the dolly is usually
+     * already applied by the time this component's callback starts, and a
+     * bracket around the local `update()` sees nothing at all.
+     *
+     * That leaves only the pivot slide as a false positive, and it is not one
+     * any more: `frameTheGalaxy` carries the camera with the pivot, so the
+     * range is invariant to it.
+     */
+    if (raw !== held) zoomGoal.current *= raw / held
+    zoomGoal.current = THREE.MathUtils.clamp(
+      zoomGoal.current,
+      controls.minDistance,
+      controls.maxDistance,
+    )
+
+    if (zoomGoal.current === held) {
+      zoomHeld.current = held
+      camera.position.sub(controls.target).multiplyScalar(held / raw).add(controls.target)
+      return
+    }
+
+    let next = held * Math.pow(zoomGoal.current / held, 1 - Math.exp(-ZOOM_LAMBDA * dt))
+    // Close the last sliver outright rather than approaching it forever.
+    if (Math.abs(Math.log(zoomGoal.current / next)) < 1e-4) next = zoomGoal.current
+
+    camera.position.sub(controls.target).multiplyScalar(next / raw).add(controls.target)
+    zoomHeld.current = next
+  }
+
   const lastScale = useRef(scaleMode)
   useEffect(() => {
-    camera.far = farPlane(scaleMode)
+    // Sized from where the camera actually is, not from the scale alone: past
+    // `systemEdge` the far plane has to reach the Galaxy. The frame loop keeps
+    // it there afterwards; this is what stops one frame being drawn with the
+    // old scale's planes right after the dial moves.
+    const parked = controlsRef.current
+      ? camera.position.distanceTo(controlsRef.current.target)
+      : camera.position.length()
+    camera.far = farPlane(scaleMode, parked)
     camera.updateProjectionMatrix()
 
     const previous = lastScale.current
@@ -991,10 +1267,51 @@ export default function CameraController() {
     if (controls) controls.target.multiplyScalar(ratio)
   }, [camera, scaleMode])
 
+  /*
+   * --- Launch a flight to a star ---
+   *
+   * The destination is the star's own place: its catalogue direction times its
+   * parallax distance, in the same parsec-scaled space `DeepField` draws it in.
+   * Computed here rather than stored, because it is a pure function of the
+   * index and the scale, and a stored copy would be a second thing to keep in
+   * step with the dial.
+   *
+   * A star with no usable parallax has nowhere to be flown to — it is a
+   * direction and nothing more — so the request is declined rather than
+   * answered with a guess. Those 207 are not in the pickable set anyway, so
+   * this is a guard rather than a path anybody takes.
+   */
+  useEffect(() => {
+    if (starFlightNonce === 0) return
+    const index = useStore.getState().star
+    if (index === null) return
+    const [ra, dec, , , parsecs] = STARS[index]
+    if (!(parsecs > 0)) return
+
+    const direction = starDirection(ra, dec)
+    const units = parsecs * unitsPerParsec(useStore.getState().scaleMode)
+    starFlight.current.at.set(direction.x * units, direction.y * units, direction.z * units)
+    starFlight.current.active = true
+    // A flight to a body and a flight to a star cannot both own the camera.
+    flight.current.active = false
+  }, [starFlightNonce])
+
   /* --- Manual input cancels the current flight --- */
   useEffect(() => {
     const el = gl.domElement
     const cancel = () => {
+      /*
+       * And hands the Galaxy's framing over for good.
+       *
+       * `frameTheGalaxy` eases the view onto the galactic pole on the way out,
+       * which is right up until the moment the user starts turning it
+       * themselves — after that, easing back would be the camera arguing with
+       * the drag. Released again only by coming home, where the disc stage
+       * returns to zero.
+       */
+      poleTaken.current = true
+      // And a star flight, for the same reason: the drag is the new instruction.
+      starFlight.current.active = false
       if (flight.current.active) {
         flight.current.active = false
         // If we were mid-flight to a planet, start following from here so the
@@ -1301,7 +1618,10 @@ export default function CameraController() {
        */
       const look = useStore.getState()
       if (armedLook.current !== look.lookNonce) {
-        if (look.constellation === null || armSkySwing(look.constellation)) {
+        if (
+          (look.constellation === null && look.star === null) ||
+          armSkySwing({ constellation: look.constellation, star: look.star })
+        ) {
           armedLook.current = look.lookNonce
         }
       }
@@ -1379,7 +1699,10 @@ export default function CameraController() {
      * has run at least once. A failed arm is left unlatched and retried.
      */
     if (armedLook.current !== store.lookNonce) {
-      if (store.constellation === null || armSkySwing(store.constellation)) {
+      if (
+        (store.constellation === null && store.star === null) ||
+        armSkySwing({ constellation: store.constellation, star: store.star })
+      ) {
         armedLook.current = store.lookNonce
       }
     }
@@ -1551,7 +1874,14 @@ export default function CameraController() {
       // outright. Deliberately nothing here moves either of them — see the
       // wheel-release branch in the selection effect for why the pivot is left
       // wherever the gesture left it.
+      //
+      // The one exception is the Galaxy, below, and it is an exception to the
+      // *pivot* only. The camera is still never moved here.
       following.current = null
+      // A star flight owns the camera outright while it runs, so the Galaxy's
+      // framing stands down rather than easing the view onto the pole at the
+      // same time.
+      if (!stepStarFlight(camera, controls, dt)) frameTheGalaxy(controls, camera, dt)
     }
 
     /*
@@ -1674,13 +2004,45 @@ export default function CameraController() {
      */
     const focusDist = camera.position.distanceTo(controls.target)
     const wantNear = nearPlane(useStore.getState().scaleMode, focusDist)
-    if (wantNear > 0 && Math.abs(Math.log(wantNear / camera.near)) > 0.1) {
-      camera.near = wantNear
+    /*
+     * And the far plane with it, for the reason `farPlane` sets out: past
+     * `systemEdge` it has to open up by six decades to reach the Galaxy, and
+     * inside it must not, or looking at Earth would be done through a plane
+     * sized for a disc 90 kpc away and the orbit lines would come out dashed.
+     *
+     * Rebuilt on the same tenth-of-a-decade guard as the near plane, and in the
+     * same call to `updateProjectionMatrix` — two rebuilds a frame for one
+     * matrix would be pure waste.
+     */
+    const wantFar = farPlane(useStore.getState().scaleMode, focusDist)
+    const nearMoved = wantNear > 0 && Math.abs(Math.log(wantNear / camera.near)) > 0.1
+    const farMoved = wantFar > 0 && Math.abs(Math.log(wantFar / camera.far)) > 0.1
+    if (nearMoved || farMoved) {
+      if (nearMoved) camera.near = wantNear
+      if (farMoved) camera.far = wantFar
       camera.updateProjectionMatrix()
     }
 
+    // The wheel opens up as the sky does — see `zoomSpeedFor`. Assigned rather
+    // than passed as a prop so it costs no React render; OrbitControls reads it
+    // off the instance on every wheel.
+    controls.zoomSpeed = zoomSpeedFor(getCosmicStage(), getDiscStage())
+
+    /*
+     * After `controls.update()`, because that is when the dolly has been
+     * applied and the range is the one to ease toward. Suspended whenever
+     * something else owns the camera outright — see `smoothDolly`.
+     */
+    const dollyResync =
+      starFlight.current.active ||
+      flight.current.active ||
+      viewScroll.p > 0 ||
+      useStore.getState().surface !== null ||
+      ridden.current !== null
+
     controls.update()
-  })
+    smoothDolly(camera, controls, delta, dollyResync)
+  }, CAMERA)
 
   return (
     <OrbitControls

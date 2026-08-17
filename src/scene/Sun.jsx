@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { getDiscStage } from './cosmicStage'
 import * as THREE from 'three'
 import { warpSunRadius } from '../orbit/frames'
 import { getTexture } from '../textures'
@@ -133,6 +134,7 @@ function useGlowTexture() {
 }
 
 export default function Sun() {
+  const rootRef = useRef()
   const coreRef = useRef()
   const prominenceRef = useRef()
   const materialRef = useRef()
@@ -145,6 +147,26 @@ export default function Sun() {
   const radius = warpSunRadius(scaleMode)
 
   useFrame((state) => {
+    /*
+     * The Sun goes out once the Galaxy is the subject.
+     *
+     * It is drawn with a floor on its size so that a star 3.6 world units
+     * across is still findable from across the solar system, and that floor is
+     * a lie at galactic distances: from 60 kpc the Sun is roughly magnitude 33
+     * and not merely dim but undetectable. It was still being drawn as a yellow
+     * dot at the world origin — which, with the Galaxy billboarded, sat in a
+     * different place on screen from the ring marking where the Sun *is* in the
+     * picture. Two "you are here" marks, disagreeing.
+     *
+     * Faded on the disc stage, so it survives the whole flight out through the
+     * stars — at 300 parsecs the Sun is still magnitude 5.6 and genuinely a
+     * naked-eye star — and is gone by the time the disc is what you are looking
+     * at.
+     */
+    if (rootRef.current) {
+      rootRef.current.visible = getDiscStage() < 1
+    }
+
     const t = state.clock.elapsedTime
 
     // Surface rotation, from the simulation clock like everything else. The Sun
@@ -216,7 +238,7 @@ export default function Sun() {
   })
 
   return (
-    <group>
+    <group ref={rootRef}>
       <group ref={coreRef} scale={radius}>
         {USE_MODEL_SHELLS ? (
           <SunShells materialRef={materialRef} />

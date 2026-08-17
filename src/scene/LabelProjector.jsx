@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { BODIES, BODIES_BY_ID, bodyRadius } from '../data/bodies'
 import { warpSunRadius } from '../orbit/frames'
 import { planetPositions, useStore } from '../store/useStore'
+import { getCosmicStage } from './cosmicStage'
 import { labelNodes } from './labelRegistry'
 
 const _world = new THREE.Vector3()
@@ -206,7 +207,20 @@ export default function LabelProjector() {
 
   useFrame(() => {
     const { layers, selectedId, scaleMode } = useStore.getState()
-    const showAny = layers.labels || layers.icons
+    /*
+     * And nothing at all once the solar system has closed to a point.
+     *
+     * A label answers "which of these is Jupiter", which is a real question
+     * right up until every planet in the app is inside the same pixel. Past the
+     * star handover they all project to within a hair of the Sun, so what
+     * actually appeared on screen was one arbitrary planet's name written
+     * across the middle of the Galaxy — a caption that names something invisible
+     * and implies it is the thing being looked at.
+     *
+     * The stage is already 1 by 1,320 AU, which is well before the planetary
+     * markers become indistinguishable, so nothing legible is being taken away.
+     */
+    const showAny = (layers.labels || layers.icons) && getCosmicStage() < 1
 
     // Distance at which a sphere of radius r covers the full viewport height,
     // used below to convert a world radius into a screen radius.

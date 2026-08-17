@@ -427,6 +427,92 @@ export function warpSunRadius(scaleMode) {
  * scaleMode 0. Gathering them here means exactly one module knows what a world
  * unit is worth.
  */
+/* ---- beyond the planets ---- */
+
+/**
+ * A parsec in AU, which is a definition rather than a measurement: the parsec
+ * is the distance at which one AU subtends one arcsecond, so it is exactly
+ * 648000/pi AU. Written as the expression so nobody has to trust the digits.
+ */
+export const AU_PER_PARSEC = 648000 / Math.PI
+
+/**
+ * Where the planetary system stops and the sky begins.
+ *
+ * This is the number that used to *be* `cameraLimits().maxDistance` — the
+ * camera's ceiling, 165 AU at true scale, comfortably outside Neptune. It is
+ * still exactly that boundary; it simply stopped being a wall when the zoom
+ * carried on to the Galaxy, and it is now the place the two views hand over.
+ *
+ * Kept as its own function because four separate things want *this* distance
+ * and not the new ceiling: the far plane while inside, the split-view framing
+ * clamp, the picking backdrop, and the cross-fade schedule.
+ */
+export function systemEdge(scaleMode) {
+  return warpSunDistance(OUTER_AU, scaleMode) * 5.5
+}
+
+/**
+ * How far the camera can get: far enough that the whole disc is in frame.
+ *
+ * The Sun is 8.15 kpc off centre and the disc is drawn to 16 kpc, so the far
+ * rim is 24 kpc away on the long side. At the scene's 45-degree field of view
+ * that needs about 50 kpc of standoff, and 60 leaves the Galaxy sitting inside
+ * the frame rather than filling it edge to edge.
+ */
+export const GALAXY_VIEW_KPC = 60
+
+/**
+ * How much *beyond the camera* the far plane has to reach, in kpc.
+ *
+ * The furthest thing drawn is the disc's far rim, which is `R0 + edge` = 24.15
+ * kpc from the Sun. So a camera anywhere needs its own distance plus that, and
+ * 28 leaves a margin without spending depth range on nothing.
+ *
+ * The first version of this was 90 — the whole disc plus the whole standoff,
+ * added as if the camera were always at the far side of both — and it cost a
+ * measurable amount. At the handover the near plane is a twentieth of 165 AU,
+ * so an extra factor of three on the far plane is an extra factor of three on
+ * the ratio, which took it from 6.5e8 to 2.2e9 and over the line where the log
+ * buffer starts to lose distant geometry. The number that is actually required
+ * is the one that fits.
+ */
+export const GALAXY_FAR_KPC = 28
+
+/**
+ * World units per parsec.
+ *
+ * ## Why this is not simply `AU_PER_PARSEC * UNITS_PER_AU`
+ *
+ * At true scale it is exactly that, and the sky is drawn at its real distance
+ * in the same units as everything else. At diorama it cannot be: the planetary
+ * system is compressed there — Neptune sits at 178 units instead of 3,007 —
+ * so a sky at true distance would leave the whole solar system a mote at the
+ * centre of a correctly-sized Galaxy, and the zoom-out would spend its first
+ * five decades crossing an empty gap that only exists because the near end was
+ * squashed.
+ *
+ * So the cosmic scale is tied to the planetary one: the ratio between the two
+ * modes' `systemEdge`. The handover then happens at the same point on screen in
+ * both, and — this is the part that matters — the whole sky is scaled by a
+ * *single* constant within each mode, so every distance in it stays in the
+ * right proportion to every other. Uniformly scaling a picture does not change
+ * the picture. Diorama and true scale show the identical Galaxy, star for star,
+ * exactly as `Starfield` already promises for the dome.
+ *
+ * What is *not* done here is compressing the sky's own radial range with a
+ * curve, the way `compressedSunDistance` compresses the planets. That was the
+ * first attempt and it is badly wrong: a curve that squashes ten decades into
+ * a few exaggerates parallax by tens of thousands, so the constellations would
+ * visibly pull apart while the camera was still inside the solar system — the
+ * one thing that must not happen, since from 165 AU the real shift of the
+ * nearest star is 0.035 degrees. The sky's proportions have to be untouched
+ * for it to dissolve at the right time.
+ */
+export function unitsPerParsec(scaleMode) {
+  return AU_PER_PARSEC * UNITS_PER_AU * (systemEdge(scaleMode) / systemEdge(1))
+}
+
 export function cameraLimits(scaleMode) {
   const outer = warpSunDistance(OUTER_AU, scaleMode)
   /*
@@ -464,7 +550,17 @@ export function cameraLimits(scaleMode) {
      * from, and that is fine: the multiplier leaves room for it. The limit is
      * about keeping the *view* usable, not about bounding the contents.
      */
-    maxDistance: outer * 5.5,
+    /**
+     * Out to where the Galaxy is in frame.
+     *
+     * This was `outer * 5.5` — 165 AU, "comfortably outside Neptune without
+     * letting the system shrink to a dot" — and that reasoning was right about
+     * the *planetary* view and wrong to make it a ceiling. Keeping the system
+     * from shrinking to a dot is exactly what stopped anyone seeing that it is
+     * one. The old value still exists and still means what it meant, under the
+     * name `systemEdge`, and the two views hand over there.
+     */
+    maxDistance: GALAXY_VIEW_KPC * 1000 * unitsPerParsec(scaleMode),
     /**
      * Overview distance. 1.6x Neptune's orbit frames the whole planetary
      * system — which is what "the solar system" means to most people, and the
@@ -528,14 +624,44 @@ export function angularSizeDeg(radius, distance) {
 }
 
 /**
- * Far plane for the given scale.
+ * Far plane, sized from where the camera is.
  *
- * With `logarithmicDepthBuffer` enabled the far plane costs almost nothing in
- * precision, so this is generous — it is what leaves room for the star sphere,
- * and later for the galaxy, without a second camera.
+ * ## Why it cannot just be the ceiling any more
+ *
+ * This used to be `maxDistance * 40` and the comment said a log depth buffer
+ * makes the far plane nearly free, "which is what leaves room for the star
+ * sphere, and later for the galaxy, without a second camera". The first half is
+ * true and the second half turned out not to be, for a reason `nearPlane`
+ * writes out at length: what a log buffer spends is *decades*, and the ratio
+ * far:near is measurably clean to 1e9 and breaks by 1e10 — past that the orbit
+ * lines and trails come out visibly dashed.
+ *
+ * The Galaxy is 90 kpc of far plane. Parked at a planet the near plane is a
+ * fraction of a body's radius, so a constant galactic far plane would put the
+ * ratio at 1e15 while looking at Earth — five decades past the point the
+ * render falls apart, and for a disc that is not even on screen.
+ *
+ * ## What it does instead
+ *
+ * Inside the planetary system, exactly what it always did, to the digit. There
+ * is no regression at any camera position that was reachable before, because
+ * `systemEdge` *was* the ceiling.
+ *
+ * Beyond it, the plane opens up to cover the Galaxy — and that is affordable
+ * precisely because it can only happen when the camera is far out, which is
+ * when `nearPlane` has grown too: at the handover the near plane is a
+ * twentieth of 165 AU, so the ratio is 9e8 and lands under the limit rather
+ * than eight decades over it. The two planes move together, which is the
+ * property that makes one camera enough after all.
+ *
+ * `cameraDistance` is the camera's distance from what it is looking at, the
+ * same value `nearPlane` takes. The zero default keeps the mount-time call
+ * honest before any camera exists.
  */
-export function farPlane(scaleMode) {
-  return cameraLimits(scaleMode).maxDistance * 40
+export function farPlane(scaleMode, cameraDistance = 0) {
+  const planetary = systemEdge(scaleMode) * 40
+  if (!(cameraDistance > systemEdge(scaleMode))) return planetary
+  return Math.max(planetary, cameraDistance + GALAXY_FAR_KPC * 1000 * unitsPerParsec(scaleMode))
 }
 
 /**

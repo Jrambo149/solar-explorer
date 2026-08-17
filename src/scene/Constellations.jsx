@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { getCosmicStage, skyRadiusFor } from './cosmicStage'
 import * as THREE from 'three'
 import { CONSTELLATIONS, STARS } from '../data/stars'
 import { CONSTELLATION_REGIONS } from '../data/constellations'
@@ -114,7 +115,9 @@ function Region({ index, radius }) {
 
   const group = useRef(null)
   useFrame(({ camera }) => {
-    if (group.current) group.current.position.copy(camera.position)
+    if (!group.current) return
+    group.current.position.copy(camera.position)
+    group.current.scale.setScalar(skyRadiusFor(radius) / radius)
   })
 
   return (
@@ -314,7 +317,26 @@ export default function Constellations({ radius = DOME_RADIUS }) {
 
   const lines = useRef(null)
   useFrame(({ camera }) => {
-    if (lines.current) lines.current.position.copy(camera.position)
+    if (!lines.current) return
+    /*
+     * The figures go with the dome, and they have to.
+     *
+     * A figure is a set of lines between stars *as seen from here*, drawn on
+     * the same camera-riding shell the dome puts those stars on. Once the deep
+     * field takes over, the stars themselves are at their real distances and
+     * have begun to move apart — so a figure left up would be joining points
+     * that are no longer where its endpoints are. Orion's belt would come apart
+     * while three straight lines went on insisting it had not.
+     *
+     * Fading on the star stage rather than the disc one, because that is the
+     * handover this belongs to: the figures are a property of the dome, not of
+     * being inside the Galaxy.
+     */
+    const fade = 1 - getCosmicStage()
+    lines.current.visible = fade > 0
+    lines.current.material.opacity = LINE_OPACITY * fade
+    lines.current.position.copy(camera.position)
+    lines.current.scale.setScalar(skyRadiusFor(radius) / radius)
   })
 
   /*

@@ -42,6 +42,17 @@
  * Each rung may read what the rung above it wrote, and nothing more.
  */
 
+/**
+ * How far out the camera is, expressed as *which view we are in*.
+ *
+ * Above the clock because it depends on nothing the frame computes — only on
+ * where the camera already is — and because almost everything that draws the
+ * sky reads it: the star dome and the deep field cross-fade on it, the band
+ * and the Galaxy's disc hand over on it, and the near and far planes are sized
+ * from it. Written once, read everywhere, and never mid-frame stale.
+ */
+export const VIEW = -40
+
 /** The clock. Everything else reads the julian date it sets. */
 export const CLOCK = -30
 
@@ -58,8 +69,30 @@ export const BODIES = -20
 export const SPACECRAFT = -10
 
 /**
- * Everything that consumes finished positions: the camera, the trails, the
- * label projector. Left at r3f's default so nothing has to opt in.
+ * The camera, which must finish moving before anything that rides on it.
+ *
+ * Its own rung, one ahead of the rest of the consumers, because the sky is
+ * pinned to the camera: `Starfield`, `MilkyWay` and the constellation figures
+ * all copy `camera.position` into their own so the sky sits at infinity. Those
+ * are mounted before `CameraController` in `Scene`, so at a shared priority
+ * they ran *first* and pinned the sky to where the camera was last frame.
+ *
+ * That was harmless for as long as the camera moved in jumps: the wheel
+ * dollied once and then held still for several frames, so almost every frame
+ * sampled a camera that had already arrived. Smoothing the zoom made the camera
+ * move on *every* frame of a gesture, and the one-frame lag turned into 1.35
+ * degrees of parallax on a dome that is supposed to have none — the sky
+ * visibly swimming against the stars during a zoom.
+ *
+ * Still negative, for the reason the whole ladder is: a positive priority makes
+ * r3f stop rendering the scene automatically. See above.
+ */
+export const CAMERA = -1
+
+/**
+ * Everything that consumes finished positions: the trails, the label
+ * projector, and the sky that rides on the camera. Left at r3f's default so
+ * nothing has to opt in.
  */
 export const CONSUMERS = 0
 

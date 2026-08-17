@@ -134,6 +134,29 @@ export function galacticDirection(lDegrees, bDegrees, out = { x: 0, y: 0, z: 0 }
 }
 
 /**
+ * A heliocentric galactic Cartesian position to a world one.
+ *
+ * `u` points at the Galactic centre, `v` at `l = 90` (the way the Galaxy
+ * turns), `w` at the north Galactic pole — the axes `GALACTIC` already holds,
+ * used as a basis rather than only as a direction.
+ *
+ * This is what puts the Galaxy's disc in the same frame as the band that
+ * precedes it and the stars that are drawn among it. Building a second rotation
+ * for the disc would have been a second chance to get the handedness wrong, and
+ * the header above records what that costs: mirroring the Galaxy leaves the
+ * bulge in Sagittarius and swaps everything else, which is invisible without a
+ * landmark to check against.
+ *
+ * Units are whatever the caller's are — it is a rotation, and it scales.
+ */
+export function galacticToWorld(u, v, w, out = { x: 0, y: 0, z: 0 }) {
+  out.x = GALACTIC.x.x * u + GALACTIC.y.x * v + GALACTIC.z.x * w
+  out.y = GALACTIC.x.y * u + GALACTIC.y.y * v + GALACTIC.z.y * w
+  out.z = GALACTIC.x.z * u + GALACTIC.y.z * v + GALACTIC.z.z * w
+  return out
+}
+
+/**
  * Which way round the panorama runs, measured rather than assumed.
  *
  * The texture is an equirectangular map in galactic coordinates with the
@@ -213,6 +236,47 @@ export const starSize = (magnitude) =>
 
 export const starAlpha = (magnitude) =>
   ALPHA_FLOOR + Math.pow(magnitudeRamp(magnitude), ALPHA_GAMMA) * ALPHA_SPREAD
+
+/**
+ * The same three functions, in GLSL, built from the same constants.
+ *
+ * `Starfield` works a star's size and brightness out once, on the CPU, because
+ * on a dome they never change: every star is the same distance away forever, so
+ * its apparent magnitude is the catalogue's and that is that.
+ *
+ * `DeepField` cannot. Its stars are at their real distances, the camera moves
+ * among them, and the whole point of the journey out is that a star's apparent
+ * magnitude changes as you approach or leave it. That has to happen per vertex
+ * per frame, which means in a shader.
+ *
+ * Interpolated from the constants above rather than typed out again, because
+ * the two skies cross-fade into each other and a sky that dimmed or swelled
+ * across the handover would be the immediate, obvious symptom of these numbers
+ * having drifted apart. There is no version of this worth maintaining twice.
+ */
+export const STAR_RAMP_GLSL = /* glsl */ `
+  float magnitudeRamp(float magnitude) {
+    return clamp((${MAG_FAINTEST.toFixed(1)} - magnitude) /
+      ${(MAG_FAINTEST - MAG_BRIGHTEST).toFixed(1)}, 0.0, 1.0);
+  }
+  float starSizeOf(float magnitude) {
+    return ${SIZE_BASE} + pow(magnitudeRamp(magnitude), ${SIZE_GAMMA}) * ${SIZE_SPREAD};
+  }
+  /**
+   * How many magnitudes brighter than the drawn range's top a star is.
+   *
+   * Zero for everything in the sky as seen from here — the range was chosen to
+   * hold it — and positive only once the camera has approached one. It is what
+   * the chart compression *threw away*, handed back so the renderer can spend
+   * it on glare instead of on a bigger disc.
+   */
+  float magnitudeOver(float magnitude) {
+    return max(0.0, ${MAG_BRIGHTEST.toFixed(1)} - magnitude);
+  }
+  float starAlphaOf(float magnitude) {
+    return ${ALPHA_FLOOR} + pow(magnitudeRamp(magnitude), ${ALPHA_GAMMA}) * ${ALPHA_SPREAD};
+  }
+`
 
 /**
  * Colour from the B-V index, down the same anchors the procedural sky used.

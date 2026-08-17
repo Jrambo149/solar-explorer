@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { getDiscStage, skyRadiusFor } from './cosmicStage'
 import { getDaylight } from './daylight'
 import * as THREE from 'three'
 import { galacticDirection, galacticLongitudeAt } from './sky'
@@ -12,15 +13,25 @@ import { galacticDirection, galacticLongitudeAt } from './sky'
  * the sky, and the sky's largest feature by far is the disc of our own galaxy
  * seen edge-on from a third of the way out along it.
  *
- * ## Why a band and not a galaxy
+ * ## A band *and* a galaxy, now
  *
- * Eyes draws a face-on picture of the Milky Way as a sprite 1.2e18 metres
- * across — 127,000 light years, the whole disc — and shows it once the camera
- * is more than about a light year out. That is a real view from a real place,
- * and it is a place this app cannot go: the camera tops out at 165 AU, which is
- * 0.0026 light years, so from every point in this app's reach the Galaxy is the
- * band overhead rather than a spiral in front of you. Drawing the spiral here
- * would be drawing a view from somewhere the camera has never been.
+ * This file used to carry an argument for why the face-on spiral could not be
+ * drawn: Eyes shows one once its camera is far enough out, and this camera
+ * stopped at 165 AU — 0.0026 light years — so from everywhere it could reach,
+ * the Galaxy is the band overhead. Drawing the spiral would have been drawing a
+ * view from somewhere the camera had never been.
+ *
+ * That was a fact about the camera's range, and the range is what changed. It
+ * now reaches 60 kpc, `Galaxy.jsx` draws the disc from out there, and the two
+ * cross-fade over 2 to 25 kpc — which is the span over which "are we inside the
+ * disc" stops having a clear answer.
+ *
+ * Neither picture replaces the other and neither is a fallback. A band is what
+ * a disc looks like from within it, so this one is exactly right everywhere the
+ * camera is inside the Galaxy, which is the overwhelming majority of the places
+ * anyone will ever put it. What is no longer true is that it is right
+ * *everywhere*, and continuing to paint it on a shell around a camera that has
+ * left would put the Galaxy simultaneously around you and in front of you.
  *
  * ## The geometry is built from coordinates, not from a UV sphere
  *
@@ -132,7 +143,31 @@ export default function MilkyWay({ radius = RADIUS, brightness = BRIGHTNESS }) {
   const mesh = useRef(null)
   useFrame(({ camera }) => {
     if (!mesh.current) return
+    /*
+     * And it stops being the right picture once the camera is outside it.
+     *
+     * The header above argued that the spiral could not honestly be drawn
+     * because the camera could never get to a place it would be seen from.
+     * That premise is what changed: it can now, and `Galaxy` draws it from
+     * there. Both are the Milky Way and only one of them can be true at a time
+     * — a band is what the disc looks like from inside it, and continuing to
+     * paint it on a shell around a camera that has left would put the Galaxy
+     * simultaneously around you and in front of you.
+     *
+     * So this fades out on exactly the schedule the disc fades in. The two are
+     * `1 - stage` and `stage`, which is what keeps the total honest.
+     *
+     * On the **disc** stage, not the star one. The two handovers happen four
+     * decades apart and for unrelated reasons — see `cosmicStage.js`. Fading
+     * the band out with the star dome at 1,320 AU would put out the Milky Way
+     * while the camera was still, by any measure, inside it.
+     */
+    const fade = 1 - getDiscStage()
+    mesh.current.visible = fade > 0
+    if (fade <= 0) return
+
     mesh.current.position.copy(camera.position)
+    mesh.current.scale.setScalar(skyRadiusFor(radius) / radius)
     /*
      * And out in daylight, with the stars.
      *
@@ -141,7 +176,7 @@ export default function MilkyWay({ radius = RADIUS, brightness = BRIGHTNESS }) {
      * the galaxy stayed, which is a stranger picture than leaving both.
      */
     const lit = 1 - getDaylight() * getDaylight()
-    mesh.current.material.color.setScalar(brightness * lit)
+    mesh.current.material.color.setScalar(brightness * lit * fade)
   })
 
   if (!map) return null

@@ -34,7 +34,7 @@
     "verify:horizon": "node scripts/verify-horizon.mjs",
     "verify:daylight": "node scripts/verify-daylight.mjs",
     "verify:framing": "node scripts/verify-framing.mjs",
-    "verify": "npm run verify:orbits && npm run verify:bodies && npm run verify:shaders && npm run verify:search && npm run verify:mission-events && npm run verify:event-facts && npm run verify:framing && npm run verify:spacecraft -- --offline",
+    "verify": "npm run verify:orbits && npm run verify:bodies && npm run verify:shaders && npm run verify:search && npm run verify:mission-events && npm run verify:event-facts && npm run verify:framing && npm run verify:galaxy -- --offline && npm run verify:spacecraft -- --offline",
     "fetch:reference": "node scripts/fetch-dwarf-reference.mjs",
     "model:sun": "/Applications/Blender.app/Contents/MacOS/Blender -b 'Models/the-sun_206072e0-d3aa-4765-9fd0-1dd1c59e2aff.blend' --python scripts/export-sun-model.py -- public/models/sun.glb",
     "model:nasa": "node scripts/prepare-nasa-model.mjs",
@@ -60,7 +60,10 @@
     "verify:constellations": "node scripts/verify-constellations.mjs",
     "verify:sky": "node scripts/verify-sky.mjs",
     "verify:markers": "node scripts/verify-markers.mjs",
-    "verify:models": "node scripts/verify-models.mjs"
+    "verify:models": "node scripts/verify-models.mjs",
+    "bake:galaxy": "node scripts/bake-galaxy.mjs",
+    "verify:galaxy": "node scripts/verify-galaxy.mjs",
+    "fetch:galaxy-sprite": "node scripts/fetch-galaxy-sprite.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

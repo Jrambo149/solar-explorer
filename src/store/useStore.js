@@ -501,9 +501,32 @@ export const useStore = create((set, get) => ({
   lookNonce: 0,
 
   selectConstellation: (index) =>
-    set((s) => (s.constellation === index ? { constellation: null } : { constellation: index })),
+    set((s) =>
+      s.constellation === index ? { constellation: null } : { constellation: index, star: null },
+    ),
 
   clearConstellation: () => set({ constellation: null }),
+
+  /**
+   * Which star is named on screen, as an index into `STARS`, or null.
+   *
+   * Held beside `constellation` rather than inside the body selection for the
+   * same reason that one is: a star is a direction at an effectively infinite
+   * distance, not a thing the camera parks at, so it does not belong in
+   * `selectedId` where every consumer would treat it as a body with a radius
+   * and an orbit.
+   *
+   * A star and a constellation are mutually exclusive on screen. They are not
+   * unrelated — the star is *in* the constellation — but two panels describing
+   * the same patch of sky at once is one panel too many, and the click that
+   * chose the star already answered the more specific question.
+   */
+  star: null,
+
+  selectStar: (index) =>
+    set((s) => (s.star === index ? { star: null } : { star: index, constellation: null })),
+
+  clearStar: () => set({ star: null }),
 
   /**
    * Select one and make sure it can be seen — the search's way in.
@@ -524,6 +547,35 @@ export const useStore = create((set, get) => ({
       layers: { ...s.layers, constellations: true },
       constellation: index,
       lookNonce: s.lookNonce + 1,
+    })),
+
+  /**
+   * Pick a star and turn the view to face it — the search's way in.
+   *
+   * The star equivalent of `revealConstellation`, and it turns nothing on:
+   * unlike the figures, the sky itself has no toggle, so a star chosen from a
+   * list is always already drawn. The nonce is what the two share, and it is
+   * the whole point of going through a reveal — a name picked from a list
+   * carries no direction with it, so the camera has to supply one.
+   */
+  revealStar: (index) =>
+    set((s) => ({ star: index, constellation: null, lookNonce: s.lookNonce + 1 })),
+
+  /**
+   * Bumped to send the camera *to* a star rather than merely turn toward it.
+   *
+   * A nonce for the reason `lookNonce` and `flightNonce` are: asking for the
+   * one already selected has to do something. Flying to Vega, drifting away and
+   * asking again is two requests, and an effect keyed on the index would answer
+   * only the first.
+   */
+  starFlightNonce: 0,
+
+  flyToStar: (index) =>
+    set((s) => ({
+      star: index,
+      constellation: null,
+      starFlightNonce: s.starFlightNonce + 1,
     })),
 
   setHovered: (id) => set((s) => (s.hoveredId === id ? s : { hoveredId: id })),

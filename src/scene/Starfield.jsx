@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { STARS } from '../data/stars'
+import { getCosmicStage, skyRadiusFor } from './cosmicStage'
 import { getDaylight } from './daylight'
 import { starAlpha, starColour, starDirection, starSize } from './sky'
 
@@ -88,6 +89,7 @@ const VERTEX = /* glsl */ `
   uniform float uTwinkle;
   uniform float uScale;
   uniform float uDaylight;
+  uniform float uFade;
 
   varying vec3 vColor;
   varying float vAlpha;
@@ -123,7 +125,16 @@ const VERTEX = /* glsl */ `
      * Squared, so a twilight sky still has stars in it: the brightest survive
      * well past sunset, which is exactly when people look.
      */
-    vAlpha = aAlpha * twinkle * (1.0 - uDaylight * uDaylight);
+    /*
+     * And hand over to DeepField on the way out.
+     *
+     * This dome has no parallax by construction — it rides with the camera —
+     * so it is the right sky only while there is no parallax to have. Past
+     * systemEdge there is, and the same stars are drawn at their real
+     * distances instead. uFade is 1 - stage, so the two always sum to one
+     * and the sky is neither doubled nor absent at any point in between.
+     */
+    vAlpha = aAlpha * twinkle * (1.0 - uDaylight * uDaylight) * uFade;
   }
 `
 
@@ -257,6 +268,7 @@ export default function Starfield({
       uTwinkle: { value: twinkle },
       uScale: { value: 0 },
       uDaylight: { value: 0 },
+      uFade: { value: 1 },
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }),
     [],
@@ -309,11 +321,23 @@ export default function Starfield({
 
   useFrame(({ camera }, delta) => {
     const material = materialRef.current
+    const fade = 1 - getCosmicStage()
     if (material) {
       material.uniforms.uTime.value += delta * 0.6
       material.uniforms.uDaylight.value = getDaylight()
+      material.uniforms.uFade.value = fade
     }
-    if (points.current) points.current.position.copy(camera.position)
+    // Fully handed over: nothing to draw, and no reason to keep transforming
+    // nine thousand points to prove it.
+    if (points.current) {
+      points.current.visible = fade > 0
+      points.current.position.copy(camera.position)
+      // And grown to stay clear of the near plane — see `skyRadiusFor`. A
+      // uniform scale about the camera the dome is centred on changes no angle,
+      // and `uScale` divides by the same radius it multiplies, so the stars come
+      // out at exactly the size and place they always did.
+      points.current.scale.setScalar(skyRadiusFor(radius) / radius)
+    }
   })
 
   /*
