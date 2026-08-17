@@ -12,6 +12,7 @@ import LabelLayer from './ui/LabelLayer'
 import FeatureLayer from './ui/FeatureLayer'
 import SurfaceBar from './ui/SurfaceBar'
 import ConstellationPanel from './ui/ConstellationPanel'
+import StarPanel from './ui/StarPanel'
 import ConstellationLabels from './ui/ConstellationLabels'
 import Header from './ui/Header'
 import PlanetTitle from './ui/PlanetTitle'
@@ -102,6 +103,7 @@ export default function App() {
               <SurfaceBar />
               <ConstellationLabels />
               <ConstellationPanel />
+              <StarPanel />
               <ScrollHint />
               <NavBar />
               <Timeline />

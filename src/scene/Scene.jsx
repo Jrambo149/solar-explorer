@@ -7,7 +7,7 @@ import { surfaceDirection, surfaceOffset, surfaceSpin } from './surface'
 import { bodyBasis, primeMeridianAt } from './pole'
 import { BODIES, bodyShown } from '../data/bodies'
 import { useClassLayers } from '../hooks/useClassLayers'
-import { cameraLimits, farPlane, homeCameraPosition, nearPlane } from '../orbit/frames'
+import { cameraLimits, farPlane, homeCameraPosition, nearPlane, systemEdge } from '../orbit/frames'
 import { useStore, viewScroll } from '../store/useStore'
 import Sun from './Sun'
 import Body from './Body'
@@ -22,11 +22,15 @@ import SkyDome from './SkyDome'
 import EclipsePath from './EclipsePath'
 import SurfaceFeatures from './SurfaceFeatures'
 import CameraController from './CameraController'
+import SkyStage from './SkyStage'
+import DeepField from './DeepField'
+import Galaxy from './Galaxy'
 import { SIDE_SHIFT } from './splitFraming'
 import SimulationClock from './SimulationClock'
 import LabelProjector from './LabelProjector'
 import { wasDragged } from './dragGuard'
 import { constellationAtDirection } from './constellationLookup'
+import { clickTolerance, starAtDirection } from './starLookup'
 
 /**
  * Holds ACES tone mapping on while the bloom pass is mounted.
@@ -79,6 +83,14 @@ function DevHandle() {
   const scene = useThree((state) => state.scene)
   const gl = useThree((state) => state.gl)
   const camera = useThree((state) => state.camera)
+  /*
+   * The controls, because the camera alone cannot answer where it is pointing.
+   * Every distance the app sizes itself from — the depth planes, both cosmic
+   * stages, the zoom rate — is measured to `controls.target`, and from outside
+   * there is no way to recover that from `camera.position` alone. A probe that
+   * guessed it read the wheel as doing nothing when it was working fine.
+   */
+  const controls = useThree((state) => state.controls)
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === 'undefined' || !window.__solar) return undefined
@@ -104,6 +116,7 @@ function DevHandle() {
       scene,
       gl,
       camera,
+      controls,
       three: THREE,
       attitudes: spacecraftAttitudes,
       surface: { surfaceDirection, surfaceOffset, surfaceSpin, bodyBasis, primeMeridianAt },
@@ -112,11 +125,12 @@ function DevHandle() {
       delete window.__solar.scene
       delete window.__solar.gl
       delete window.__solar.camera
+      delete window.__solar.controls
       delete window.__solar.three
       delete window.__solar.attitudes
       delete window.__solar.surface
     }
-  }, [scene, gl, camera])
+  }, [scene, gl, camera, controls])
 
   return null
 }
@@ -201,6 +215,9 @@ function SceneContents() {
   const bloom = useStore((s) => s.bloom)
   const clearSelection = useStore((s) => s.clearSelection)
   const selectConstellation = useStore((s) => s.selectConstellation)
+  const selectStar = useStore((s) => s.selectStar)
+  // The click's reach is measured in pixels, so it needs the viewport height.
+  const viewport = useThree((state) => state.size)
   const scaleMode = useStore((s) => s.scaleMode)
   const limits = cameraLimits(scaleMode)
 
@@ -227,6 +244,36 @@ function SceneContents() {
    */
   const standing = useStore((s) => s.surface !== null)
 
+  /*
+   * The picking backdrop has to be resized as the camera pulls out.
+   *
+   * It used to be `scale={limits.maxDistance}`, which was correct for exactly
+   * as long as `maxDistance` meant "the furthest the camera can be": a sphere
+   * that big, centred on the Sun, always had the camera inside it and always
+   * sat behind every planet, so a click that missed a body hit the sphere and a
+   * click that hit one never reached it.
+   *
+   * Both halves break now that the ceiling is 60 kpc. The camera would reach
+   * the sphere's own surface at full zoom-out and pass through it, and long
+   * before that the sphere's near side would be closer to the camera than the
+   * planets are — so it would start swallowing the clicks it exists to let
+   * through.
+   *
+   * Three times the camera's own distance keeps both properties at any zoom:
+   * the near side is always twice as far as the pivot, so nothing near the
+   * pivot can be occluded by it, and the camera is always well inside. The
+   * floor at `systemEdge` is what it was before, so behaviour inside the
+   * planetary system is unchanged to the digit.
+   */
+  const backdrop = useRef(null)
+  useFrame(({ camera, controls }) => {
+    if (!backdrop.current) return
+    const pivot = controls?.target
+      ? camera.position.distanceTo(controls.target)
+      : camera.position.length()
+    backdrop.current.scale.setScalar(Math.max(systemEdge(scaleMode), pivot * 3))
+  })
+
   // Which bodies exist at all this frame. Filtering here rather than hiding
   // inside each body means a switched-off class costs nothing: no geometry, no
   // material, no `useFrame` subscriber solving an orbit nobody will see. With
@@ -248,6 +295,10 @@ function SceneContents() {
       {/* Ahead of everything that draws, so the projection is settled before
           the frame it applies to. */}
       <ViewFraming />
+
+      {/* And ahead of the clock: it publishes how far out the camera is, which
+          six separate things in the sky below cross-fade on. */}
+      <SkyStage />
 
       <DevHandle />
 
@@ -284,7 +335,19 @@ function SceneContents() {
           past the Kuiper belt and this is what is left filling the view. */}
       {showMilkyWay && <MilkyWay />}
 
+      {/* The same Galaxy, from outside. The band above and this disc are two
+          pictures of one object taken from two places, so they cross-fade on
+          the stage rather than both being drawn: the band is what it looks like
+          from within the disc, and once the camera is genuinely out of it that
+          picture stops being true. */}
+      {showMilkyWay && <Galaxy />}
+
       <Starfield starPixels={2.1} />
+
+      {/* The same 8,922 stars as the dome above, at their catalogue distances.
+          Also a cross-fade rather than a replacement — see `cosmicStage.js` for
+          why the two are interchangeable exactly where they are interchanged. */}
+      <DeepField starPixels={2.1} />
       {/* Under the same roof as the stars: both ride with the camera, so the
           figures stay on the stars they connect however far the camera flies. */}
       {showConstellations && <Constellations />}
@@ -391,24 +454,47 @@ function SceneContents() {
       <mesh
         onClick={(event) => {
           if (wasDragged()) return
+
+          const { x, y, z } = event.ray.direction
+
+          /*
+           * The star first, and *before* the constellation layer is consulted.
+           *
+           * Both answer "what is that?", at two scales, and the more specific
+           * answer wins when the pointer is actually on something: asked the
+           * other way round, a click on Vega would name Lyra — true, and not
+           * what was being pointed at.
+           *
+           * Stars are not behind the figures toggle, because they are not
+           * behind it on screen. The rule the rest of the app follows is that
+           * you cannot select what is not drawn, and the sky is always drawn —
+           * it is the *figures* that are optional. Gating this on them meant
+           * clicking a star did nothing at all in the default view, which is
+           * how it was found.
+           *
+           * The reach is a few pixels rather than a fixed angle on the sky, so
+           * it stays the same target whatever the zoom.
+           */
+          const star = starAtDirection(
+            x,
+            y,
+            z,
+            clickTolerance(event.camera.fov, viewport.height),
+          )
+          if (star !== null) {
+            selectStar(star)
+            return
+          }
+
           if (!showConstellations) {
             clearSelection()
             return
           }
-          /*
-           * The ray's *direction*, not the point it struck.
-           *
-           * This sphere is a finite backdrop parked at the far clip plane, and
-           * the sky is not on it — the stars ride with the camera, at infinity.
-           * The hit point is therefore a position on an arbitrary shell whose
-           * radius changes with the scale dial, while the direction is exactly
-           * the question being asked: which way is the user pointing.
-           */
-          const { x, y, z } = event.ray.direction
+
           const index = constellationAtDirection(x, y, z)
           if (index !== null) selectConstellation(index)
         }}
-        scale={limits.maxDistance}
+        ref={backdrop}
         renderOrder={-1}
       >
         <sphereGeometry args={[1, 8, 6]} />

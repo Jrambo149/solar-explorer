@@ -58,6 +58,8 @@ const CLASS_MARK = {
   // Not a disc, because a constellation is not an object — it is a patch of
   // sky. The one mark in the list that is not round.
   constellation: '✧',
+  // A star is a point of light, and the mark should not pretend otherwise.
+  star: '✦',
 }
 
 /**
@@ -88,7 +90,7 @@ function Row({
    * A region of sky, which has no clock, no mission and no parent — every line
    * below this is about a body and none of it applies.
    */
-  if (entry.kind === 'constellation') {
+  if (entry.kind === 'constellation' || entry.kind === 'star') {
     return (
       <li>
         <button
@@ -98,7 +100,7 @@ function Row({
           onClick={() => go(entry)}
         >
           <span className="search__mark" aria-hidden="true">
-            {CLASS_MARK.constellation}
+            {CLASS_MARK[entry.kind]}
           </span>
           <span className="search__name">{entry.name}</span>
           {/* What it depicts, but only while browsing the category — there the
@@ -193,6 +195,7 @@ export default function SearchPalette() {
   const toggleSearch = useStore((s) => s.toggleSearch)
   const revealAndSelect = useStore((s) => s.revealAndSelect)
   const revealConstellation = useStore((s) => s.revealConstellation)
+  const revealStar = useStore((s) => s.revealStar)
   const displayJD = useStore((s) => s.displayJD)
   const namer = useNamer()
 
@@ -314,6 +317,7 @@ export default function SearchPalette() {
   const go = (entry) => {
     if (!entry) return
     if (entry.kind === 'constellation') revealConstellation(entry.constellation)
+    else if (entry.kind === 'star') revealStar(entry.star)
     else revealAndSelect(entry.id)
     setSearchOpen(false)
   }

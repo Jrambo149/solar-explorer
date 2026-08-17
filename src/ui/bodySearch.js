@@ -14,6 +14,8 @@
 
 import { BODIES, BODIES_BY_ID } from '../data/bodies.js'
 import { CONSTELLATION_REGIONS } from '../data/constellations.js'
+import { STARS, STAR_FACTS, STAR_NAMES } from '../data/stars.js'
+import { designation } from './starFacts.js'
 import { LANDED_CRAFT } from '../data/landedCraft.js'
 
 /**
@@ -125,6 +127,16 @@ const CLASS_RANK = {
   comet: 3,
   spacecraft: 2,
   constellation: 1.5,
+  /*
+   * Below the constellations, and for the same reason they sit below the
+   * bodies: a name shared between a star and something in the solar system
+   * should resolve to the solar system. **Rigel** is a star and a Kuiper belt
+   * object, **Vega** is a star and a lander, **Sirius** and **Antares** are
+   * both stars and rockets. In every one of those the thing you can fly to and
+   * park at is the better first answer, and the star is one row down rather
+   * than missing.
+   */
+  star: 1.2,
 }
 const classBonus = (entry) =>
   (entry.kind === 'moon' && entry.tier === 'minor' ? 1 : CLASS_RANK[entry.kind]) ?? 0
@@ -178,6 +190,23 @@ function termsFor(body) {
  * and above a word-start — which is where "the three-letter code, if you happen
  * to know it" belongs.
  */
+/**
+ * Every string a star answers to.
+ *
+ * The proper name is what people type — **Betelgeuse**, **Vega** — so it is
+ * primary alone. The designation is real and precise and almost nobody searches
+ * for it, so "Alpha Orionis" is secondary; the bare constellation genitive is
+ * *not* included, or every one of Orion's stars would answer to "Orionis" and a
+ * search for a constellation would fill with its members.
+ */
+function starTerms(name, formal) {
+  return {
+    primary: name ? [name] : [formal],
+    secondary: name && formal ? [formal] : [],
+    tertiary: [],
+  }
+}
+
 function constellationTerms(region) {
   return {
     primary: [region.name],
@@ -195,6 +224,8 @@ function constellationTerms(region) {
  * question, since `phoenix` is a lander and a constellation and `hydra` is a
  * moon and a constellation.
  */
+const STAR_NAME_BY_INDEX = new Map(STAR_NAMES)
+
 const INDEX = [
   ...BODIES.map((body) => ({
     kind: body.kind,
@@ -204,6 +235,26 @@ const INDEX = [
     body,
     ...termsFor(body),
   })),
+  /*
+   * The 383 stars with a dossier, not all 8,922.
+   *
+   * The same cut `starLookup` picks by, and for the same reason: a search
+   * result has to lead somewhere that can answer a question. The anonymous
+   * points have no name to match anyway, so this costs the search nothing it
+   * could have had.
+   */
+  ...STAR_FACTS.map(([index, , bayer, flamsteed, abbr]) => {
+    const name = STAR_NAME_BY_INDEX.get(index) ?? null
+    const formal = designation(bayer, flamsteed, abbr)
+    return {
+      kind: 'star',
+      id: `star:${index}`,
+      name: name ?? formal ?? `Star ${index}`,
+      star: index,
+      magnitude: STARS[index][2],
+      ...starTerms(name, formal),
+    }
+  }).filter((entry) => entry.primary[0]),
   ...CONSTELLATION_REGIONS.map((region, index) => ({
     kind: 'constellation',
     id: `constellation:${region.abbr}`,
@@ -246,8 +297,15 @@ export function bodyContext(body) {
  * where a thing you have to read belongs. A result row is scanned, not read.
  */
 export function resultContext(entry) {
-  if (entry.kind !== 'constellation') return bodyContext(entry.body)
-  return 'Constellation'
+  if (entry.kind === 'constellation') return 'Constellation'
+  /*
+   * A star's row says how bright it is, because that is what tells you whether
+   * it is one you have seen. Distance would be the more interesting number and
+   * is the wrong one here — it does not help you pick between two rows, which
+   * is the only job a result's context has.
+   */
+  if (entry.kind === 'star') return `Star · mag ${entry.magnitude.toFixed(1)}`
+  return bodyContext(entry.body)
 }
 
 /**
@@ -262,6 +320,7 @@ export function resultContext(entry) {
  */
 export function resultCategory(entry) {
   if (entry.kind === 'constellation') return { key: 'constellation', label: 'Constellations' }
+  if (entry.kind === 'star') return { key: 'star', label: 'Stars' }
   if (entry.kind === 'moon' && entry.tier === 'minor') {
     return { key: 'minorMoon', label: 'Minor moons' }
   }
@@ -322,6 +381,7 @@ export const CATEGORIES = [
   'comet',
   'spacecraft',
   'constellation',
+  'star',
 ].map((key) => {
   const entries = INDEX.filter((entry) => resultCategory(entry).key === key)
   return { key, label: resultCategory(entries[0]).label, count: entries.length, entries }
@@ -573,8 +633,20 @@ export function searchAll(query, limit = 12, category = null) {
  * them, so a caller that wants twelve bodies gets twelve.
  */
 export function searchBodies(query, limit = 12) {
-  return searchAll(query, limit + CONSTELLATION_REGIONS.length)
-    .filter((entry) => entry.kind !== 'constellation')
+  /*
+   * Filtered on *having a body*, not on not being a constellation.
+   *
+   * The list used to hold two kinds of thing and naming the one to exclude was
+   * the same as naming the one to keep. It holds three now, and the negative
+   * form silently broke: stars passed the `!== 'constellation'` test, carried
+   * no `body`, and this handed back a row of `undefined`. Asking for what is
+   * wanted cannot rot that way when a fourth kind arrives.
+   *
+   * The over-fetch has to cover everything that can be dropped, which is now
+   * the regions of sky and the named stars together.
+   */
+  return searchAll(query, limit + CONSTELLATION_REGIONS.length + STAR_FACTS.length)
+    .filter((entry) => entry.body)
     .slice(0, limit)
     .map((entry) => entry.body)
 }
