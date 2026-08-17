@@ -55,6 +55,27 @@
  * but a handful of stars; over the app's two-century timeline the largest mover
  * in the sky (Barnard's Star, 10.3"/yr, and too faint to be here anyway) would
  * shift by half a degree, and the naked-eye stars by far less than a pixel.
+ *
+ * ## Distance, and why it is now written
+ *
+ * The app used to need two angles and nothing else: the sky was a dome, every
+ * star was equally far away, and a distance would have been an unused column.
+ * Zooming out to the Galaxy makes it the load-bearing number. A dome cannot
+ * dissolve — leave the solar system and it follows you forever — and the whole
+ * point of the outward journey is that Orion stops being a shape, which only
+ * happens if Betelgeuse (168 pc) and Rigel (264 pc) are genuinely at different
+ * distances along their two directions.
+ *
+ * HYG's `dist` is parsecs from parallax, so it costs nothing to carry: the
+ * fetch already parses the row.
+ *
+ * **206 of the 8,920 have no usable parallax**, and HYG marks them by parking
+ * `dist` at 100,000 pc — which is outside the Galaxy, four times further than
+ * anything this app draws, and it poisons `absmag` with it (every one of them
+ * comes out near -14, brighter than any star that exists). They are written as
+ * `0`, meaning *unknown*, rather than as any number that could be mistaken for
+ * a measurement. `Starfield` keeps them in the sky, where they genuinely are,
+ * and declines to fly past them — see its `UNKNOWN_DISTANCE`.
  */
 
 import { writeFileSync } from 'node:fs'
@@ -114,6 +135,23 @@ function splitCSV(line) {
 
 const round = (v, places) => Number(v.toFixed(places))
 
+/**
+ * HYG's "no usable parallax" marker.
+ *
+ * Not a documented constant — it is what the file contains where a distance
+ * could not be computed, and it is a literal 100000.0 rather than a blank, so a
+ * naive read gets a number and no warning. Compared with `>=` because a handful
+ * of rows carry a hair more after their own round trip through the catalogue.
+ */
+const HYG_NO_PARALLAX = 100000
+
+/**
+ * Distances span 1.3 pc to 980 pc, so a fixed number of decimal places is
+ * either wasteful at the far end or lossy at the near one. Four significant
+ * figures is 0.03% everywhere, far finer than the parallaxes themselves.
+ */
+const significant = (v, digits) => Number(v.toPrecision(digits))
+
 log('fetching HYG v4.0 …')
 const csv = gunzipSync(await get(HYG, { binary: true })).toString('utf8')
 const rows = csv.split('\n')
@@ -158,6 +196,27 @@ for (let i = 1; i < rows.length; i++) {
     // 0.65 is the Sun's, so an unmeasured star comes out as an ordinary yellow
     // one rather than as the blue that a zero would make it.
     ci: f[at.ci] === '' ? 0.65 : round(Number(f[at.ci]), 3),
+    /*
+     * What a dossier needs, kept only for the stars that will get one.
+     *
+     * `spect` is the MK spectral type as HYG has it — "A1Vm", "M2Iab" — which
+     * is the single most informative string about a star there is: temperature
+     * class, then luminosity class. `bayer` and `flam` are the Greek letter and
+     * the Flamsteed number, and `con` the three-letter constellation, so a star
+     * can be named the way a sky map names it (Alpha Canis Majoris) as well as
+     * by its proper name. `lum` is luminosity in Suns.
+     */
+    spect: f[at.spect] || null,
+    bayer: f[at.bayer] || null,
+    flam: f[at.flam] ? Number(f[at.flam]) : null,
+    con: f[at.con] || null,
+    lum: f[at.lum] ? Number(f[at.lum]) : null,
+    // Parsecs, or 0 for the 206 with no usable parallax. See the header.
+    dist: (() => {
+      const d = Number(f[at.dist])
+      if (!Number.isFinite(d) || d <= 0 || d >= HYG_NO_PARALLAX) return 0
+      return significant(d, 4)
+    })(),
     proper: f[at.proper] || null,
     hip,
   }
@@ -174,6 +233,14 @@ stars.forEach((s, i) => {
 
 log(`${stars.length} stars kept to magnitude ${MAG_LIMIT}`)
 log(`brightest: ${stars[0].proper} at ${stars[0].mag}`)
+
+const withDistance = stars.filter((s) => s.dist > 0)
+const spans = withDistance.map((s) => s.dist).sort((a, b) => a - b)
+log(
+  `${withDistance.length} have a parallax: ${spans[0]} pc to ${spans[spans.length - 1]} pc, ` +
+    `median ${spans[Math.floor(spans.length / 2)]} pc`,
+)
+log(`${stars.length - withDistance.length} have none and are written as distance 0`)
 
 /*
  * Figures resolved to indices at bake time rather than HIP numbers at run time.
@@ -209,13 +276,29 @@ if (missing.length) log(`${missing.length} figure endpoints missing from HYG:`, 
 const segmentCount = constellations.reduce((n, c) => n + c.segments.length, 0)
 log(`${constellations.length} figures, ${segmentCount} segments`)
 
+/**
+ * Which stars get a dossier.
+ *
+ * Everything with a proper name, plus everything brighter than third magnitude
+ * — the two together are "the stars anyone could point at". A name alone is not
+ * the right cut: HYG carries proper names for some genuinely obscure stars, and
+ * misses none of the bright ones, so the union is what a person would expect to
+ * be able to click on and be told about.
+ *
+ * The other 8,500 stay as points. They are real and they are drawn and they
+ * have positions; what they do not have is anything to say.
+ */
+const FACT_MAGNITUDE = 3.0
+const facts = stars.filter((s) => s.proper || s.mag <= FACT_MAGNITUDE)
+
 const named = stars.filter((s) => s.proper)
 log(`${named.length} stars carry a proper name`)
+log(`${facts.length} get a dossier (named, or brighter than magnitude ${FACT_MAGNITUDE})`)
 
 const today = new Date().toISOString().slice(0, 10)
 
 const body = `/**
- * The sky: 8,920 naked-eye stars and the 88 IAU constellation figures.
+ * The sky: ${stars.length.toLocaleString('en-US')} naked-eye stars and the ${constellations.length} IAU constellation figures.
  *
  * GENERATED by \`scripts/fetch-stars.mjs\` — do not hand-edit; rerun
  * \`npm run fetch:stars\` instead. Generated ${today}.
@@ -228,14 +311,20 @@ const body = `/**
  * \`STARS\` is ordered brightest first, which makes its own order a level of
  * detail: the first thousand entries are the sky anyone could name.
  *
- * Each star is \`[rightAscension, declination, magnitude, colourIndex]\`, in
- * degrees for the two angles, J2000 equatorial. The rotation into the app's
- * world frame lives in \`src/scene/sky.js\`, next to the obliquity it needs.
+ * Each star is \`[rightAscension, declination, magnitude, colourIndex,
+ * distance]\` — degrees for the two angles, J2000 equatorial, and **parsecs**
+ * for the distance. The rotation into the app's world frame lives in
+ * \`src/scene/sky.js\`, next to the obliquity it needs.
+ *
+ * A distance of **0 means unknown**: ${stars.length - withDistance.length} of these stars have no usable
+ * parallax in HYG, and zero is used rather than the 100,000 pc the catalogue
+ * parks them at, which is outside the Galaxy and would be read as a
+ * measurement. The other ${withDistance.length} run from ${spans[0]} pc to ${spans[spans.length - 1]} pc.
  */
 
-/** @type {[number, number, number, number][]} */
+/** @type {[number, number, number, number, number][]} */
 export const STARS = [
-${stars.map((s) => `  [${s.ra}, ${s.dec}, ${s.mag}, ${s.ci}],`).join('\n')}
+${stars.map((s) => `  [${s.ra}, ${s.dec}, ${s.mag}, ${s.ci}, ${s.dist}],`).join('\n')}
 ]
 
 /**
@@ -255,6 +344,30 @@ ${named.map((s) => `  [${s.index}, ${JSON.stringify(s.proper)}],`).join('\n')}
  * The Latin name is the one drawn — it is what a sky map says and what Eyes
  * says — with the English kept beside it for the dossier.
  */
+/**
+ * The ${facts.length} stars worth a dossier, as
+ * \`[index, spectralType, bayer, flamsteed, constellation, luminosity]\`.
+ *
+ * Indices point into \`STARS\`; the proper name, where there is one, is in
+ * \`STAR_NAMES\`. Luminosity is in Suns, and is null where HYG has none.
+ *
+ * \`spect\` is the MK type as the catalogue has it — "A1Vm", "M2Iab" — which is
+ * the most informative string about a star there is: temperature class, then
+ * luminosity class. Together with \`bayer\` and \`con\` a star can be named the
+ * way a sky map names it, Alpha Canis Majoris, as well as by the name people
+ * use.
+ */
+export const STAR_FACTS = [
+${facts
+  .map(
+    (s) =>
+      `  [${s.index}, ${JSON.stringify(s.spect)}, ${JSON.stringify(s.bayer)}, ` +
+      `${s.flam ?? 'null'}, ${JSON.stringify(s.con)}, ` +
+      `${s.lum === null || !Number.isFinite(s.lum) ? 'null' : significant(s.lum, 4)}],`,
+  )
+  .join('\n')}
+]
+
 export const CONSTELLATIONS = [
 ${constellations
   .map(
