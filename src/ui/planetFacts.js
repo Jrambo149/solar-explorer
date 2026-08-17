@@ -1,4 +1,6 @@
 import { ORBITAL_ELEMENTS } from '../data/orbitalElements.js'
+import { MOON_ELEMENTS } from '../data/moonElements.js'
+import { KM_PER_AU as AU_KM } from '../orbit/frames.js'
 
 /**
  * What the dossier can work out for itself.
@@ -150,12 +152,51 @@ export function readableShare(fraction) {
 }
 
 /**
- * The whole derived set for one planet, ready to print, or null for a body
- * without the numbers to build it — which is every moon, comet and spacecraft.
- * Those get the dossier they already had rather than a table of blanks.
+ * A moon's orbit, around its planet rather than around the Sun.
+ *
+ * The elements are already here — `moonElements.js` drives the scene — and
+ * `LDot`, the mean longitude rate in degrees per Julian century, *is* the
+ * orbital period once turned the right way up. Io comes out at 1.769 days,
+ * which is the published figure to four significant figures.
+ *
+ * `a` is in AU like everything else in this app, which for a moon is an
+ * awkward unit — Phobos orbits at 0.0000627 AU — so it is converted to
+ * kilometres, which is how every reference quotes a moon's distance and how
+ * `moonData` already writes it in prose.
+ */
+export function moonOrbitShape(id) {
+  const elements = MOON_ELEMENTS[id]
+  if (!elements?.LDot) return null
+  const periodDays = (360 / elements.LDot) * 36525
+  const radiusKm = elements.a * AU_KM
+  return {
+    parent: elements.parent,
+    periodDays,
+    radiusKm,
+    eccentricity: elements.e,
+    /* Circumference over period. An ellipse is longer than a circle of the
+       same semi-major axis, but by less than 0.01% at these eccentricities. */
+    meanSpeedKms: (2 * Math.PI * radiusKm) / (periodDays * 86400),
+  }
+}
+
+/** "3.55 days", "27.3 days", "16 hours". */
+function readableOrbit(days) {
+  if (days < 1) return `${round(days * 24, 1)} hours`
+  if (days < 100) return `${round(days, 2)} days`
+  return `${round(days, 1)} days`
+}
+
+/**
+ * The whole derived set for one body, ready to print, or null for anything
+ * without the numbers to build it — every comet, every spacecraft, and the four
+ * moons of Pluto whose masses nobody has actually measured. Those keep the
+ * dossier they already had rather than a table of blanks.
  */
 export function derivedFacts(body) {
-  if (!body?.massKg || !body?.radiusKm || !body?.equatorialRadiusKm) return null
+  if (!body?.massKg || !body?.radiusKm) return null
+  if (body.kind === 'moon') return moonFacts(body)
+  if (!body.equatorialRadiusKm) return null
   const shape = orbitShape(body.id)
   if (!shape) return null
 
@@ -210,3 +251,72 @@ export function derivedFacts(body) {
 }
 
 export { KM_PER_AU }
+
+/**
+ * The same idea for a moon, with the three rows that only make sense out there.
+ *
+ * A moon's radius is the mean one and there is no equatorial figure to reach
+ * for, which is fine: these are small, slow, tidally locked bodies whose
+ * oblateness is a fraction of a percent, so the distinction that mattered for
+ * Saturn does not arise.
+ *
+ * The sunlight rows are dropped. A moon sits at its planet's distance from the
+ * Sun to within a fraction of a percent, so repeating them here would be
+ * printing the planet's numbers on the moon's page.
+ */
+function moonFacts(body) {
+  const orbit = moonOrbitShape(body.id)
+  if (!orbit) return null
+
+  const gravity = surfaceGravity(body.massKg, body.radiusKm)
+  const rho = density(body.massKg, body.radiusKm)
+
+  return [
+    {
+      label: 'You would weigh',
+      value: readableShare(weightFraction(body.massKg, body.radiusKm)),
+      note: `surface gravity ${gravity < 1 ? gravity.toFixed(3) : gravity.toFixed(2)} m/s²`,
+    },
+    {
+      label: 'Escape velocity',
+      /*
+       * Metres per second below 1 km/s, and most of these are. Phobos escapes
+       * at 11 m/s — a running jump — and "0.0 km/s" would have thrown that
+       * away, which is the single most striking number on the page.
+       */
+      value:
+        escapeVelocity(body.massKg, body.radiusKm) < 1
+          ? `${round(escapeVelocity(body.massKg, body.radiusKm) * 1000, 0)} m/s`
+          : `${escapeVelocity(body.massKg, body.radiusKm).toFixed(2)} km/s`,
+      note: "Earth's is 11.2 km/s",
+    },
+    {
+      label: 'Density',
+      value: `${round(rho, 0)} kg/m³`,
+      /*
+       * Only the two ends get a label. The middle of the range is genuinely
+       * ambiguous — Phobos at 1,779 kg/m³ is a porous carbonaceous rubble pile
+       * with no ice to speak of, and calling it "rock and ice" on the strength
+       * of a density alone was asserting a composition the number cannot carry.
+       */
+      note: rho < 1200 ? 'mostly ice' : rho > 3000 ? 'mostly rock' : null,
+    },
+    {
+      label: 'Orbits its planet in',
+      value: readableOrbit(orbit.periodDays),
+      /* Tidally locked, which is every major moon here: the day equals the
+         year, so one number states both. */
+      note: 'and turns once in the same time, keeping one face inward',
+    },
+    {
+      label: 'Distance from it',
+      value: `${round(orbit.radiusKm, 0).toLocaleString('en-US')} km`,
+      note: `eccentricity ${round(orbit.eccentricity, 4)}`,
+    },
+    {
+      label: 'Orbital speed',
+      value: `${round(orbit.meanSpeedKms, 2)} km/s`,
+      note: `${round(orbit.meanSpeedKms * 3600, 0).toLocaleString('en-US')} km/h`,
+    },
+  ]
+}

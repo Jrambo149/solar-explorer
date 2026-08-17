@@ -36,6 +36,7 @@ import {
   derivedFacts,
   escapeVelocity,
   lightDelaySeconds,
+  moonOrbitShape,
   orbitShape,
   surfaceGravity,
   synodicDays,
@@ -153,9 +154,11 @@ for (const p of PLANETS) {
  * *refusal*, which is the half that would fail silently.
  */
 const { BODIES } = await import('../src/data/bodies.js')
-const wrongly = BODIES.filter((b) => b.kind !== 'planet' && derivedFacts(b) !== null)
+const wrongly = BODIES.filter(
+  (b) => b.kind !== 'planet' && b.kind !== 'moon' && derivedFacts(b) !== null,
+)
 check(
-  'nothing but a planet gets a “By the numbers” table',
+  'nothing but a planet or a moon gets a “By the numbers” table',
   wrongly.length === 0,
   wrongly.length ? wrongly.map((b) => b.name).join(', ') : `${BODIES.length} bodies checked`,
 )
@@ -198,6 +201,62 @@ for (const p of PLANETS) {
   }
   check(`${p.name}: ${p.facts.length} facts, ${p.story?.length ?? 0} paragraphs, none restated`,
     clashes.length === 0, clashes.length ? clashes.join(' / ') : undefined)
+}
+
+section('The moons, against published values')
+
+/*
+ * A second table nothing in src/ has seen. Orbital periods and distances are
+ * the ones every reference quotes; gravity and escape velocity are computed
+ * from the mean radius, which for bodies this small and this slow is the only
+ * radius there is.
+ */
+const MOONS = {
+  luna: { gravity: 1.62, escape: 2.38, density: 3344, days: 27.322, km: 384400 },
+  io: { gravity: 1.796, escape: 2.558, density: 3528, days: 1.769, km: 421800 },
+  europa: { gravity: 1.314, escape: 2.025, density: 3013, days: 3.551, km: 671100 },
+  ganymede: { gravity: 1.428, escape: 2.741, density: 1936, days: 7.155, km: 1070400 },
+  callisto: { gravity: 1.235, escape: 2.44, density: 1834, days: 16.689, km: 1882700 },
+  titan: { gravity: 1.352, escape: 2.639, density: 1881, days: 15.945, km: 1221870 },
+  enceladus: { gravity: 0.113, escape: 0.239, density: 1609, days: 1.370, km: 238040 },
+  mimas: { gravity: 0.064, escape: 0.159, density: 1150, days: 0.942, km: 185540 },
+  triton: { gravity: 0.779, escape: 1.455, density: 2059, days: 5.877, km: 354759 },
+  phobos: { gravity: 0.0057, escape: 0.0114, density: 1876, days: 0.319, km: 9376 },
+  charon: { gravity: 0.288, escape: 0.58, density: 1702, days: 6.387, km: 19591 },
+}
+
+const { BODIES: ALL } = await import('../src/data/bodies.js')
+const moon = (id) => ALL.find((b) => b.id === id)
+
+for (const [id, want] of Object.entries(MOONS)) {
+  const m = moon(id)
+  const shape = moonOrbitShape(id)
+  const g = surfaceGravity(m.massKg, m.radiusKm)
+  const v = escapeVelocity(m.massKg, m.radiusKm)
+  const rho = density(m.massKg, m.radiusKm)
+  const ok =
+    near(g, want.gravity, 0.03) &&
+    near(v, want.escape, 0.03) &&
+    near(rho, want.density, 0.06) &&
+    near(shape.periodDays, want.days, 0.01) &&
+    near(shape.radiusKm, want.km, 0.01)
+  check(
+    `${m.name}: ${g.toFixed(3)} m/s², ${v.toFixed(3)} km/s, ${shape.periodDays.toFixed(3)} d, ` +
+      `${Math.round(shape.radiusKm).toLocaleString('en-US')} km`,
+    ok,
+    `published ${want.gravity} / ${want.escape} / ${want.days} / ${want.km.toLocaleString('en-US')}`,
+  )
+}
+
+/*
+ * And Pluto's four small moons get nothing, deliberately.
+ *
+ * Their masses are inferred from assumed densities and a size measured from a
+ * handful of pixels — known to within a factor of a few, not weighed. A table
+ * quoting their surface gravity to three decimals would read as a measurement.
+ */
+for (const id of ['styx', 'nix', 'kerberos', 'hydra']) {
+  check(`${moon(id).name} has no table, because nobody has weighed it`, derivedFacts(moon(id)) === null)
 }
 
 section('The photographs')
