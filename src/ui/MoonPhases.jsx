@@ -93,10 +93,24 @@ export default function MoonPhases() {
                 {phase.illumination * 100}% lit · day {Math.round(phase.age)}
               </p>
               <p className="phase__note">{phase.note}</p>
-              {/* The next time it comes round, from the same solve — see
-                  `nextPhaseAfter`. Dated rather than counted down, because a
-                  countdown would be wrong the moment the timeline is dragged. */}
-              <p className="phase__next">Next {formatWhen(upcoming[phase.id])}</p>
+              {/*
+                The current one says so, in words.
+
+                It was marked by brightness and a ring alone, and that was not
+                enough — the highlight reads as an inconsistency rather than as
+                meaning until something on the card explains it. Worse, the
+                only text it carried was "Next 14 Sep", a month away, on the
+                very phase the Moon is in tonight.
+
+                The other cards keep the date, from the same solve — see
+                `nextPhaseAfter`. Dated rather than counted down, because a
+                countdown is wrong the moment the timeline is dragged.
+              */}
+              {current ? (
+                <p className="phase__next">Tonight · {(now.illumination * 100).toFixed(0)}% lit</p>
+              ) : (
+                <p className="phase__next">Next {formatWhen(upcoming[phase.id])}</p>
+              )}
               <p className="phase__when">
                 rises {phase.rise} · sets {phase.set}
               </p>

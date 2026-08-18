@@ -101,3 +101,8 @@
 .phase.is-now .phase__next {
   color: var(--text);
 }
+
+/* "Tonight" earns the emphasis the ring was carrying alone. */
+.phase.is-now .phase__next {
+  font-weight: 500;
+}
