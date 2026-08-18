@@ -176,7 +176,7 @@
    * Kept amber rather than the blood Moon's copper, so the row does not read
    * as two eclipses. The caption says where the colour comes from.
    */
-  filter: sepia(0.75) saturate(2.1) hue-rotate(-14deg) brightness(1.02);
+  filter: sepia(1) saturate(3.6) hue-rotate(-20deg) brightness(0.86) contrast(1.08);
 }
 
 .moon-event--micromoon .moon-event__image {
@@ -192,12 +192,15 @@
  * is the same render at the same scale, and one press shot among them compares
  * cameras instead of Moons.
  *
- * The numbers are a hue rotation onto red with the saturation pushed hard,
- * landing near #b0503a — the colour an eclipsed Moon actually goes, which is
- * dimmer and browner than the vivid red most photographs are pushed to.
+ * Pulled dimmer and browner once the super Moon went deep orange, and that is
+ * the physically right way round rather than a way of telling two swatches
+ * apart. Totality is genuinely *faint* — the Moon is in shadow, lit only by
+ * refracted light, and it drops several magnitudes. A horizon Moon is fully
+ * sunlit and merely reddened by air, so it should be the brighter and more
+ * vivid of the two.
  */
 .moon-event--blood-moon .moon-event__image {
-  filter: sepia(1) saturate(3.2) hue-rotate(-28deg) brightness(0.82) contrast(1.05);
+  filter: sepia(1) saturate(2.4) hue-rotate(-30deg) brightness(0.62) contrast(0.98);
 }
 
 /*
