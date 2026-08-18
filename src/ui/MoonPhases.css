@@ -160,79 +160,21 @@
  * A super Moon really is 14% wider than a micro Moon, so the two are drawn 14%
  * apart rather than annotated as different. It is the one comparison a picture
  * can make that a sentence cannot.
+ *
+ * No colour. Tinting these was tried at some length — amber, then orange-red,
+ * then a match to a reference photograph — and the endpoint was a super Moon
+ * and a blood Moon that were indistinguishable, which is worse than both being
+ * plain: two different events wearing the same face. Back to the untreated
+ * render, which is at least honestly the same Moon in every card.
  */
 .moon-event--supermoon .moon-event__image {
   transform: scale(1.07);
-  /*
-   * Warm, because that is how a super Moon is almost always seen — and the
-   * colour has nothing to do with perigee.
-   *
-   * A Moon low on the horizon reddens for the same reason a sunset does: the
-   * light is crossing far more air, and the short wavelengths scatter out of
-   * it. Super Moons get photographed rising, when they look biggest against
-   * something on the ground, so the orange and the size arrive together in
-   * every picture anyone has seen — and the two have no connection at all.
-   *
-   * Kept amber rather than the blood Moon's copper, so the row does not read
-   * as two eclipses. The caption says where the colour comes from.
-   */
-  /*
-   * The highlights are crushed *before* the tint, and that ordering is the
-   * whole thing.
-   *
-   * `saturate()` pushes bright pixels toward yellow whatever the hue rotation
-   * after it, so a disc whose middle is near-white came out with a gold core no
-   * eclipse photograph has — and no amount of extra rotation fixed it, because
-   * the highlights simply had further to travel than the midtones. Dropping the
-   * contrast and the brightness first means nothing is near-white by the time
-   * the colour is applied, so the tint lands evenly and the maria read as
-   * darkness rather than as a second colour.
-   */
-  filter: grayscale(1) contrast(0.5) brightness(0.62) sepia(1) saturate(6.5)
-    hue-rotate(-24deg) contrast(1.45);
 }
 
 .moon-event--micromoon .moon-event__image {
   transform: scale(0.93);
 }
 
-/*
- * Totality, tinted.
- *
- * This is the full Moon render pushed toward the copper-red of an eclipsed
- * Moon — a filter, not a photograph, and the caption says so. The alternative
- * was a real eclipse photograph, and that broke the row: every other disc here
- * is the same render at the same scale, and one press shot among them compares
- * cameras instead of Moons.
- *
- * Pulled dimmer and browner once the super Moon went deep orange, and that is
- * the physically right way round rather than a way of telling two swatches
- * apart. Totality is genuinely *faint* — the Moon is in shadow, lit only by
- * refracted light, and it drops several magnitudes. A horizon Moon is fully
- * sunlit and merely reddened by air, so it should be the brighter and more
- * vivid of the two.
- */
-.moon-event--blood-moon .moon-event__image {
-  /*
-   * Highlights crushed before the tint, at the lightness this already had.
-   *
-   * Same ordering as the super Moon and for the same reason — `saturate()`
-   * sends bright pixels toward yellow whatever rotation follows, so the
-   * near-white middle of the disc came out with a gold core. What is different
-   * here is where the brightness sits: it is applied *before* the tint and kept
-   * high, so the artefact goes without the Moon going dark with it. Taking it
-   * down to a copper-brown was tried and reverted; this keeps the lighter
-   * copper and loses only the core.
-   */
-  filter: grayscale(1) contrast(0.52) brightness(0.86) sepia(1) saturate(2.9)
-    hue-rotate(-26deg) contrast(1.12);
-}
-
-/*
- * A partial eclipse takes a bite out of one edge, so the disc is masked rather
- * than tinted — the shadow's curve is the Earth's, and it is the thing the card
- * is describing.
- */
 .moon-event--lunar-eclipse .moon-event__image {
   mask-image: radial-gradient(circle at 132% 50%, transparent 46%, #000 47%);
   -webkit-mask-image: radial-gradient(circle at 132% 50%, transparent 46%, #000 47%);
@@ -252,6 +194,8 @@
   font-size: 14px;
 }
 
+/* The name keeps its colour — a word can say "red" without the picture
+   pretending to be a photograph of one. */
 .moon-event--blood-moon .moon-event__name {
   color: #c8695a;
 }
