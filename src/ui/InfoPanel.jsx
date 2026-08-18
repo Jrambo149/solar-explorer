@@ -5,6 +5,7 @@ import { useBodyName } from './useBodyName'
 import { hasPole } from '../scene/pole'
 import { BODY_IMAGES } from '../data/bodyImages'
 import { derivedFacts } from './planetFacts'
+import MoonPhases from './MoonPhases'
 import { cancelGlide, glideTo } from './glideTo'
 import './InfoPanel.css'
 
@@ -321,6 +322,10 @@ export default function InfoPanel() {
               load for a section most of the way down a page that many people
               will never scroll to.
             */}
+            {/* Only the Moon has phases worth a section: it is the only body
+                whose changing shape is something people watch. */}
+            {planet.id === 'luna' && <MoonPhases />}
+
             {gallery.length > 0 && (
               <div className="dossier__gallery-wrap">
                 <section className="dossier__section">

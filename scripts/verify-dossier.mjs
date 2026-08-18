@@ -272,6 +272,64 @@ check(
   PLANETS.every((b) => b.story?.length >= 2),
 )
 
+section('The Moon’s phases')
+
+const { MOON_PHASES, SYNODIC_DAYS } = await import('../src/data/moonPhases.js')
+const { moonPhaseAt } = await import('../src/orbit/moonPhase.js')
+const { ORBITAL_ELEMENTS: ELEM } = await import('../src/data/orbitalElements.js')
+
+check('eight principal phases, each with a photograph on disk',
+  MOON_PHASES.length === 8 &&
+    MOON_PHASES.every((f) => existsSync(join(ROOT, 'public', 'images', 'phases', f.file))))
+
+check('all eight come from one photographic series',
+  new Set(MOON_PHASES.map((f) => f.nasaId.replace(/\d+$/, ''))).size === 1,
+  'so the row compares the Moon rather than eight photographers')
+
+/*
+ * The phase is computed from the app's own geometry, so it can be checked
+ * against the almanac. These are published new and full Moons; nothing in src/
+ * has ever seen them.
+ */
+const EVENTS = [
+  ['2025-12-20 new', 2461029.571, 0],
+  ['2026-01-18 new', 2461059.328, 0],
+  ['2026-02-01 full', 2461073.424, 1],
+  ['2026-03-03 full', 2461102.985, 1],
+]
+for (const [label, jd, want] of EVENTS) {
+  const p = moonPhaseAt(jd, ELEM.earth)
+  const ok = want === 0 ? p.illumination < 0.01 : p.illumination > 0.99
+  check(`${label}: ${(p.illumination * 100).toFixed(1)}% lit`, ok,
+    `elongation ${p.elongationDegrees.toFixed(1)}°, nearest "${p.phase.name}"`)
+}
+
+/*
+ * Waxing and waning is the half of this that is invisible when wrong: first
+ * and last quarter are the same shape mirrored, and a sign error swaps them
+ * without changing a single pixel of the strip.
+ */
+{
+  const first = moonPhaseAt(2461059.328 + 7.38, ELEM.earth)
+  const last = moonPhaseAt(2461059.328 + 22.15, ELEM.earth)
+  check('a half Moon on the way up is the first quarter, waxing',
+    first.waxing && first.phase.id === 'first-quarter' && Math.abs(first.illumination - 0.5) < 0.1)
+  check('and on the way down is the last quarter, waning',
+    !last.waxing && last.phase.id === 'last-quarter' && Math.abs(last.illumination - 0.5) < 0.1)
+}
+
+/* The age has to run forward through a whole lunation and never double back. */
+{
+  let back = 0
+  let previous = null
+  for (let d = 0; d < SYNODIC_DAYS; d += 0.25) {
+    const { age } = moonPhaseAt(2461059.328 + d, ELEM.earth)
+    if (previous !== null && age < previous - 0.01 && age > 1) back++
+    previous = age
+  }
+  check('the age runs forward across a whole lunation', back === 0, `${back} reversals`)
+}
+
 section('The photographs')
 let shots = 0
 /*

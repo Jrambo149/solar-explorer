@@ -1,0 +1,91 @@
+/* The strip runs full width and wraps, rather than scrolling sideways: eight
+   items is too many for one row on any screen and a horizontal scroller hides
+   half of them behind a gesture nobody knows is there. */
+.phases__row {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 20px;
+}
+
+.phases__now {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 62ch;
+  color: var(--text-soft, var(--text));
+}
+
+.phases__now strong {
+  font-weight: 500;
+}
+
+.phase {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.phase__link {
+  display: block;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.phase__image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  /* The photographs are the Moon on black, so a border would draw a box around
+     nothing. The ring that marks the current phase is the only frame here. */
+  border-radius: 50%;
+  opacity: 0.62;
+  transition: opacity 160ms ease;
+}
+
+.phase__link:hover .phase__image {
+  opacity: 0.85;
+}
+
+/* Tonight. A ring rather than a highlight colour, so it reads on a row of
+   circles without inventing a second accent for the page. */
+.phase.is-now .phase__image {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+.phase.is-now .phase__name {
+  color: var(--text);
+}
+
+.phase__name {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.phase__meta {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.phase__note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.phase__when {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  opacity: 0.8;
+}
