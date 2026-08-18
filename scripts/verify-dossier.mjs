@@ -391,25 +391,13 @@ section('The Moon’s special nights')
     }),
     `${distances.length} checked`)
 
-  /* Each kind that has a picture has it on disk, and says which occurrence. */
-  const { MOON_EVENT_IMAGES } = await import('../src/data/moonPhases.js')
-  check('every event picture is on disk and dated in its own caption',
-    Object.values(MOON_EVENT_IMAGES).every(
-      (shot) =>
-        existsSync(join(ROOT, 'public', 'images', 'events', shot.file)) &&
-        /\b(19|20)\d\d\b/.test(shot.why),
-    ),
-    `${Object.keys(MOON_EVENT_IMAGES).length} kinds`)
-
   /*
-   * The year must come from the caption, never from NASA's `date_created`.
-   * For the Goddard archive items that field is when the picture was *filed*,
-   * not when it was taken — the partial eclipse was shot on 25 April 2013 and
-   * the field says 2017, so printing it put a four-year-old date on the card.
+   * The event discs are the phase renders, not press photographs, and they must
+   * stay that way: a row of pictures is a comparison, and it only compares the
+   * Moon if the camera, the scale and the background are held still.
    */
-  const eclipse = MOON_EVENT_IMAGES['lunar-eclipse']
-  check('the partial eclipse is credited to 2013, not its 2017 archive date',
-    eclipse.why.includes('2013') && eclipse.archived === '2017')
+  const full = join(ROOT, 'public', 'images', 'phases', 'full.jpg')
+  check('the special nights reuse the phase renders', existsSync(full))
 
   /* Events must run forward and never precede the search window. */
   check('events come back in date order, all in the future',

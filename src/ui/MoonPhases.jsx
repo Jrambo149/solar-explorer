@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { MOON_EVENT_IMAGES, MOON_PHASES } from '../data/moonPhases'
+import { MOON_PHASES } from '../data/moonPhases'
 import { ORBITAL_ELEMENTS } from '../data/orbitalElements'
 import { moonPhaseAt, upcomingPhases } from '../orbit/moonPhase'
 import { moonEvents } from '../orbit/moonEvents'
@@ -19,6 +19,53 @@ import './MoonPhases.css'
  * because it is computed from the same date the scene is drawn at rather than
  * from the wall clock.
  */
+/**
+ * Which phase photograph stands in for each kind of night, and how it is
+ * treated.
+ *
+ * All of them are the *same* Goddard renders the strip above uses, because a
+ * row of pictures is a comparison and it only compares the Moon if everything
+ * else is held still. The first version reached for press photographs and put a
+ * red Moon behind a construction crane next to a row of clean discs; it read as
+ * a different section, and the same shot stood in for two different kinds of
+ * night.
+ *
+ * What varies is the treatment, and each one is doing a job the words cannot:
+ * a super Moon is drawn 14% wider than a micro Moon because it *is*, totality
+ * is tinted to the copper an eclipsed Moon actually goes, and a partial eclipse
+ * is masked by a circle because the bite is the Earth's own curve. The notes
+ * say these are treated rather than photographed — a tinted render presented as
+ * a photograph would be the one dishonest thing here.
+ */
+const EVENT_DISC = {
+  'blood-moon': {
+    file: 'full.jpg',
+    alt: 'The full Moon, tinted the red of totality',
+    note: 'The full Moon render, tinted to the copper an eclipsed Moon turns · NASA/GSFC',
+  },
+  'lunar-eclipse': {
+    file: 'full.jpg',
+    alt: 'The full Moon with a bite taken out of one edge',
+    note: 'The full Moon render, masked to show the Earth’s shadow · NASA/GSFC',
+  },
+  supermoon: {
+    file: 'full.jpg',
+    alt: 'A full Moon, drawn larger',
+    note: 'The full Moon render, drawn 14% wider than a micro Moon · NASA/GSFC',
+  },
+  micromoon: {
+    file: 'full.jpg',
+    alt: 'A full Moon, drawn smaller',
+    note: 'The full Moon render, drawn 14% smaller than a super Moon · NASA/GSFC',
+  },
+  'blue-moon': {
+    file: 'full.jpg',
+    alt: 'A full Moon',
+    /* Untinted, deliberately: a blue Moon is not blue. */
+    note: 'The full Moon render, untreated — a blue Moon is not blue · NASA/GSFC',
+  },
+}
+
 /**
  * A Julian date as a readable day.
  *
@@ -136,11 +183,11 @@ export default function MoonPhases() {
       {events.length > 0 && (
         <>
           <h3 className="dossier__section-title phases__heading">Nights worth staying up for</h3>
-          <ul className="events">
+          <ul className="moon-events">
             {events.map((event) => {
-              const shot = MOON_EVENT_IMAGES[event.kind]
+              const shot = EVENT_DISC[event.kind]
               return (
-                <li className={`event event--${event.kind}`} key={`${event.kind}-${event.jd}`}>
+                <li className={`moon-event moon-event--${event.kind}`} key={`${event.kind}-${event.jd}`}>
                   {/*
                     A photograph of *an* occurrence, not of the night listed —
                     the 2028 eclipse has not happened yet — so the credit says
@@ -154,30 +201,26 @@ export default function MoonPhases() {
                   */}
                   {shot && (
                     <a
-                      className="event__link"
+                      className="moon-event__link"
                       href={shot.source}
                       target="_blank"
                       rel="noreferrer noopener"
                     >
                       <img
-                        className="event__image"
-                        src={`${import.meta.env.BASE_URL}images/events/${shot.file}`}
-                        alt={shot.title}
+                        className="moon-event__image"
+                        src={`${import.meta.env.BASE_URL}images/phases/${shot.file}`}
+                        alt={shot.alt}
                         loading="lazy"
                         decoding="async"
                       />
                     </a>
                   )}
-                  <p className="event__when">{formatWhen(event.jd)}</p>
-                  <p className="event__name">{event.name}</p>
-                  <p className="event__note">{event.note}</p>
+                  <p className="moon-event__when">{formatWhen(event.jd)}</p>
+                  <p className="moon-event__name">{event.name}</p>
+                  <p className="moon-event__note">{event.note}</p>
                   {shot && (
-                    <p className="event__credit">
-                      {/* The date lives in `why`, not in NASA's `date_created`
-                          — see the note in the fetch script: for archive items
-                          that field is when it was filed, not when it was
-                          shot, and it read "2017" for a 2013 eclipse. */}
-                      {shot.why} · {shot.credit}
+                    <p className="moon-event__credit">
+                      {shot.note}
                     </p>
                   )}
                 </li>

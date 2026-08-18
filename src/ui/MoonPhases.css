@@ -111,22 +111,93 @@
   margin-top: 38px;
 }
 
-.events {
+/*
+ * --- Scoped names, because `.events` was already taken ---
+ *
+ * These were `.events` / `.event`, and the app's own Events panel owns those:
+ * this stylesheet silently restyled it into a grid of photographs floating over
+ * the scene. Nothing errored, the panel simply came apart, and it looked like a
+ * layout bug in a section a thousand pixels away.
+ */
+.moon-events {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 18px 26px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 22px 26px;
 }
 
-.event {
-  border-top: 1px solid var(--hairline);
-  padding-top: 10px;
+.moon-event {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.event__when {
-  margin: 0;
+/*
+ * The same discs as the phase strip, at the same size, on the same black.
+ *
+ * They were press photographs — a red Moon over a crane in Baltimore stood in
+ * for both a supermoon and an eclipse — and next to a row of clean renders they
+ * read as a different section entirely. A row of pictures is a comparison, and
+ * it only compares the Moon if everything else is held still.
+ */
+.moon-event__link {
+  display: block;
+  width: 100%;
+  max-width: 150px;
+}
+
+.moon-event__image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/*
+ * A super Moon really is 14% wider than a micro Moon, so the two are drawn 14%
+ * apart rather than annotated as different. It is the one comparison a picture
+ * can make that a sentence cannot.
+ */
+.moon-event--supermoon .moon-event__image {
+  transform: scale(1.07);
+}
+
+.moon-event--micromoon .moon-event__image {
+  transform: scale(0.93);
+}
+
+/*
+ * Totality, tinted.
+ *
+ * This is the full Moon render pushed toward the copper-red of an eclipsed
+ * Moon — a filter, not a photograph, and the caption says so. The alternative
+ * was a real eclipse photograph, and that broke the row: every other disc here
+ * is the same render at the same scale, and one press shot among them compares
+ * cameras instead of Moons.
+ *
+ * The numbers are a hue rotation onto red with the saturation pushed hard,
+ * landing near #b0503a — the colour an eclipsed Moon actually goes, which is
+ * dimmer and browner than the vivid red most photographs are pushed to.
+ */
+.moon-event--blood-moon .moon-event__image {
+  filter: sepia(1) saturate(3.2) hue-rotate(-28deg) brightness(0.82) contrast(1.05);
+}
+
+/*
+ * A partial eclipse takes a bite out of one edge, so the disc is masked rather
+ * than tinted — the shadow's curve is the Earth's, and it is the thing the card
+ * is describing.
+ */
+.moon-event--lunar-eclipse .moon-event__image {
+  mask-image: radial-gradient(circle at 132% 50%, transparent 46%, #000 47%);
+  -webkit-mask-image: radial-gradient(circle at 132% 50%, transparent 46%, #000 47%);
+}
+
+.moon-event__when {
+  margin: 8px 0 0;
   font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -134,58 +205,27 @@
   font-variant-numeric: tabular-nums;
 }
 
-.event__name {
-  margin: 3px 0 0;
+.moon-event__name {
+  margin: 2px 0 0;
   font-size: 14px;
 }
 
-/* The one that actually changes colour gets the only colour on the page. A
-   blood Moon is red; nothing else here is, so nothing else is tinted. */
-.event--blood-moon .event__name {
+.moon-event--blood-moon .moon-event__name {
   color: #c8695a;
 }
 
-.event__note {
-  margin: 5px 0 0;
+.moon-event__note {
+  margin: 4px 0 0;
   font-size: 12px;
   line-height: 1.5;
   color: var(--text-faint);
 }
 
-/* The event cards get the same picture-first shape as the phases, so the two
-   rows read as one section rather than as a gallery followed by a list. */
-.event__link {
-  display: block;
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 10px;
-}
-
-.event__image {
-  display: block;
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
-  border: 1px solid var(--hairline);
-  border-radius: 3px;
-  opacity: 0.9;
-  transition: opacity 160ms ease;
-}
-
-.event__link:hover .event__image {
-  opacity: 1;
-}
-
-.event__credit {
-  margin: 6px 0 0;
+.moon-event__credit {
+  margin: 4px 0 0;
   font-size: 10px;
   line-height: 1.45;
   letter-spacing: 0.03em;
   color: var(--text-faint);
   opacity: 0.85;
-}
-
-/* Without a picture the card would start hard against the hairline. */
-.event:not(:has(.event__link)) .event__when {
-  padding-top: 2px;
 }
