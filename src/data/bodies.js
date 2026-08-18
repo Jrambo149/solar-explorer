@@ -28,11 +28,13 @@ import { DWARF_PLANETS_RAW } from './dwarfPlanetData.js'
 import { MOONS_RAW } from './moonData.js'
 import { MINOR_MOONS_RAW } from './minorMoonData.js'
 import { COMETS_RAW } from './cometData.js'
+import { COMET_DOSSIERS } from './cometDossiers.js'
 import { SPACECRAFT_RAW } from './spacecraftData.js'
 import { ORBITAL_ELEMENTS } from './orbitalElements.js'
 import { DWARF_ELEMENTS } from './dwarfElements.js'
 import { ASTEROID_BODIES_RAW } from './asteroidBodyData.js'
 import { ASTEROID_BODY_ELEMENTS } from './asteroidBodyElements.js'
+import { BODY_MASSES } from './bodyMasses.js'
 import { MOON_ELEMENTS } from './moonElements.js'
 import { MINOR_MOON_ELEMENTS } from './minorMoonElements.js'
 import { periodDays } from '../orbit/kepler.js'
@@ -193,8 +195,19 @@ const SURFACE_NOTES = {
   hydra: DRAWN_LUMPY,
 }
 
+/**
+ * The measured mass and equatorial radius, where anyone has measured them.
+ *
+ * Spread in rather than written into the body files because they are fetched —
+ * see `scripts/fetch-body-masses.mjs` for where each comes from and why the
+ * three that are missing are missing. Absent for Makemake, Juno and Apophis,
+ * and the dossier drops the rows that need a mass rather than inventing one.
+ */
+const measured = (id) => BODY_MASSES[id] ?? {}
+
 export const DWARF_PLANETS = DWARF_PLANETS_RAW.map((body) => ({
   ...body,
+  ...measured(body.id),
   kind: 'dwarf',
   parent: null,
   plane: 'heliocentric',
@@ -221,6 +234,7 @@ export const DWARF_PLANETS = DWARF_PLANETS_RAW.map((body) => ({
  */
 export const ASTEROID_BODIES = ASTEROID_BODIES_RAW.map((body) => ({
   ...body,
+  ...measured(body.id),
   kind: 'asteroid',
   parent: null,
   plane: 'heliocentric',
@@ -381,6 +395,16 @@ const COMET_GREY = '#8d8b88'
 
 export const COMETS = COMETS_RAW.map((body) => ({
   ...body,
+  /*
+   * The prose, from a hand-written file rather than from this one's source.
+   *
+   * `cometData.js` is generated and carries orbits, radii and meshes; a
+   * description, the facts and the long read cannot be fetched from anywhere
+   * and would be erased by the next `npm run fetch:comets`. See
+   * `cometDossiers.js`, which also explains why only six of them state a
+   * nucleus size.
+   */
+  ...COMET_DOSSIERS[body.id],
   kind: 'comet',
   parent: null,
   plane: 'heliocentric',

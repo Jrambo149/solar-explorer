@@ -66,7 +66,8 @@
     "fetch:galaxy-sprite": "node scripts/fetch-galaxy-sprite.mjs",
     "verify:dossier": "node scripts/verify-dossier.mjs",
     "fetch:body-images": "node scripts/fetch-body-images.mjs",
-    "fetch:moon-phases": "node scripts/fetch-moon-phases.mjs"
+    "fetch:moon-phases": "node scripts/fetch-moon-phases.mjs",
+    "fetch:masses": "node scripts/fetch-body-masses.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

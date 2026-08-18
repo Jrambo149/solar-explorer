@@ -202,7 +202,9 @@ export default function InfoPanel() {
                     {FACT_ROWS.filter(
                       ([, key]) =>
                         planet[key] !== undefined &&
-                        !(key === 'moons' && planet.kind === 'moon') &&
+                        /* "Moons: 0" is informative on Mercury and noise on a
+                           four-kilometre lump of ice. */
+                        !(key === 'moons' && (planet.kind === 'moon' || planet.kind === 'comet')) &&
                         !(key === 'axialTilt' && !hasPole(planet.id)),
                     ).map(([label, key]) => (
                       <div className="fact-grid__row" key={key}>
@@ -243,10 +245,24 @@ export default function InfoPanel() {
               </div>
 
               <div className="dossier__column">
-                <section className="dossier__section">
-                  <h3 className="dossier__section-title">Atmosphere</h3>
-                  <p className="dossier__atmosphere">{planet.atmosphere}</p>
-                </section>
+                {/*
+                  Conditional, and relabelled for a comet.
+
+                  It used to be neither, which for the fourteen comets meant a
+                  heading called "Atmosphere" over an empty paragraph — they
+                  carry no such field. And a coma is not really an atmosphere in
+                  the sense the other pages use the word: a planet keeps one,
+                  and a comet grows one on the way in and loses it on the way
+                  out, every orbit.
+                */}
+                {planet.atmosphere && (
+                  <section className="dossier__section">
+                    <h3 className="dossier__section-title">
+                      {planet.kind === 'comet' ? 'Coma and tail' : 'Atmosphere'}
+                    </h3>
+                    <p className="dossier__atmosphere">{planet.atmosphere}</p>
+                  </section>
+                )}
 
                 <section className="dossier__section">
                   <h3 className="dossier__section-title">Fun facts</h3>

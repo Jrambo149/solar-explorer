@@ -148,20 +148,38 @@ for (const p of PLANETS) {
 /*
  * And the bodies that have no business with this table say so.
  *
- * `derivedFacts` returns null without a mass, a radius and an orbit, which is
- * every moon, comet and spacecraft in the app. The dossier then draws the page
- * it always drew rather than a section full of blanks — so this is checking a
- * *refusal*, which is the half that would fail silently.
+ * `derivedFacts` needs a mass, a radius and an orbit, and refuses without
+ * them — so this is checking a *refusal*, which is the half that would fail
+ * silently. What belongs in the refusing set has narrowed twice: dwarf planets
+ * and named asteroids joined the table once their masses were written down,
+ * and comets get a table of their own that needs no mass at all. What is left
+ * is the spacecraft, which have no mass, no radius and no Keplerian orbit
+ * between them, and Pluto's four small moons, which nobody has weighed.
  */
 const { BODIES } = await import('../src/data/bodies.js')
-const wrongly = BODIES.filter(
-  (b) => b.kind !== 'planet' && b.kind !== 'moon' && derivedFacts(b) !== null,
-)
+const ALLOWED = new Set(['planet', 'moon', 'dwarf', 'asteroid', 'comet'])
+const wrongly = BODIES.filter((b) => !ALLOWED.has(b.kind) && derivedFacts(b) !== null)
 check(
-  'nothing but a planet or a moon gets a “By the numbers” table',
+  'no spacecraft gets a “By the numbers” table',
   wrongly.length === 0,
   wrongly.length ? wrongly.map((b) => b.name).join(', ') : `${BODIES.length} bodies checked`,
 )
+
+/*
+ * Every comet gets the comet table, and every row of it is readable.
+ *
+ * The rows differ by orbit — an open one has no aphelion and no period, and
+ * says so instead — so this checks the count is plausible rather than fixed,
+ * and that nothing anywhere printed a NaN. `speedAtKms` on a negative `a` is
+ * the one that would.
+ */
+section('Every comet gets the comet table')
+for (const c of BODIES.filter((b) => b.kind === 'comet')) {
+  const rows = derivedFacts(c)
+  const readable =
+    rows && rows.length >= 5 && rows.every((r) => r.value && !/NaN|undefined|Infinity/.test(r.value))
+  check(`${c.name}: ${rows?.length ?? 0} rows, all readable`, readable)
+}
 
 /*
  * The prose and the facts must not repeat each other.
@@ -177,6 +195,103 @@ check(
  * it catches the restatements, and it was the restatements that hid the
  * contradiction in the noise.
  */
+/*
+ * The dwarf planets and the named asteroids, against published values.
+ *
+ * A third table typed here and nowhere else, and it is doing more work than the
+ * planet one because these numbers reach the app by a longer route: a `GM` from
+ * the Small-Body Database, or a mass from a paper, divided by a radius curated
+ * by hand in a different file. Two independently correct halves can still be
+ * paired wrongly, and the result looks entirely plausible.
+ *
+ * `gravity` and `escape` here are quoted at the **mean** radius, which is the
+ * convention for triaxial bodies and the opposite of the planet convention —
+ * see `derivedFacts`. Getting that backwards is a factor of two on Haumea and
+ * a few per cent everywhere else, which is exactly the sort of error that only
+ * a table like this one catches.
+ *
+ * Orbital periods are from Kepler's third law on the app's own semi-major axis
+ * against the period JPL publishes, which is a genuinely independent number.
+ *
+ * Tolerance is 5% rather than the 1.5% used for the planets, and the reason is
+ * honest rather than convenient: several of these masses carry published error
+ * bars wider than that themselves. Hygiea's is quoted to two significant
+ * figures.
+ */
+section('The dwarf planets and named asteroids, against published values')
+
+const SMALL = {
+  ceres: { gravity: 0.28, escape: 0.51, density: 2162, periodYears: 4.60 },
+  pluto: { gravity: 0.62, escape: 1.21, density: 1854, periodYears: 247.94 },
+  haumea: { gravity: 0.401, density: 1885, periodYears: 284.88 },
+  makemake: { periodYears: 307.33 },
+  eris: { gravity: 0.82, escape: 1.38, density: 2430, periodYears: 557.12 },
+  vesta: { gravity: 0.25, escape: 0.36, density: 3456, periodYears: 3.63 },
+  pallas: { gravity: 0.21, escape: 0.32, density: 2890, periodYears: 4.62 },
+  hygiea: { density: 1940, periodYears: 5.57 },
+  juno: { periodYears: 4.36 },
+  /*
+   * No gravity row for Psyche, and the omission is the finding.
+   *
+   * The figure quoted almost everywhere is 0.144 m/s², and it disagrees with
+   * this app by 10%. Neither is wrong: 0.144 divides the same `GM` by a
+   * 211 km diameter, and Shepard et al. (2021) revised that to 222 km. The app
+   * carries the newer radius, so it gets 0.130, and a check against the older
+   * number would be asserting that the app should use superseded data.
+   *
+   * Density is the row that still bites here — it uses the same mass and the
+   * same radius, and the SBDB publishes it independently at 4.172 g/cm³.
+   */
+  psyche: { density: 4172, periodYears: 4.99 },
+  apophis: { periodYears: 0.89 },
+}
+
+for (const [id, want] of Object.entries(SMALL)) {
+  const body = BODIES.find((b) => b.id === id)
+  const results = []
+  if (want.gravity) {
+    const got = surfaceGravity(body.massKg, body.radiusKm)
+    results.push([`gravity ${got.toFixed(3)} vs ${want.gravity} m/s²`, near(got, want.gravity, 0.05)])
+  }
+  if (want.escape) {
+    const got = escapeVelocity(body.massKg, body.radiusKm)
+    results.push([`escape ${got.toFixed(3)} vs ${want.escape} km/s`, near(got, want.escape, 0.05)])
+  }
+  if (want.density) {
+    const got = density(body.massKg, body.radiusKm)
+    results.push([`density ${got.toFixed(0)} vs ${want.density} kg/m³`, near(got, want.density, 0.05)])
+  }
+  const got = orbitShape(body.elements).periodYears
+  results.push([`period ${got.toFixed(2)} vs ${want.periodYears} yr`, near(got, want.periodYears, 0.05)])
+
+  check(
+    `${body.name}: ${results.map(([label]) => label).join(', ')}`,
+    results.every(([, ok]) => ok),
+  )
+}
+
+/*
+ * And the three nobody has weighed keep their orbit rows and lose the rest.
+ *
+ * The interesting half of the split. Makemake's moon has never had its orbit
+ * solved, Juno's mass comes only from how it perturbs its neighbours, and
+ * nothing has flown past Apophis — so all three have an orbit and no mass, and
+ * the table has to degrade rather than vanish. It used to vanish, which threw
+ * away Apophis's orbit, the most closely tracked one in the app.
+ */
+for (const id of ['makemake', 'juno', 'apophis']) {
+  const body = BODIES.find((b) => b.id === id)
+  const rows = derivedFacts(body) ?? []
+  const labels = rows.map((r) => r.label)
+  check(
+    `${body.name}: ${rows.length} orbit rows, and none claiming a mass`,
+    rows.length >= 4 &&
+      !body.massKg &&
+      !labels.some((l) => /weigh|Escape|Density/.test(l)) &&
+      rows.every((r) => !/NaN|undefined/.test(r.value)),
+  )
+}
+
 section('The writing does not repeat itself')
 
 const words = (text) =>
@@ -188,7 +303,10 @@ const words = (text) =>
       .filter((w) => w.length > 3),
   )
 
-for (const p of PLANETS) {
+const WITH_PROSE = BODIES.filter(
+  (b) => ['planet', 'dwarf', 'asteroid', 'comet'].includes(b.kind) && b.facts?.length,
+)
+for (const p of WITH_PROSE) {
   const pieces = [...p.facts, ...(p.story ?? [])]
   const clashes = []
   for (let i = 0; i < p.facts.length; i++) {
@@ -430,12 +548,48 @@ let shots = 0
  * Planets and moons together. Moons carry two rather than three, and for most
  * of them two is all that exists — Umbriel was photographed once, in 1986.
  */
-const WITH_GALLERIES = [...PLANETS, ...ALL.filter((b) => b.kind === 'moon' && b.tier !== 'minor')]
+/*
+ * Which bodies are expected to have pictures, and — the harder half — which are
+ * expected not to.
+ *
+ * Nine of the dwarf planets and named asteroids have never been resolved into
+ * more than a few pixels by anything, and four of the comets were never more
+ * than points of light. NASA publishes artists' impressions of most of them,
+ * and the one rule a section headed "Seen for real" has is that it must not
+ * contain an illustration. So an empty gallery is the correct answer for those,
+ * and `NO_GALLERY` asserts it stays empty — otherwise a later well-meaning
+ * addition of a beautiful Eris concept painting would pass every other check
+ * here.
+ */
+const NO_GALLERY = new Set([
+  'haumea', 'makemake', 'eris',
+  'pallas', 'hygiea', 'juno', 'psyche', 'apophis',
+  '1i_oumuamua', 'c_2025_n1', 'c_2010_x1', 'c_2019_y4',
+])
+const WITH_GALLERIES = [
+  ...PLANETS,
+  ...ALL.filter((b) => b.kind === 'moon' && b.tier !== 'minor'),
+  ...ALL.filter(
+    (b) => ['dwarf', 'asteroid', 'comet'].includes(b.kind) && !NO_GALLERY.has(b.id),
+  ),
+]
 for (const p of WITH_GALLERIES) {
   const gallery = BODY_IMAGES[p.id] ?? []
   shots += gallery.length
   const onDisk = gallery.every((s) => existsSync(join(ROOT, 'public', 'images', 'bodies', s.file)))
-  const credited = gallery.every((s) => s.credit && /NASA/i.test(s.credit) && s.title && s.why)
+  /*
+   * Credited to an agency, not necessarily to NASA.
+   *
+   * This check used to insist on the word NASA and it failed the moment the
+   * comets arrived: the best images of 67P are Rosetta's, the only close image
+   * of Halley is Giotto's, and both are ESA missions whose pictures NASA hosts
+   * and credits to ESA — correctly. The thing worth asserting is that the
+   * credit names whoever took it, which is why the fallback the fetch script
+   * builds from a centre name would not satisfy this on its own.
+   */
+  const credited = gallery.every(
+    (s) => s.credit && /NASA|ESA|JAXA|ISRO|Roscosmos/i.test(s.credit) && s.title && s.why,
+  )
   /*
    * Every picture links to its own source, and no caption carries a bare URL.
    *
@@ -450,9 +604,38 @@ for (const p of WITH_GALLERIES) {
   check(`${p.name}: every picture links to its source, no URLs in the prose`, linked)
   check(
     `${p.name}: ${gallery.length} image${gallery.length === 1 ? '' : 's'}, present and credited`,
-    gallery.length >= (p.kind === 'moon' ? 1 : 3) && onDisk && credited,
+    /* Three for a planet or a dwarf planet, at least one for anything else —
+       Halley has exactly one close image in existence and always will. */
+    gallery.length >= (p.kind === 'planet' || p.kind === 'dwarf' ? 3 : 1) && onDisk && credited,
   )
 }
+
+for (const id of NO_GALLERY) {
+  check(
+    `${id}: no gallery, because no real picture of it exists`,
+    (BODY_IMAGES[id] ?? []).length === 0,
+  )
+}
+
+/*
+ * No picture is credited with the year it was filed rather than the year it was
+ * taken.
+ *
+ * `date_created` in NASA's library is the date the *record* was created, and
+ * Goddard bulk-loaded a large archive on 8 December 2017 — which includes the
+ * Moon phase renders, the Siding Spring images from the 2014 Mars flyby, and
+ * Comet ISON, which ceased to exist in 2013. Every one of them reports 2017,
+ * and the panel prints that year in the credit line. The fetch script drops the
+ * date for those ids; this makes sure it keeps doing so.
+ */
+const misdated = Object.values(BODY_IMAGES)
+  .flat()
+  .filter((shot) => shot.nasaId.startsWith('GSFC_20171208_Archive_') && shot.date)
+check(
+  'no photograph is credited with a bulk-archive ingest date',
+  misdated.length === 0,
+  misdated.length ? misdated.map((s) => s.nasaId).join(', ') : undefined,
+)
 /*
  * Counted from the galleries themselves rather than from a literal, so adding a
  * moon cannot quietly leave it without pictures: the expected total is "three

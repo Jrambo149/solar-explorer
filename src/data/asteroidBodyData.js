@@ -67,6 +67,11 @@ export const ASTEROID_BODIES_RAW = [
       'It tumbles rather than spins: it turns once about one axis every 27.4 hours while that axis itself swings round every 263 hours, so it has no fixed day at all.',
       'OSIRIS-APEX, the extended mission of the spacecraft that sampled Bennu, arrives a month after the flyby to see what the encounter did to it.',
     ],
+    story: [
+      'It is named for the serpent of ancient Egyptian myth that attacks the Sun\'s boat each night, and the name was chosen while the impact probability was still non-zero — the discoverers were fans of the television series where Apophis is a villain, and the mythological reading came free.',
+      'What makes 2029 worth waiting for is not the risk, which is gone, but the experiment. Nothing this size has been observed passing this close, and Earth\'s gravity will not merely bend the path: the tidal stress across a body 370 metres long is enough to shift loose material on its surface. Landslides, seismic shaking, a resurfacing of parts of it — all predicted, none ever watched. A close pass is a way of probing an asteroid\'s interior structure that nobody has to launch anything to arrange.',
+      'Ruling out the later encounters took work that has nothing to do with gravity. An asteroid absorbs sunlight on its day side and radiates the heat away slightly later, as it turns, and that lopsided emission is a tiny thrust — the Yarkovsky effect. Over decades it moves an orbit by more than the width of a keyhole that a future impact would have to pass through, so the 2068 possibility could not be dismissed until radar in 2021 measured how fast Apophis was actually drifting.',
+    ],
     nasaLinks: [
       { label: 'NASA — Apophis', url: 'https://science.nasa.gov/solar-system/asteroids/apophis/' },
       { label: 'CNEOS — Apophis 2029 approach', url: 'https://cneos.jpl.nasa.gov/apophis/' },
@@ -98,6 +103,11 @@ export const ASTEROID_BODIES_RAW = [
       'About one meteorite in twenty found on Earth came from that impact. They are the only rocks we have from a body whose exact origin is known.',
       'Dawn orbited it for fourteen months in 2011–12, then left for Ceres — the first spacecraft ever to orbit two worlds.',
     ],
+    story: [
+      'Vesta melted early. Aluminium-26, a short-lived radioactive isotope present when the solar system formed, released enough heat in a body this size to turn it molten within a few million years — and because the meteorites from it can be dated directly, that timing is measured rather than modelled. Vesta had a crust, a mantle and a core while the Earth was still accumulating.',
+      'That account has recently been complicated by the spacecraft that established it. A 2025 re-analysis of Dawn\'s radio tracking gave a moment of inertia close to that of a uniform body, which is not what a differentiated one should show. Either Vesta\'s core is much smaller than assumed, or it never fully separated, or the tracking is being read wrong. The measurements this app uses for Vesta\'s mass and size come from that same re-analysis.',
+      'Its surface records the other half of its history. Two overlapping basins sit at the south pole, one older and mostly buried by the other, and troughs run round Vesta\'s equator that are almost certainly fractures opened by those impacts — a body ringing and cracking rather than shattering.',
+    ],
     nasaLinks: [
       { label: 'NASA — Vesta overview', url: 'https://science.nasa.gov/solar-system/asteroids/vesta/' },
       { label: 'NASA — Dawn mission', url: 'https://science.nasa.gov/mission/dawn/' },
@@ -127,7 +137,11 @@ export const ASTEROID_BODIES_RAW = [
     facts: [
       'Its steep, tilted orbit crosses the belt twice per circuit, so it collides with other asteroids far harder and far more often than its neighbours do. Hubble images show a surface covered in craters.',
       'Discovered in 1802 by Heinrich Olbers, who found it while looking for more of Ceres.',
-      'It is the largest asteroid never visited by a spacecraft, and the largest object in the inner solar system we have no close-up of.',
+    ],
+    story: [
+      'Pallas is expensive. A spacecraft leaving Earth is already moving in the plane the planets share, and getting out of that plane costs velocity that no gravity assist in the inner solar system can cheaply supply. At 35° Pallas is far enough out of it that reaching orbit there costs more than reaching Pluto — which is why the third-largest object between Mars and Jupiter is also the largest thing in the inner solar system nobody has photographed closely.',
+      'Its discoverer drew the wrong conclusion from it, productively. Heinrich Olbers proposed that Ceres and Pallas were fragments of a full-sized planet that had broken apart, which explained why two objects were sharing one orbital slot and predicted that more pieces would turn up. More pieces did turn up, and the hypothesis survived for most of a century before the numbers killed it: everything in the belt put together would not make a body a third the size of the Moon, and the belt was never a planet — it is a region where Jupiter stirred the material too vigorously for one to form.',
+      'What Pallas is made of is still partly open. Its density is low enough to suggest a substantial fraction of ice under a dark surface, which would make it more like Ceres than like Vesta, and a steeply inclined orbit through a crowded belt has been battering it for four billion years.',
     ],
     nasaLinks: [
       { label: 'NASA — Asteroids overview', url: 'https://science.nasa.gov/solar-system/asteroids/' },
@@ -156,8 +170,12 @@ export const ASTEROID_BODIES_RAW = [
       'The fourth largest asteroid, and a very dark one — it reflects about seven per cent of the light that reaches it, which is why an object this size was not found until 1849. It is the parent of one of the belt’s largest families: thousands of fragments sharing its orbit, all of them pieces of whatever hit it.',
     facts: [
       'Images from the Very Large Telescope in 2019 showed it to be very nearly round, which would make it the smallest body in the solar system to have pulled itself into a sphere.',
-      'That roundness is odd: it is almost certainly a rubble pile reassembled after a catastrophic impact, rather than a body that was ever solid.',
       'Its family has some 7,000 known members, one of the largest collision families in the belt.',
+    ],
+    story: [
+      'Hygiea is the fourth-largest asteroid and it went unnoticed for half a century after the first three, which says everything about its surface. It reflects about one photon in fourteen. Carbonaceous material this dark is common in the outer belt and it is the reason the size ranking and the discovery order diverge so sharply here.',
+      'The 2019 observations that showed it to be nearly round created a category problem nobody has resolved. Roundness under self-gravity is one of the IAU\'s three tests for a dwarf planet, and Hygiea passes the others; if the shape holds up it would be the smallest body in the solar system to qualify, and smaller than Ceres by a good margin. The IAU has not acted on it, and there is no procedure that obliges it to.',
+      'The oddity is that the roundness may have nothing to do with gravity slowly winning. Hygiea\'s family of fragments implies an impact that destroyed the original body entirely, and what orbits there now is most likely the rubble falling back together — a shape settled in hours rather than eons.',
     ],
     nasaLinks: [
       { label: 'NASA — Asteroids overview', url: 'https://science.nasa.gov/solar-system/asteroids/' },
@@ -189,6 +207,11 @@ export const ASTEROID_BODIES_RAW = [
       'Its orbit is noticeably eccentric, carrying it from inside the main belt out past most of it and back.',
       'The Juno spacecraft at Jupiter is named for the same goddess, not for this asteroid.',
     ],
+    story: [
+      'For forty-three years the solar system had eleven planets. Ceres, Pallas, Juno and Vesta were found between 1801 and 1807, and each was announced as a planet and printed as one in textbooks and almanacs; Juno was the third of them, found by Karl Harding at a private observatory in Lilienthal.',
+      'Then nothing for thirty-eight years, and then a flood. Astraea in 1845, Hebe and Iris and Flora in 1847, and by 1851 there were fifteen. Naming and numbering them as planets stopped being tenable, and the word William Herschel had coined in 1802 — asteroid, star-like, meant as a description of how they looked through a telescope rather than what they were — won by default. It had been resented for decades by astronomers who felt it demoted their discoveries, which is an argument this app\'s dwarf planets went through again in 2006.',
+      'Juno was one of the first asteroids anyone got a shape out of. An occultation in 1979 and later adaptive-optics imaging showed it to be distinctly irregular, with a large bite out of one side.',
+    ],
     nasaLinks: [
       { label: 'NASA — Asteroids overview', url: 'https://science.nasa.gov/solar-system/asteroids/' },
     ],
@@ -218,6 +241,11 @@ export const ASTEROID_BODIES_RAW = [
       'Radar shows it is far denser than a rocky asteroid but less metallic than a solid core would be, so the stripped-core story is now one possibility among several.',
       'NASA’s Psyche launched in October 2023 and arrives in 2029, after a Mars flyby in 2026.',
       'It turns once every four hours, faster than almost anything else its size in the belt.',
+    ],
+    story: [
+      'Psyche is regularly described as being worth ten quintillion dollars, which is a number obtained by weighing the iron and looking up the price. It is not a meaningful figure — the metal\'s price is what it is because metal is scarce on Earth, and any quantity large enough to be worth fetching would end that — but it has done more than anything else to make people aware of the mission.',
+      'The science is more interesting than the arithmetic and less settled than the headline. If Psyche were a solid exposed core it would be about twice as dense as it measures; the numbers instead point to something substantially metallic but very porous, or a mixture of metal and rock that never fully separated. Hubble has also detected hydroxyl on it, which implies water-bearing minerals — not what a stripped core should be carrying.',
+      'The spacecraft will settle it, and it is getting there by a route worth noting. Psyche flies on solar-electric propulsion: thrusters that ionise xenon and accelerate it electrically, producing about as much force as the weight of a coin, continuously, for years. Almost the entire journey is under thrust.',
     ],
     nasaLinks: [
       { label: 'NASA — Psyche the asteroid', url: 'https://science.nasa.gov/solar-system/asteroids/16-psyche/' },

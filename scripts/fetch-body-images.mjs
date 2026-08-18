@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Bakes a small gallery of real NASA photographs for each planet and moon.
+ * Bakes a small gallery of real NASA photographs for each body that has any.
  *
  * Run with:
  *     npm run fetch:body-images
@@ -32,9 +32,15 @@
  *
  * NASA still and moving images are generally not copyrighted and may be used
  * for any purpose, with the usual conditions: do not imply NASA endorsement,
- * and note that a few images carry third-party rights. Every ID here is from
- * NASA/JPL-Caltech, Goddard, or a NASA mission archive. The credit line the
- * panel prints comes from the API's own `center` and `secondary_creator`.
+ * and note that a few images carry third-party rights.
+ *
+ * Not all of these are NASA's, and the comets are why. The only close images of
+ * Halley's nucleus are Giotto's and the best of 67P are Rosetta's — both ESA
+ * missions, whose pictures NASA's library hosts and credits to ESA. ESA
+ * releases those under a Creative Commons attribution licence, which this app
+ * satisfies the same way it satisfies NASA's terms: the credit line is the
+ * API's own `secondary_creator`, printed unchanged, and every picture links to
+ * its source record. Nothing here is recaptioned as ours.
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -101,6 +107,87 @@ const GALLERY = {
     ['PIA00049', 'The Great Dark Spot, a storm that had gone by the next look'],
     ['PIA01493', 'The rings, and the arcs in them nothing fully explains'],
     ['PIA02245', 'The blue-green of it, which is methane soaking up the red'],
+  ],
+
+  /* ---- dwarf planets and named asteroids ---- */
+
+  /*
+   * Only three of the eleven appear here, and the eight that do not are the
+   * point of this comment.
+   *
+   * Haumea, Makemake and Eris have never been resolved into more than a few
+   * pixels by anything, and Pallas, Hygiea, Juno, Psyche and Apophis have never
+   * been visited. NASA publishes artists' impressions of every one of them,
+   * some of them very good — and an illustration in a section titled "Seen for
+   * real" is the single thing it must not contain. So they get no gallery, and
+   * their dossiers say in `bodies.js` that the globe on screen is an artist's
+   * impression or a bare sphere. Absence is the honest answer.
+   */
+  ceres: [
+    ['PIA21906', 'The whole dwarf planet, centred on the crater with the bright spots'],
+    ['PIA20350', 'Those spots close up — salt left behind by brine that reached the surface'],
+    ['PIA11240', 'Ahuna Mons on the limb: a four-kilometre mountain thought to be an ice volcano'],
+  ],
+  pluto: [
+    ['PIA19857', 'Pluto in the colours a person would see, on the day of the flyby'],
+    ['PIA19842', 'Mountains at the edge of the heart — water ice, which out here is bedrock'],
+    ['PIA19856', 'Pluto and Charon together, at their true relative sizes and colours'],
+  ],
+  vesta: [
+    ['PIA14778', 'The whole body, and it is visibly not round'],
+    ['PIA15667', 'The south polar basin, nearly as wide as Vesta itself'],
+    ['PIA15494', 'The wall of that basin, close enough to see the layering in it'],
+  ],
+
+  /* ---- comets ---- */
+
+  /*
+   * Six have been visited and photographed as objects; four more were bright
+   * enough to be photographed from Earth or from orbit. ʻOumuamua, 3I/ATLAS,
+   * Elenin and C/2019 Y4 have nothing — the first two were never more than
+   * points of light, and the other two came apart before anyone with a large
+   * telescope had a reason to point it at them.
+   */
+  '1p_halley': [
+    ['PIA17485', 'The nucleus, from 596 km — the first close look at any comet, in 1986'],
+  ],
+  '67p_churyumov_gerasimenko': [
+    ['PIA18423', 'Two lobes joined at a neck, from 1,950 km out'],
+    ['PIA18823', 'The jets firing, which is the comet taking itself apart'],
+    ['PIA19095', 'From the surface: Philae’s view from where it came to rest, on its side'],
+  ],
+  '9p_tempel_1': [
+    ['PIA02119', 'The nucleus, seconds before the impactor reached it'],
+    ['PIA02137', 'The moment of impact, 67 seconds after the projectile was destroyed'],
+    ['PIA13855', 'The crater, six years later — before and after, from two different spacecraft'],
+  ],
+  '81p_wild_2': [
+    ['PIA05004', 'The nucleus during the pass that collected the dust brought back to Earth'],
+  ],
+  '103p_hartley_2': [
+    ['PIA13622', 'The peanut: two rough ends, a smooth waist, 2.2 km end to end'],
+    ['PIA13625', 'Chunks of ice being carried off the surface by carbon dioxide'],
+    ['PIA13566', 'What that looks like from further out — all coma, no visible nucleus'],
+  ],
+  '19p_borrelly': [
+    ['PIA03500', 'The sharpest cometary image of its era, from a spacecraft steering by camera'],
+    ['PIA03505', 'The same nucleus overexposed, to bring out the jet coming off it'],
+  ],
+  'c_1995_o1': [
+    ['sts084-389-024', 'Hale-Bopp over the Earth’s limb, photographed from the Space Shuttle'],
+  ],
+  'c_2020_f3': [
+    ['PIA23792', 'The discovery frames — infrared, months before it was visible to anyone'],
+    ['AFRC2020-0073-1', 'What it looked like by July 2020, from a lake in the Sierra Nevada'],
+    ['NHQ202007180001', 'The comet and the space station in one ten-second exposure'],
+  ],
+  'c_2013_a1': [
+    ['GSFC_20171208_Archive_e000941', 'Hubble’s view in March 2014, while it was still inside Jupiter’s orbit'],
+    ['PIA17802', 'The Mars encounter, composited — a third of the Earth–Moon distance away'],
+  ],
+  'c_2012_s1': [
+    ['GSFC_20171208_Archive_e001315', 'Hubble’s last look, early November 2013, with the comet still intact'],
+    ['GSFC_20171208_Archive_e001300', 'Going in and coming out, 28–29 November 2013, from an observatory built to watch the Sun'],
   ],
 
   /* ---- moons ---- */
@@ -307,7 +394,23 @@ for (const [body, entries] of Object.entries(GALLERY)) {
          * when it is missing.
          */
         credit: meta.secondary_creator?.trim() || `NASA/${meta.center ?? 'JPL'}`,
-        date: meta.date_created?.slice(0, 10) ?? null,
+        /*
+         * Null for one whole family of ids, and the reason is a trap worth
+         * naming: `date_created` is when the record entered the library, not
+         * when the picture was taken. For most entries those are close enough.
+         * For everything ingested in Goddard's bulk archive load of 8 December
+         * 2017 they are not remotely — that batch includes the Moon phase
+         * renders, the Siding Spring images from the 2014 Mars pass, and ISON,
+         * which ceased to exist in 2013. All of them report 2017.
+         *
+         * The panel prints this year in the credit line, so carrying it through
+         * would caption a comet with a year it did not survive to see. Where
+         * the date matters for one of these, the hand-written `why` line says
+         * it, because that is a claim somebody checked.
+         */
+        date: nasaId.startsWith('GSFC_20171208_Archive_')
+          ? null
+          : meta.date_created?.slice(0, 10) ?? null,
         description: summarise(meta.description),
         /*
          * Where the picture came from, so a reader can go and see the original
