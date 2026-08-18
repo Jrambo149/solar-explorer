@@ -96,3 +96,67 @@ export function moonPhaseAt(jd, earthElements) {
     phase: nearest,
   }
 }
+
+/**
+ * The **phase angle**: the Moon's ecliptic longitude minus the Sun's, 0 to 360.
+ *
+ * This, and not the elongation above, is what defines the *instant* of a phase.
+ * New Moon is the moment the two longitudes are equal, and the elongation
+ * cannot express that: the Moon's orbit is inclined 5.1°, so the 3D angle
+ * between them bottoms out at whatever the ecliptic latitude happens to be —
+ * 3.4° at the January 2026 new Moon — and only reaches zero when there is a
+ * solar eclipse. Searching for a root of the elongation would find new Moons
+ * only in eclipse seasons and nothing at all in between.
+ *
+ * Longitude difference passes cleanly through zero every month, which is why
+ * every almanac defines the phases with it.
+ */
+export function phaseAngleAt(jd, earthElements) {
+  const { sun, moon } = earthMoonSun(jd, earthElements)
+  const difference = Math.atan2(moon.y, moon.x) - Math.atan2(sun.y, sun.x)
+  return ((difference * DEGREES) % 360 + 360) % 360
+}
+
+/** Signed difference between two angles, in (-180, 180]. */
+const wrap180 = (degrees) => ((((degrees + 180) % 360) + 360) % 360) - 180
+
+/**
+ * When the phase angle next reaches `target` degrees, after `jd`.
+ *
+ * A first guess from the mean rate, then secant refinement. The mean rate is
+ * good to a few hours over a month — the Moon runs fast at perigee and slow at
+ * apogee — so the guess alone would be wrong by long enough to print the
+ * wrong day, and a couple of iterations bring it to well under a minute.
+ *
+ * Iterating on `wrap180` rather than on the raw angle is what keeps the search
+ * from falling apart at the 360-to-0 seam, which is exactly where new Moon is.
+ */
+export function nextPhaseAfter(jd, target, earthElements) {
+  const RATE = 360 / SYNODIC_DAYS
+
+  // Step off the current instant so that asking at a phase finds the *next*
+  // one rather than returning where we already are.
+  let t = jd + 0.05
+  t += (((target - phaseAngleAt(t, earthElements)) % 360) + 360) % 360 / RATE
+
+  let previous = t - 0.5
+  let fPrevious = wrap180(phaseAngleAt(previous, earthElements) - target)
+  for (let i = 0; i < 8; i++) {
+    const f = wrap180(phaseAngleAt(t, earthElements) - target)
+    if (Math.abs(f) < 1e-6) break
+    const slope = (f - fPrevious) / (t - previous)
+    if (!Number.isFinite(slope) || slope === 0) break
+    previous = t
+    fPrevious = f
+    t -= f / slope
+  }
+  return t
+}
+
+/** The next occurrence of each of the eight principal phases, after `jd`. */
+export function upcomingPhases(jd, earthElements) {
+  return MOON_PHASES.map((phase, index) => ({
+    id: phase.id,
+    jd: nextPhaseAfter(jd, index * 45, earthElements),
+  }))
+}

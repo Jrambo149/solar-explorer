@@ -330,6 +330,37 @@ for (const [label, jd, want] of EVENTS) {
   check('the age runs forward across a whole lunation', back === 0, `${back} reversals`)
 }
 
+/*
+ * The instants themselves, against the almanac.
+ *
+ * These are published to the minute and nothing in src/ has seen them. The
+ * search has to use ecliptic longitude rather than the 3D elongation: the
+ * Moon's orbit is inclined 5.1°, so the elongation bottoms out at the latitude
+ * rather than at zero and only reaches zero during an eclipse — a root search
+ * on it would find new Moons in eclipse seasons and nothing in between.
+ */
+{
+  const { nextPhaseAfter, upcomingPhases } = await import('../src/orbit/moonPhase.js')
+  const MINUTE = 1 / 1440
+  const INSTANTS = [
+    ['new Moon, 18 Jan 2026 19:52 UTC', 2461040, 0, 2461059.32778],
+    ['full Moon, 3 Mar 2026 11:38 UTC', 2461090, 180, 2461102.98472],
+    ['new Moon, 17 Feb 2026 12:01 UTC', 2461070, 0, 2461089.00069],
+  ]
+  for (const [label, from, target, want] of INSTANTS) {
+    const got = nextPhaseAfter(from, target, ELEM.earth)
+    check(`${label}`, Math.abs(got - want) < 2 * MINUTE,
+      `off by ${((got - want) * 1440).toFixed(1)} minutes`)
+  }
+
+  /* Every phase's next occurrence is in the future and inside one month. */
+  const from = 2461269
+  const soon = upcomingPhases(from, ELEM.earth)
+  check('every phase comes round again within a month',
+    soon.length === 8 && soon.every((f) => f.jd > from && f.jd < from + SYNODIC_DAYS + 0.1),
+    soon.map((f) => (f.jd - from).toFixed(1)).join(', ') + ' days away')
+}
+
 section('The photographs')
 let shots = 0
 /*

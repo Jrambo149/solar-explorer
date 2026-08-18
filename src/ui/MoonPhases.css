@@ -89,3 +89,15 @@
   color: var(--text-faint);
   opacity: 0.8;
 }
+
+.phase__next {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one that is happening now says so instead of naming a future date. */
+.phase.is-now .phase__next {
+  color: var(--text);
+}
