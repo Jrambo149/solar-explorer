@@ -49,6 +49,15 @@
 
 .phase__link .phase__image {
   transform: scale(1.09);
+  /*
+   * Clipped on the image as well as on the window around it.
+   *
+   * Redundant while the window clips correctly, and cheap insurance: this is
+   * the second time the disc has been reported with a square edge, and a shape
+   * that depends on one `overflow: hidden` holding is a shape with one way to
+   * fail.
+   */
+  border-radius: 50%;
 }
 
 .phase__image {
@@ -203,6 +212,7 @@
   object-fit: cover;
   /* Cropped to the limb, as the phase strip is — see `.phase__link`. */
   transform: scale(1.09);
+  border-radius: 50%;
 }
 
 /*
