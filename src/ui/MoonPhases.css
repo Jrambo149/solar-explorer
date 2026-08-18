@@ -163,6 +163,20 @@
  */
 .moon-event--supermoon .moon-event__image {
   transform: scale(1.07);
+  /*
+   * Warm, because that is how a super Moon is almost always seen — and the
+   * colour has nothing to do with perigee.
+   *
+   * A Moon low on the horizon reddens for the same reason a sunset does: the
+   * light is crossing far more air, and the short wavelengths scatter out of
+   * it. Super Moons get photographed rising, when they look biggest against
+   * something on the ground, so the orange and the size arrive together in
+   * every picture anyone has seen — and the two have no connection at all.
+   *
+   * Kept amber rather than the blood Moon's copper, so the row does not read
+   * as two eclipses. The caption says where the colour comes from.
+   */
+  filter: sepia(0.75) saturate(2.1) hue-rotate(-14deg) brightness(1.02);
 }
 
 .moon-event--micromoon .moon-event__image {

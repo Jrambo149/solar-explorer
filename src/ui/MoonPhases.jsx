@@ -50,8 +50,14 @@ const EVENT_DISC = {
   },
   supermoon: {
     file: 'full.jpg',
-    alt: 'A full Moon, drawn larger',
-    note: 'The full Moon render, drawn 14% wider than a micro Moon · NASA/GSFC',
+    alt: 'A full Moon, drawn larger and warmed as a rising Moon looks',
+    /*
+     * The colour is the horizon's, not perigee's — see the CSS. Saying so is
+     * the whole reason this note exists: a warm disc labelled "supermoon"
+     * with no explanation teaches that being close makes the Moon red, which
+     * is the commonest thing people believe about it and is not true.
+     */
+    note: 'The full Moon render, 14% wider than a micro Moon, warmed as a low Moon looks — that colour is air, not distance · NASA/GSFC',
   },
   micromoon: {
     file: 'full.jpg',
