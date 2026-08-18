@@ -69,9 +69,14 @@ const EVENT_DISC = {
   },
   'blue-moon': {
     file: 'full.jpg',
-    alt: 'A full Moon',
-    /* Untinted, deliberately: a blue Moon is not blue. */
-    note: 'The full Moon render, untreated — a blue Moon is not blue · NASA/GSFC',
+    alt: 'A full Moon, tinted blue',
+    /*
+     * The one caption that has to correct its own picture. The calendar sense
+     * of the name carries no colour at all, so the note points at the thing
+     * that genuinely does turn the Moon blue rather than letting the tint imply
+     * that a second full Moon in a month is what does it.
+     */
+    note: 'The full Moon render, tinted — the calendar kind is not blue, but ash and smoke have genuinely turned it so · NASA/GSFC',
   },
 }
 

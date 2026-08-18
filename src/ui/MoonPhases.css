@@ -277,10 +277,39 @@
   mix-blend-mode: multiply;
 }
 
-/* The name keeps its colour — a word can say "red" without the picture
+/*
+ * A blue Moon, tinted blue — and the caption has to work harder than the
+ * others because of it.
+ *
+ * The calendar sense of the name has nothing to do with colour: it is the
+ * second full Moon in a month and it looks exactly like any other. But the
+ * Moon *has* genuinely appeared blue, after Krakatoa in 1883 and after large
+ * wildfires, when smoke or ash happens to carry particles near a micron across
+ * — wide enough to scatter red light out of the beam and leave the blue. That
+ * is rare enough to be the likeliest origin of "once in a blue Moon", so the
+ * tint illustrates something real as long as the note says which thing.
+ *
+ * Cooler and lighter than the two reds, so the row reads as three temperatures
+ * rather than three intensities of the same one.
+ */
+.moon-event--blue-moon .moon-event__image {
+  filter: grayscale(1) brightness(1.04);
+}
+
+.moon-event--blue-moon .moon-event__tint {
+  background: #6f96cf;
+  opacity: 0.62;
+  mix-blend-mode: multiply;
+}
+
+/* The names keep their colours — a word can say "red" without the picture
    pretending to be a photograph of one. */
 .moon-event--blood-moon .moon-event__name {
   color: #c8695a;
+}
+
+.moon-event--blue-moon .moon-event__name {
+  color: #8fb0dd;
 }
 
 .moon-event__note {
