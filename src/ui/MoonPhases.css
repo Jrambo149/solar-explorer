@@ -106,3 +106,48 @@
 .phase.is-now .phase__next {
   font-weight: 500;
 }
+
+.phases__heading {
+  margin-top: 38px;
+}
+
+.events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px 26px;
+}
+
+.event {
+  border-top: 1px solid var(--hairline);
+  padding-top: 10px;
+}
+
+.event__when {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.event__name {
+  margin: 3px 0 0;
+  font-size: 14px;
+}
+
+/* The one that actually changes colour gets the only colour on the page. A
+   blood Moon is red; nothing else here is, so nothing else is tinted. */
+.event--blood-moon .event__name {
+  color: #c8695a;
+}
+
+.event__note {
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}

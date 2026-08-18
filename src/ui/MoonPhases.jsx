@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { MOON_PHASES } from '../data/moonPhases'
 import { ORBITAL_ELEMENTS } from '../data/orbitalElements'
 import { moonPhaseAt, upcomingPhases } from '../orbit/moonPhase'
+import { moonEvents } from '../orbit/moonEvents'
 import { useStore } from '../store/useStore'
 import './MoonPhases.css'
 
@@ -50,6 +51,19 @@ export default function MoonPhases() {
     return Object.fromEntries(found.map((f) => [f.id, f.jd]))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day])
+
+  /*
+   * The next few notable nights, searched forward from the date on the clock.
+   *
+   * Five years is enough to be sure of catching a total eclipse — they come in
+   * clusters and there can be eighteen months without one — and the search
+   * costs a lunar-eclipse sweep, so it is keyed to the day like the phase dates
+   * rather than run every frame.
+   */
+  const events = useMemo(
+    () => moonEvents(day, day + 365 * 5, ORBITAL_ELEMENTS.earth, 6),
+    [day],
+  )
 
   return (
     <section className="dossier__section phases">
@@ -118,6 +132,21 @@ export default function MoonPhases() {
           )
         })}
       </ol>
+
+      {events.length > 0 && (
+        <>
+          <h3 className="dossier__section-title phases__heading">Nights worth staying up for</h3>
+          <ul className="events">
+            {events.map((event) => (
+              <li className={`event event--${event.kind}`} key={`${event.kind}-${event.jd}`}>
+                <p className="event__when">{formatWhen(event.jd)}</p>
+                <p className="event__name">{event.name}</p>
+                <p className="event__note">{event.note}</p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   )
 }

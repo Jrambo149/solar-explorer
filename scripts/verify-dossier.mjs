@@ -361,6 +361,41 @@ for (const [label, jd, want] of EVENTS) {
     soon.map((f) => (f.jd - from).toFixed(1)).join(', ') + ' days away')
 }
 
+section('The Moon’s special nights')
+
+{
+  const { moonEvents, lunarDistanceKm } = await import('../src/orbit/moonEvents.js')
+  const found = moonEvents(2461270, 2461270 + 3000, ELEM.earth, 200)
+  const kinds = new Set(found.map((e) => e.kind))
+  check('all five kinds are found by searching, not listed',
+    ['blood-moon', 'lunar-eclipse', 'supermoon', 'micromoon', 'blue-moon'].every((k) => kinds.has(k)),
+    [...kinds].join(', '))
+
+  /*
+   * The 31 December 2028 total eclipse falls on the second full Moon of the
+   * month — a blood Moon on a blue Moon. It is the single best check available
+   * here, because it can only come out right if the eclipse search, the full
+   * Moon solve and the calendar test all agree on the same night.
+   */
+  const newYear = found.filter((e) => Math.abs(e.jd - 2462136.5) < 1)
+  check('31 Dec 2028 is both a blood Moon and a blue Moon',
+    newYear.some((e) => e.kind === 'blood-moon') && newYear.some((e) => e.kind === 'blue-moon'),
+    newYear.map((e) => e.name).join(' + ') || 'neither found')
+
+  /* Distances have to stay inside the real orbit. */
+  const distances = found.filter((e) => e.kind === 'supermoon' || e.kind === 'micromoon')
+  check('every super/micro Moon sits inside perigee and apogee',
+    distances.every((e) => {
+      const km = lunarDistanceKm(e.jd)
+      return km > 356000 && km < 407000
+    }),
+    `${distances.length} checked`)
+
+  /* Events must run forward and never precede the search window. */
+  check('events come back in date order, all in the future',
+    found.every((e, i) => e.jd > 2461270 && (i === 0 || e.jd >= found[i - 1].jd)))
+}
+
 section('The photographs')
 let shots = 0
 /*
