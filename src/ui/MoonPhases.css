@@ -144,8 +144,35 @@
  */
 .moon-event__link {
   display: block;
+  position: relative;
   width: 100%;
   max-width: 150px;
+  border-radius: 50%;
+  overflow: hidden;
+  /*
+   * `isolation` is load-bearing. `mix-blend-mode` blends with everything behind
+   * it in the stacking context, so without this the tint would multiply against
+   * the page as well as the Moon and the disc would go black on a dark
+   * background. This confines the blend to the disc.
+   */
+  isolation: isolate;
+}
+
+/*
+ * The colour, blended over the disc rather than filtered into it.
+ *
+ * Filters were the first approach and they fought back: `saturate()` drives
+ * bright pixels toward yellow whatever hue rotation follows, so the middle of
+ * the Moon kept coming out gold, and hue and brightness could not be moved
+ * independently — every attempt to make the blood Moon fainter also made it
+ * browner. Greyscaling the image and multiplying a chosen colour over it keeps
+ * the craters as luminance and sets the hue outright, so the two are separate
+ * knobs. These values were picked by eye in a tuner against this exact image.
+ */
+.moon-event__tint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .moon-event__image {
@@ -167,11 +194,22 @@
  * plain: two different events wearing the same face. Back to the untreated
  * render, which is at least honestly the same Moon in every card.
  */
-.moon-event--supermoon .moon-event__image {
+/* On the link, not the image, so the tint scales with the disc it is tinting. */
+.moon-event--supermoon .moon-event__link {
   transform: scale(1.07);
 }
 
-.moon-event--micromoon .moon-event__image {
+.moon-event--supermoon .moon-event__image {
+  filter: grayscale(1) brightness(1.13);
+}
+
+.moon-event--supermoon .moon-event__tint {
+  background: #ec7100;
+  opacity: 0.81;
+  mix-blend-mode: multiply;
+}
+
+.moon-event--micromoon .moon-event__link {
   transform: scale(0.93);
 }
 
@@ -192,6 +230,19 @@
 .moon-event__name {
   margin: 2px 0 0;
   font-size: 14px;
+}
+
+/* Totality: fainter and deeper than the super Moon, which is the real
+   difference between the two — an eclipsed Moon has dropped several magnitudes,
+   a low super Moon is fully sunlit and merely reddened by air. */
+.moon-event--blood-moon .moon-event__image {
+  filter: grayscale(1) brightness(0.81);
+}
+
+.moon-event--blood-moon .moon-event__tint {
+  background: #da4308;
+  opacity: 0.96;
+  mix-blend-mode: multiply;
 }
 
 /* The name keeps its colour — a word can say "red" without the picture

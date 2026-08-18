@@ -30,19 +30,21 @@ import './MoonPhases.css'
  * a different section, and the same shot stood in for two different kinds of
  * night.
  *
- * Nothing is tinted. Colour was tried hard — amber, orange-red, a match to a
- * reference eclipse photograph — and it ended with the super Moon and the blood
- * Moon looking identical, which is worse than plain: two different events
- * wearing the same face. What survives is the treatment that carries real
- * information and cannot be confused for another card: a super Moon drawn 14%
- * wider than a micro Moon because it *is*, and a partial eclipse masked by a
- * circle because the bite is the Earth's own curve.
+ * What varies is the treatment, and each one does a job the words cannot: a
+ * super Moon is drawn 14% wider than a micro Moon because it *is*, totality is
+ * tinted deep red and dimmer, a low super Moon warm and brighter, and a partial
+ * eclipse is masked by a circle because the bite is the Earth's own curve.
+ *
+ * The two colours were picked by eye rather than derived, after filters failed
+ * twice — see the CSS. Every caption says the disc is treated rather than
+ * photographed, because a tinted render presented as a photograph would be the
+ * one dishonest thing in this section.
  */
 const EVENT_DISC = {
   'blood-moon': {
     file: 'full.jpg',
-    alt: 'The full Moon render',
-    note: 'The full Moon render, untinted · NASA/GSFC',
+    alt: 'The full Moon render, tinted the red of totality',
+    note: 'The full Moon render, tinted to the deep red an eclipsed Moon turns · NASA/GSFC',
   },
   'lunar-eclipse': {
     file: 'full.jpg',
@@ -51,8 +53,14 @@ const EVENT_DISC = {
   },
   supermoon: {
     file: 'full.jpg',
-    alt: 'A full Moon, drawn larger',
-    note: 'The full Moon render, drawn 14% wider than a micro Moon · NASA/GSFC',
+    alt: 'A full Moon, drawn larger and warmed as a rising Moon looks',
+    /*
+     * The colour is the horizon's, not perigee's. Saying so is the whole reason
+     * this note exists: a warm disc labelled "supermoon" with no explanation
+     * teaches the commonest wrong thing people believe about them — that being
+     * close makes the Moon red.
+     */
+    note: 'The full Moon render, 14% wider than a micro Moon, warmed as a low Moon looks — that colour is air, not distance · NASA/GSFC',
   },
   micromoon: {
     file: 'full.jpg',
@@ -214,6 +222,10 @@ export default function MoonPhases() {
                         loading="lazy"
                         decoding="async"
                       />
+                      {/* The colour, blended over a greyscaled disc rather than
+                          filtered into it — see the CSS. Always rendered; the
+                          kinds with no tint simply have no background. */}
+                      <span className="moon-event__tint" aria-hidden="true" />
                     </a>
                   )}
                   <p className="moon-event__when">{formatWhen(event.jd)}</p>
