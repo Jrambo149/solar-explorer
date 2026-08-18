@@ -213,20 +213,7 @@
  * vivid of the two.
  */
 .moon-event--blood-moon .moon-event__image {
-  /*
-   * Built the same way round as the super Moon — highlights crushed before the
-   * tint — for the same reason: tinting a disc with a near-white middle leaves
-   * a bright core, and on a body that is supposed to be *in shadow* that is the
-   * worst possible artefact.
-   *
-   * Darker and less saturated than the super Moon, which is the physically
-   * right ordering. Totality is faint: the Moon has dropped several magnitudes
-   * and is lit only by light bent through the Earth's atmosphere, so it goes a
-   * muted copper-brown rather than the vivid red of a fully sunlit Moon seen
-   * through a lot of air.
-   */
-  filter: grayscale(1) contrast(0.5) brightness(0.4) sepia(1) saturate(3)
-    hue-rotate(-16deg) contrast(1.2);
+  filter: sepia(1) saturate(2.4) hue-rotate(-30deg) brightness(0.62) contrast(0.98);
 }
 
 /*
