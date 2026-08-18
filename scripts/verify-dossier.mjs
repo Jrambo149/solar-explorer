@@ -399,6 +399,26 @@ section('The Moon’s special nights')
   const full = join(ROOT, 'public', 'images', 'phases', 'full.jpg')
   check('the special nights reuse the phase renders', existsSync(full))
 
+  /*
+   * The rare nights must survive the cut from ordinary dates.
+   *
+   * Super and micro Moons come in runs of three or four consecutive months, so
+   * truncating the list chronologically filled every place with near-identical
+   * full Moons and dropped the blood Moon entirely — the rarest thing in the
+   * window, and the one anyone would actually stay up for. Checked from several
+   * starting dates, because it depended entirely on where in the cycle you
+   * happened to look.
+   */
+  for (const start of [2461270, 2461600, 2461950, 2462300]) {
+    const shown = moonEvents(start, start + 365 * 5, ELEM.earth, 8)
+    const kinds = new Set(shown.map((e) => e.kind))
+    check(`from JD ${start}, the rare nights are not crowded out`,
+      kinds.has('blood-moon') && kinds.has('blue-moon'),
+      [...kinds].join(', '))
+    check(`  and it still reads in date order`,
+      shown.every((e, i) => i === 0 || e.jd >= shown[i - 1].jd))
+  }
+
   /* Events must run forward and never precede the search window. */
   check('events come back in date order, all in the future',
     found.every((e, i) => e.jd > 2461270 && (i === 0 || e.jd >= found[i - 1].jd)))

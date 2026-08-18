@@ -82,7 +82,7 @@ export function fullMoons(from, to, earthElements) {
  * `limit` caps what comes back, because the panel shows a handful and the
  * search would happily run to the end of the app's timeline.
  */
-export function moonEvents(from, to, earthElements, limit = 6) {
+export function moonEvents(from, to, earthElements, limit = 8) {
   const events = []
 
   /* Total eclipses only. A partial is worth knowing about but it does not turn
@@ -141,5 +141,33 @@ export function moonEvents(from, to, earthElements, limit = 6) {
     }
   }
 
-  return events.sort((x, y) => x.jd - y.jd).slice(0, limit)
+  events.sort((x, y) => x.jd - y.jd)
+
+  /*
+   * Each kind gets a place before any kind gets a second one.
+   *
+   * Taking the earliest `limit` outright looked reasonable and quietly hid the
+   * best nights in the list. Super Moons and micro Moons arrive in runs of
+   * three or four consecutive months, so from most dates the first six events
+   * are a partial eclipse and five near-identical full Moons — and the blood
+   * Moon, the rarest and by some distance the most worth staying up for, sat
+   * two years further down and never appeared at all.
+   *
+   * So one of each kind is taken first, in date order, and only then are the
+   * remaining places filled by date. Nothing is reordered for display: the list
+   * still reads chronologically, it just is not truncated chronologically.
+   */
+  const chosen = []
+  const seen = new Set()
+  for (const event of events) {
+    if (seen.has(event.kind)) continue
+    seen.add(event.kind)
+    chosen.push(event)
+  }
+  for (const event of events) {
+    if (chosen.length >= limit) break
+    if (!chosen.includes(event)) chosen.push(event)
+  }
+
+  return chosen.sort((x, y) => x.jd - y.jd).slice(0, limit)
 }

@@ -117,7 +117,7 @@ export default function MoonPhases() {
    * rather than run every frame.
    */
   const events = useMemo(
-    () => moonEvents(day, day + 365 * 5, ORBITAL_ELEMENTS.earth, 6),
+    () => moonEvents(day, day + 365 * 5, ORBITAL_ELEMENTS.earth, 8),
     [day],
   )
 
