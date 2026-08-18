@@ -28,10 +28,27 @@
   gap: 6px;
 }
 
+/*
+ * The disc is cropped to its own limb, which is what removes the ring.
+ *
+ * These renders sit on black with roughly 6% of the frame to spare around the
+ * Moon, so a circular crop at the frame's edge left a thin band of the image's
+ * own background inside the circle. Against the page that band read as a
+ * border — and an inconsistent one, because the phases are drawn at 62%
+ * opacity while tonight's is at 100%, so the same black showed at two
+ * different strengths.
+ *
+ * Scaling the image up inside a circular window crops that band away, so the
+ * circle's edge lands on the Moon's limb and there is no border to see.
+ */
 .phase__link {
   display: block;
-  border-radius: 3px;
+  border-radius: 50%;
   overflow: hidden;
+}
+
+.phase__link .phase__image {
+  transform: scale(1.09);
 }
 
 .phase__image {
@@ -41,7 +58,6 @@
   object-fit: cover;
   /* The photographs are the Moon on black, so a border would draw a box around
      nothing. The ring that marks the current phase is the only frame here. */
-  border-radius: 50%;
   opacity: 0.62;
   transition: opacity 160ms ease;
 }
@@ -52,9 +68,14 @@
 
 /* Tonight. A ring rather than a highlight colour, so it reads on a row of
    circles without inventing a second accent for the page. */
+/* The ring goes on the window rather than the image, so it traces the crop
+   rather than the image's square corners. */
+.phase.is-now .phase__link {
+  box-shadow: 0 0 0 2px var(--text);
+}
+
 .phase.is-now .phase__image {
   opacity: 1;
-  box-shadow: 0 0 0 2px var(--text);
 }
 
 .phase.is-now .phase__name {
@@ -180,7 +201,8 @@
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 50%;
+  /* Cropped to the limb, as the phase strip is — see `.phase__link`. */
+  transform: scale(1.09);
 }
 
 /*
