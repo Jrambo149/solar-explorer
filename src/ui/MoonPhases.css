@@ -176,7 +176,20 @@
    * Kept amber rather than the blood Moon's copper, so the row does not read
    * as two eclipses. The caption says where the colour comes from.
    */
-  filter: sepia(1) saturate(3.6) hue-rotate(-20deg) brightness(0.86) contrast(1.08);
+  /*
+   * The highlights are crushed *before* the tint, and that ordering is the
+   * whole thing.
+   *
+   * `saturate()` pushes bright pixels toward yellow whatever the hue rotation
+   * after it, so a disc whose middle is near-white came out with a gold core no
+   * eclipse photograph has — and no amount of extra rotation fixed it, because
+   * the highlights simply had further to travel than the midtones. Dropping the
+   * contrast and the brightness first means nothing is near-white by the time
+   * the colour is applied, so the tint lands evenly and the maria read as
+   * darkness rather than as a second colour.
+   */
+  filter: grayscale(1) contrast(0.5) brightness(0.62) sepia(1) saturate(6.5)
+    hue-rotate(-24deg) contrast(1.45);
 }
 
 .moon-event--micromoon .moon-event__image {
