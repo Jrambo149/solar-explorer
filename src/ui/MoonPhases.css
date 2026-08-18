@@ -151,3 +151,41 @@
   line-height: 1.5;
   color: var(--text-faint);
 }
+
+/* The event cards get the same picture-first shape as the phases, so the two
+   rows read as one section rather than as a gallery followed by a list. */
+.event__link {
+  display: block;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.event__image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  opacity: 0.9;
+  transition: opacity 160ms ease;
+}
+
+.event__link:hover .event__image {
+  opacity: 1;
+}
+
+.event__credit {
+  margin: 6px 0 0;
+  font-size: 10px;
+  line-height: 1.45;
+  letter-spacing: 0.03em;
+  color: var(--text-faint);
+  opacity: 0.85;
+}
+
+/* Without a picture the card would start hard against the hairline. */
+.event:not(:has(.event__link)) .event__when {
+  padding-top: 2px;
+}

@@ -37,6 +37,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_DIR = join(ROOT, 'public', 'images', 'phases')
 const OUT = join(ROOT, 'src', 'data', 'moonPhases.js')
+const EVENT_DIR = join(ROOT, 'public', 'images', 'events')
 
 const SEARCH = 'https://images-api.nasa.gov/search'
 const ASSET = 'https://images-api.nasa.gov/asset'
@@ -120,6 +121,28 @@ const PHASES = [
   },
 ]
 
+/**
+ * A photograph for each kind of special night, keyed by the `kind` that
+ * `moonEvents` produces.
+ *
+ * These are photographs of *an* occurrence, not of the one being listed — the
+ * 2028 blood Moon has obviously not been photographed yet — so the caption has
+ * to say which one it was, and the panel prints the year. Showing a picture of
+ * a 2025 eclipse beside a 2028 date without saying so would be the one dishonest
+ * thing this section could do.
+ *
+ * Micromoon has no entry. NASA's library has no photograph captioned as one,
+ * and pressing an ordinary full Moon into service as "the smallest of the year"
+ * would be a caption doing work the picture cannot. It gets no image rather
+ * than a misleading one.
+ */
+const EVENTS = {
+  'blood-moon': ['GRC-2025-C-01605', 'Totality, photographed in March 2025'],
+  'lunar-eclipse': ['GSFC_20171208_Archive_e001515', 'The umbra taking a bite out of one edge, April 2013'],
+  supermoon: ['NHQ201712030002', 'A full Moon at perigee, December 2017'],
+  'blue-moon': ['KSC-20240819-PH-JBS01_0012', 'The second full Moon of August 2024'],
+}
+
 async function json(url) {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
@@ -164,7 +187,45 @@ for (const [index, phase] of PHASES.entries()) {
   log(`  ${phase.name.padEnd(17)} ${phase.nasaId.padEnd(30)} ${(buffer.length / 1024).toFixed(0)} KB  → "${meta.title}"`)
 }
 
-log(`\n${out.length} phases, ${(bytes / 1024).toFixed(0)} KB`)
+/* ---- and one picture for each kind of special night ---- */
+
+mkdirSync(EVENT_DIR, { recursive: true })
+const events = {}
+for (const [kind, [nasaId, why]] of Object.entries(EVENTS)) {
+  const found = await json(`${SEARCH}?nasa_id=${encodeURIComponent(nasaId)}`)
+  const meta = found.collection.items[0]?.data[0]
+  if (!meta) throw new Error(`no such nasa_id: ${nasaId}`)
+  const assets = await json(`${ASSET}/${encodeURIComponent(nasaId)}`)
+  const href = pick(assets.collection.items.map((i) => i.href))
+  if (!href) throw new Error(`no JPEG for ${nasaId}`)
+  const res = await fetch(href)
+  if (!res.ok) throw new Error(`${res.status} fetching ${nasaId}`)
+  const buffer = Buffer.from(await res.arrayBuffer())
+  const file = `${kind}.jpg`
+  writeFileSync(join(EVENT_DIR, file), buffer)
+  bytes += buffer.length
+  events[kind] = {
+    file,
+    nasaId,
+    why,
+    title: meta.title.replace(/\s+/g, ' ').trim(),
+    credit: [meta.center, meta.secondary_creator].filter(Boolean).join(' · ') || 'NASA',
+    /*
+     * NASA's `date_created`, and it is **not** the date the photograph was
+     * taken — for the Goddard archive items it is the date they were archived.
+     * The partial eclipse here was shot on 25 April 2013 and reports 2017.
+     *
+     * So it is carried but never printed. The occurrence date the panel shows
+     * comes from the `why` line above, which is written here against the
+     * picture's own title and can therefore be right.
+     */
+    archived: meta.date_created?.slice(0, 4) ?? null,
+    source: `https://images.nasa.gov/details/${encodeURIComponent(nasaId)}`,
+  }
+  log(`  ${kind.padEnd(17)} ${nasaId.padEnd(30)} ${(buffer.length / 1024).toFixed(0)} KB  → "${meta.title}"`)
+}
+
+log(`\n${out.length} phases and ${Object.keys(events).length} event pictures, ${(bytes / 1024).toFixed(0)} KB`)
 
 writeFileSync(
   OUT,
@@ -185,6 +246,16 @@ writeFileSync(
 export const SYNODIC_DAYS = ${SYNODIC_DAYS}
 
 export const MOON_PHASES = ${JSON.stringify(out, null, 2)}
+
+/**
+ * One photograph per kind of special night, keyed by \`moonEvents\`' \`kind\`.
+ *
+ * These show *an* occurrence, not the one being listed — a 2028 eclipse has not
+ * happened yet — so \`year\` is carried and printed. There is no micromoon
+ * entry: NASA has no photograph captioned as one, and an ordinary full Moon
+ * relabelled would be a caption claiming what the picture cannot show.
+ */
+export const MOON_EVENT_IMAGES = ${JSON.stringify(events, null, 2)}
 `,
 )
 log(`wrote ${OUT}`)

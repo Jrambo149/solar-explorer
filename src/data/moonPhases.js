@@ -128,3 +128,50 @@ export const MOON_PHASES = [
     "source": "https://images.nasa.gov/details/GSFC_20171208_Archive_e001858"
   }
 ]
+
+/**
+ * One photograph per kind of special night, keyed by `moonEvents`' `kind`.
+ *
+ * These show *an* occurrence, not the one being listed — a 2028 eclipse has not
+ * happened yet — so `year` is carried and printed. There is no micromoon
+ * entry: NASA has no photograph captioned as one, and an ordinary full Moon
+ * relabelled would be a caption claiming what the picture cannot show.
+ */
+export const MOON_EVENT_IMAGES = {
+  "blood-moon": {
+    "file": "blood-moon.jpg",
+    "nasaId": "GRC-2025-C-01605",
+    "why": "Totality, photographed in March 2025",
+    "title": "Total Lunar Eclipse & Blood Moon 2025",
+    "credit": "GRC",
+    "archived": "2025",
+    "source": "https://images.nasa.gov/details/GRC-2025-C-01605"
+  },
+  "lunar-eclipse": {
+    "file": "lunar-eclipse.jpg",
+    "nasaId": "GSFC_20171208_Archive_e001515",
+    "why": "The umbra taking a bite out of one edge, April 2013",
+    "title": "\"Pink\" Full Moon and Partial Lunar Eclipse on April 25, 2013",
+    "credit": "GSFC",
+    "archived": "2017",
+    "source": "https://images.nasa.gov/details/GSFC_20171208_Archive_e001515"
+  },
+  "supermoon": {
+    "file": "supermoon.jpg",
+    "nasaId": "NHQ201712030002",
+    "why": "A full Moon at perigee, December 2017",
+    "title": "Supermoon",
+    "credit": "HQ",
+    "archived": "2017",
+    "source": "https://images.nasa.gov/details/NHQ201712030002"
+  },
+  "blue-moon": {
+    "file": "blue-moon.jpg",
+    "nasaId": "KSC-20240819-PH-JBS01_0012",
+    "why": "The second full Moon of August 2024",
+    "title": "Creative Photography - Full Blue Moon",
+    "credit": "KSC",
+    "archived": "2024",
+    "source": "https://images.nasa.gov/details/KSC-20240819-PH-JBS01_0012"
+  }
+}

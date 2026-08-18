@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { MOON_PHASES } from '../data/moonPhases'
+import { MOON_EVENT_IMAGES, MOON_PHASES } from '../data/moonPhases'
 import { ORBITAL_ELEMENTS } from '../data/orbitalElements'
 import { moonPhaseAt, upcomingPhases } from '../orbit/moonPhase'
 import { moonEvents } from '../orbit/moonEvents'
@@ -137,13 +137,52 @@ export default function MoonPhases() {
         <>
           <h3 className="dossier__section-title phases__heading">Nights worth staying up for</h3>
           <ul className="events">
-            {events.map((event) => (
-              <li className={`event event--${event.kind}`} key={`${event.kind}-${event.jd}`}>
-                <p className="event__when">{formatWhen(event.jd)}</p>
-                <p className="event__name">{event.name}</p>
-                <p className="event__note">{event.note}</p>
-              </li>
-            ))}
+            {events.map((event) => {
+              const shot = MOON_EVENT_IMAGES[event.kind]
+              return (
+                <li className={`event event--${event.kind}`} key={`${event.kind}-${event.jd}`}>
+                  {/*
+                    A photograph of *an* occurrence, not of the night listed —
+                    the 2028 eclipse has not happened yet — so the credit says
+                    which one it was and what year. A 2025 photograph passing
+                    for a 2028 date is the one dishonest thing this could do.
+
+                    Micromoon has none, and gets none: NASA's library has no
+                    photograph captioned as one, and relabelling an ordinary
+                    full Moon would be a caption claiming what the picture
+                    cannot show.
+                  */}
+                  {shot && (
+                    <a
+                      className="event__link"
+                      href={shot.source}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      <img
+                        className="event__image"
+                        src={`${import.meta.env.BASE_URL}images/events/${shot.file}`}
+                        alt={shot.title}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </a>
+                  )}
+                  <p className="event__when">{formatWhen(event.jd)}</p>
+                  <p className="event__name">{event.name}</p>
+                  <p className="event__note">{event.note}</p>
+                  {shot && (
+                    <p className="event__credit">
+                      {/* The date lives in `why`, not in NASA's `date_created`
+                          — see the note in the fetch script: for archive items
+                          that field is when it was filed, not when it was
+                          shot, and it read "2017" for a 2013 eclipse. */}
+                      {shot.why} · {shot.credit}
+                    </p>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </>
       )}
