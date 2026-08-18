@@ -213,7 +213,19 @@
  * vivid of the two.
  */
 .moon-event--blood-moon .moon-event__image {
-  filter: sepia(1) saturate(2.4) hue-rotate(-30deg) brightness(0.62) contrast(0.98);
+  /*
+   * Highlights crushed before the tint, at the lightness this already had.
+   *
+   * Same ordering as the super Moon and for the same reason — `saturate()`
+   * sends bright pixels toward yellow whatever rotation follows, so the
+   * near-white middle of the disc came out with a gold core. What is different
+   * here is where the brightness sits: it is applied *before* the tint and kept
+   * high, so the artefact goes without the Moon going dark with it. Taking it
+   * down to a copper-brown was tried and reverted; this keeps the lighter
+   * copper and loses only the core.
+   */
+  filter: grayscale(1) contrast(0.52) brightness(0.86) sepia(1) saturate(2.9)
+    hue-rotate(-26deg) contrast(1.12);
 }
 
 /*
