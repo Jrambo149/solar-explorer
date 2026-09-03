@@ -28,14 +28,18 @@ Models/MinorMoons/
 # 67p-churyumov-gerasimenko, 9p-tempel-1). 20 MB of duplicate.
 Models/Comets/
 
-# Eyes' spacecraft meshes, and the copy the app serves. 263 MB, and unlike the
-# hand-downloaded NASA archive above these are fully reproducible offline:
-#   npm run models:spacecraft   -> Models/Spacecraft/eyes/
-#   cp to public/models/spacecraft/
-# They are also the one asset class not preloaded (see spacecraftModels.js), so
-# a missing file costs a marker rather than a broken app.
+# Eyes' spacecraft SOURCE meshes. ~311 MB of raw exports, reproducible offline
+# with `npm run models:spacecraft`, and never loaded by the app — only repacked
+# into public/models/spacecraft/, which IS committed (below). Kept out of the
+# history for the same reason as the other Models/ source trees above.
 Models/Spacecraft/eyes/
-public/models/spacecraft/
+
+# NOTE: public/models/spacecraft/ — the copies the app serves — used to be
+# ignored here too, on the reasoning that they are regenerable. They are now
+# committed so that a fresh clone and the deployed site carry the full model
+# set without a rebuild step. 311 MB, largest file 32 MB (under GitHub's
+# per-file limit), and unpreloaded, so it costs bandwidth only when a craft is
+# actually drawn.
 
 # Reference video pulled down to compare this app against Eyes frame by frame
 # (see the Swift/AVFoundation extraction note — there is no ffmpeg here). It is
