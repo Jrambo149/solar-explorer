@@ -1,0 +1,64 @@
+# Builds the site and publishes it to GitHub Pages on every push to main.
+#
+# The app makes no network calls at run time, so what ships is a plain folder of
+# static files — exactly what Pages serves. The only build-time subtlety is the
+# base path: a project site lives at /<repo>/ rather than at the domain root, so
+# DEPLOY_BASE tells Vite to prefix every asset URL with it (see vite.config.js).
+#
+# `npm ci` runs the repo's postinstall, which fetches the planet textures that
+# are deliberately not committed; if that download fails the script draws them
+# procedurally instead, so the build cannot be broken by the texture host being
+# down.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # A manual "Run workflow" button in the Actions tab.
+  workflow_dispatch:
+
+# What the deploy job is allowed to do: read the code, and mint the token Pages
+# needs to accept the upload. Nothing writes back to the repo.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# If two pushes land close together, let the newer one supersede the older
+# in-flight deploy rather than queueing a stale one behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # Turns Pages on and points it at this workflow, so the repo's
+      # Settings → Pages source does not have to be set by hand first. If the
+      # very first run fails here, set that source to "GitHub Actions" once and
+      # re-run — it cannot flip the switch on a brand-new repo in every case.
+      - uses: actions/configure-pages@v5
+      - run: npm ci
+      - name: Build for Pages
+        env:
+          DEPLOY_BASE: /solar-explorer/
+        run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
