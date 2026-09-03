@@ -16,7 +16,7 @@
 
 import { openApp } from './lib/browser.mjs'
 import { SPACECRAFT } from '../src/data/bodies.js'
-import { isFlying, trajectoryWindow } from '../src/orbit/trajectory.js'
+import { isFlying, segmentAt, trajectoryWindow } from '../src/orbit/trajectory.js'
 import { LANDED_CRAFT } from '../src/data/landedCraft.js'
 import { julianDate } from '../src/orbit/kepler.js'
 import { SPACECRAFT_ELEMENTS } from '../src/data/spacecraftElements.js'
@@ -24,8 +24,53 @@ import { SPACECRAFT_ELEMENTS } from '../src/data/spacecraftElements.js'
 /** `MAX_POINTS` in `SpacecraftPath`. Raised from 256 for Juno and Parker. */
 const BUDGET = 512
 
-const SUBJECT = 'sc_lunar_reconnaissance_orbiter'
-const NEIGHBOURS = ['sc_themis_b', 'sc_themis_c']
+/*
+ * The subject and its neighbours are chosen at run time from whatever is
+ * actually flying, not hardcoded.
+ *
+ * They used to be LRO with the two ARTEMIS probes (sc_themis_b/_c) beside it — a
+ * fine choice on the day it was written and a broken one the day ARTEMIS's
+ * predicted ephemeris ran out. For any craft drawn from a predicted kernel that
+ * is a matter of when, not if: the trajectory ends at the horizon of the data,
+ * the craft correctly stops being drawn, and this check then failed for a reason
+ * that has nothing to do with what it tests — that a *non-selected* craft's
+ * trail stays at full strength.
+ *
+ * So the subject is any flying craft (LRO by preference, since its kernel runs
+ * years out), and the neighbours are two *other* flying craft, preferring ones
+ * in the same frame so that a reintroduced proximity-fade would actually dim
+ * them and be caught. A craft on the ground has no trail, so the landed set is
+ * excluded — otherwise a rover could be picked and the idle check would fail as
+ * spuriously as the hardcoded ARTEMIS did.
+ */
+const NOW_JD = julianDate(new Date())
+
+const groundedToday = (id) => {
+  const site = LANDED_CRAFT[id]
+  return site ? NOW_JD >= site.landed : false
+}
+const drawsTrailToday = (b) => isFlying(b, NOW_JD) && !groundedToday(b.id)
+
+/** The frame a craft is drawn in right now, for grouping co-located craft. */
+const frameNow = (b) => SPACECRAFT_ELEMENTS[b.id]?.frame ?? segmentAt(b, NOW_JD)?.frame ?? null
+
+const candidates = SPACECRAFT.filter(drawsTrailToday)
+const SUBJECT = (
+  candidates.find((b) => b.id === 'sc_lunar_reconnaissance_orbiter') ?? candidates[0]
+)?.id
+const subjectFrame = frameNow(SPACECRAFT.find((b) => b.id === SUBJECT) ?? {})
+const others = candidates.filter((b) => b.id !== SUBJECT)
+const NEIGHBOURS = [
+  ...others.filter((b) => frameNow(b) === subjectFrame),
+  ...others.filter((b) => frameNow(b) !== subjectFrame),
+]
+  .slice(0, 2)
+  .map((b) => b.id)
+
+if (!SUBJECT || NEIGHBOURS.length < 2) {
+  console.error('verify-trails: could not find three craft flying today to test with')
+  process.exit(1)
+}
 
 /** Every ribbon's alpha, keyed by craft. Averaged over a craft's runs. */
 const READ_ALPHAS = `(() => {
